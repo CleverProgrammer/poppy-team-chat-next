@@ -192,7 +192,7 @@ export default function ChatWindow() {
   };
 
   const handleSend = async () => {
-    if ((!messageText.trim() && !imageFile) || sending || uploading) return;
+    if ((!messageText.trim() && !imageFile) || sending) return;
 
     setSending(true);
     try {
@@ -433,9 +433,9 @@ export default function ChatWindow() {
             />
             <button
               onClick={handleSend}
-              disabled={sending || uploading}
+              disabled={sending}
             >
-              {uploading ? '⏳' : '➤'}
+              ➤
             </button>
           </div>
         </div>
