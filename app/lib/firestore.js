@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from './firebase';
 
@@ -282,6 +282,114 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
     await addActiveDM(recipientId, user.uid);
   } catch (error) {
     console.error('Error sending DM with image:', error);
+    throw error;
+  }
+}
+
+// Add reaction to a message
+export async function addReaction(channelId, messageId, userId, emoji, isDM = false) {
+  try {
+    const messagesRef = isDM
+      ? doc(db, 'dms', channelId, 'messages', messageId)
+      : doc(db, 'channels', channelId, 'messages', messageId);
+
+    const msgSnap = await getDoc(messagesRef);
+    const reactions = msgSnap.data()?.reactions || {};
+
+    // Toggle reaction: remove if same emoji, otherwise set new one
+    if (reactions[userId] === emoji) {
+      delete reactions[userId];
+    } else {
+      reactions[userId] = emoji;
+    }
+
+    await updateDoc(messagesRef, { reactions });
+  } catch (error) {
+    console.error('Error adding reaction:', error);
+    throw error;
+  }
+}
+
+// Edit message
+export async function editMessage(channelId, messageId, newText, isDM = false) {
+  try {
+    const messagesRef = isDM
+      ? doc(db, 'dms', channelId, 'messages', messageId)
+      : doc(db, 'channels', channelId, 'messages', messageId);
+
+    await updateDoc(messagesRef, {
+      text: newText,
+      edited: true,
+      editedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error editing message:', error);
+    throw error;
+  }
+}
+
+// Delete message
+export async function deleteMessage(channelId, messageId, isDM = false) {
+  try {
+    const messagesRef = isDM
+      ? doc(db, 'dms', channelId, 'messages', messageId)
+      : doc(db, 'channels', channelId, 'messages', messageId);
+
+    await deleteDoc(messagesRef);
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw error;
+  }
+}
+
+// Send message with reply
+export async function sendMessageWithReply(channelId, user, text, replyTo) {
+  if (!user || !text.trim()) return;
+
+  try {
+    const messagesRef = collection(db, 'channels', channelId, 'messages');
+    await addDoc(messagesRef, {
+      text: text,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+      replyTo: {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text
+      }
+    });
+  } catch (error) {
+    console.error('Error sending message with reply:', error);
+    throw error;
+  }
+}
+
+// Send DM with reply
+export async function sendMessageDMWithReply(dmId, user, text, recipientId, replyTo) {
+  if (!user || !text.trim()) return;
+
+  try {
+    const messagesRef = collection(db, 'dms', dmId, 'messages');
+    await addDoc(messagesRef, {
+      text: text,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+      replyTo: {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text
+      }
+    });
+
+    // Add to active DMs
+    await addActiveDM(user.uid, recipientId);
+    await addActiveDM(recipientId, user.uid);
+  } catch (error) {
+    console.error('Error sending DM with reply:', error);
     throw error;
   }
 }

@@ -6,7 +6,7 @@ import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import NotificationBell from '../notifications/NotificationBell';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage } from '../../lib/firestore';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply } from '../../lib/firestore';
 
 // Helper function to linkify URLs in text
 function linkifyText(text) {
@@ -31,6 +31,9 @@ function linkifyText(text) {
   });
 }
 
+// Top reactions to show in quick reactions
+const topReactions = ['👍', '❤️', '😂', '🔥', '🎉'];
+
 export default function ChatWindow() {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -46,9 +49,14 @@ export default function ChatWindow() {
   const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [previewModalImage, setPreviewModalImage] = useState(null);
+  const [openEmojiPanel, setOpenEmojiPanel] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
+  const messageRefs = useRef({});
 
   // Load saved chat on mount
   useEffect(() => {
@@ -123,18 +131,23 @@ export default function ChatWindow() {
     inputRef.current?.focus();
   }, [currentChat]);
 
-  // Keyboard shortcut for command palette
+  // Keyboard shortcut for command palette and escape key handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsPaletteOpen(true);
       }
+      if (e.key === 'Escape') {
+        if (previewModalImage) {
+          setPreviewModalImage(null);
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [previewModalImage]);
 
   // Paste image handler
   useEffect(() => {
@@ -193,6 +206,11 @@ export default function ChatWindow() {
   };
 
   const handleSend = async () => {
+    // If editing, use handleEdit instead
+    if (editingMessage) {
+      return handleEdit();
+    }
+
     if ((!messageText.trim() && !imageFile) || sending) return;
 
     setSending(true);
@@ -207,10 +225,20 @@ export default function ChatWindow() {
       }
 
       if (currentChat.type === 'channel') {
-        if (imageUrl) {
-          await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
+        // Check if replying
+        if (replyingTo) {
+          if (imageUrl) {
+            // TODO: Add support for reply with image
+            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
+          } else {
+            await sendMessageWithReply(currentChat.id, user, messageText, replyingTo);
+          }
         } else {
-          await sendMessage(currentChat.id, user, messageText);
+          if (imageUrl) {
+            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
+          } else {
+            await sendMessage(currentChat.id, user, messageText);
+          }
         }
 
         // Trigger notification
@@ -227,10 +255,21 @@ export default function ChatWindow() {
         }).catch(err => console.error('Notification error:', err));
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
-        if (imageUrl) {
-          await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
+
+        // Check if replying
+        if (replyingTo) {
+          if (imageUrl) {
+            // TODO: Add support for reply with image
+            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
+          } else {
+            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, replyingTo);
+          }
         } else {
-          await sendMessageDM(dmId, user, messageText, currentChat.id);
+          if (imageUrl) {
+            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
+          } else {
+            await sendMessageDM(dmId, user, messageText, currentChat.id);
+          }
         }
 
         // Trigger notification
@@ -249,6 +288,7 @@ export default function ChatWindow() {
       setMessageText('');
       setImageFile(null);
       setImagePreview(null);
+      setReplyingTo(null);
 
       // Reset textarea height
       if (inputRef.current) {
@@ -267,6 +307,13 @@ export default function ChatWindow() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+    if (e.key === 'Escape') {
+      if (editingMessage) {
+        cancelEdit();
+      } else if (replyingTo) {
+        cancelReply();
+      }
     }
   };
 
@@ -309,6 +356,116 @@ export default function ChatWindow() {
   const handleMarkChatReadCallback = (markReadFn) => {
     markChatAsReadRef.current = markReadFn;
   };
+
+  // Reaction handlers
+  const handleAddReaction = async (messageId, emoji) => {
+    if (!user) return;
+
+    const isDM = currentChat.type === 'dm';
+    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
+
+    try {
+      await addReaction(chatId, messageId, user.uid, emoji, isDM);
+      setOpenEmojiPanel(null);
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
+  };
+
+  const toggleEmojiPanel = (messageId) => {
+    setOpenEmojiPanel(openEmojiPanel === messageId ? null : messageId);
+  };
+
+  // Reply handlers
+  const startReply = (messageId, sender, text) => {
+    setReplyingTo({ msgId: messageId, sender, text });
+    inputRef.current?.focus();
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const scrollToMessage = (messageId) => {
+    const msgEl = messageRefs.current[messageId];
+    if (msgEl) {
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      msgEl.style.animation = 'none';
+      setTimeout(() => {
+        msgEl.style.animation = 'highlight-msg 1s ease-out';
+      }, 10);
+    }
+  };
+
+  // Edit handlers
+  const startEdit = (messageId, currentText) => {
+    setEditingMessage({ id: messageId, text: currentText });
+    setMessageText(currentText);
+    inputRef.current?.focus();
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setMessageText('');
+  };
+
+  const handleEdit = async () => {
+    if (!editingMessage || !messageText.trim()) return;
+
+    const isDM = currentChat.type === 'dm';
+    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
+
+    try {
+      await editMessage(chatId, editingMessage.id, messageText, isDM);
+      setEditingMessage(null);
+      setMessageText('');
+    } catch (error) {
+      console.error('Error editing message:', error);
+      alert('Failed to edit message. Please try again.');
+    }
+  };
+
+  // Delete handler
+  const handleDeleteMessage = async (messageId) => {
+    const isDM = currentChat.type === 'dm';
+    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
+
+    try {
+      await deleteMessage(chatId, messageId, isDM);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message. Please try again.');
+    }
+  };
+
+  // Context menu handler
+  const handleContextMenu = (e, message) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      message
+    });
+  };
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+        setOpenEmojiPanel(null);
+      }
+    };
+
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   return (
     <>
@@ -401,10 +558,38 @@ export default function ChatWindow() {
             ) : (
               messages.map((msg) => {
                 const isSent = msg.senderId === user?.uid;
+                const reactions = msg.reactions || {};
+                const reactionCounts = {};
+                const userReactedWith = {};
+
+                // Count reactions
+                Object.entries(reactions).forEach(([userId, emoji]) => {
+                  if (!reactionCounts[emoji]) {
+                    reactionCounts[emoji] = { count: 0, userIds: [] };
+                  }
+                  reactionCounts[emoji].count++;
+                  reactionCounts[emoji].userIds.push(userId);
+                  if (userId === user?.uid) {
+                    userReactedWith[emoji] = true;
+                  }
+                });
+
                 return (
-                  <div key={msg.id} className={`message-wrapper ${isSent ? 'sent' : 'received'}`}>
+                  <div
+                    key={msg.id}
+                    ref={el => messageRefs.current[msg.id] = el}
+                    data-msg-id={msg.id}
+                    className={`message-wrapper ${isSent ? 'sent' : 'received'}`}
+                    onContextMenu={(e) => handleContextMenu(e, msg)}
+                  >
                     {!isSent && <div className="message-sender">{msg.sender}</div>}
                     <div className="message">
+                      {msg.replyTo && (
+                        <div className="reply-preview" onClick={() => scrollToMessage(msg.replyTo.msgId)}>
+                          <div className="reply-sender">{msg.replyTo.sender}</div>
+                          <div className="reply-text">{msg.replyTo.text}</div>
+                        </div>
+                      )}
                       {msg.imageUrl && (
                         <img
                           src={msg.imageUrl}
@@ -414,14 +599,117 @@ export default function ChatWindow() {
                           onClick={() => setPreviewModalImage(msg.imageUrl)}
                         />
                       )}
-                      {msg.text && <div className="text">{linkifyText(msg.text)}</div>}
+                      {msg.text && (
+                        <div className="text">
+                          {linkifyText(msg.text)}
+                          {msg.edited && <span className="edited-indicator"> (edited)</span>}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Quick Reactions */}
+                    <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
+                      <button className="reply-btn" onClick={() => startReply(msg.id, msg.sender, msg.text)} title="Reply">
+                        ↩
+                      </button>
+                      {isSent && (
+                        <button className="edit-btn" onClick={() => startEdit(msg.id, msg.text)} title="Edit">
+                          ✎
+                        </button>
+                      )}
+                      {topReactions.map(emoji => (
+                        <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
+                          {emoji}
+                        </span>
+                      ))}
+                      <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); toggleEmojiPanel(msg.id); }}>
+                        +
+                      </button>
+                    </div>
+
+                    {/* Emoji Panel */}
+                    {openEmojiPanel === msg.id && (
+                      <div className="emoji-panel" onClick={(e) => e.stopPropagation()}>
+                        <div className="emoji-panel-title">Reactions</div>
+                        <div className="emoji-grid">
+                          {['👍', '👎', '❤️', '🧡', '💛', '💚', '💙', '😂', '🤣', '😊', '😍', '🥰', '😘', '🤗', '🤔', '🤯', '😱', '😮', '😢', '😭', '😤', '🔥', '💯', '💪', '👏', '🙌', '🎉', '✨', '👀', '💀', '🤡', '💩'].map(emoji => (
+                            <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
+                              {emoji}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Reactions Display */}
+                    {Object.keys(reactionCounts).length > 0 && (
+                      <div className="reactions-display">
+                        {Object.entries(reactionCounts).map(([emoji, data]) => {
+                          const reactedUsers = data.userIds.map(uid => allUsers.find(u => u.uid === uid)).filter(Boolean);
+
+                          return (
+                            <div
+                              key={emoji}
+                              className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''}`}
+                              onClick={() => handleAddReaction(msg.id, emoji)}
+                            >
+                              {emoji}
+                              <span className="count">{data.count}</span>
+
+                              {/* Reaction tooltip with user avatars */}
+                              <div className="reaction-tooltip">
+                                <div className="reaction-tooltip-avatars">
+                                  {reactedUsers.map(user => (
+                                    <img
+                                      key={user.uid}
+                                      src={user.photoURL || ''}
+                                      alt={user.displayName}
+                                      className="reaction-tooltip-avatar"
+                                      title={user.displayName || user.email}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="reaction-tooltip-names">
+                                  {reactedUsers.map(u => u.displayName || u.email).join(', ')}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Reply Bar */}
+          {replyingTo && (
+            <div className="reply-bar active">
+              <div className="reply-bar-content">
+                <div className="reply-bar-sender">Replying to {replyingTo.sender}</div>
+                <div className="reply-bar-text">{replyingTo.text.length > 50 ? replyingTo.text.substring(0, 50) + '...' : replyingTo.text}</div>
+              </div>
+              <button className="reply-bar-close" onClick={cancelReply}>
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Edit Bar */}
+          {editingMessage && (
+            <div className="reply-bar active" style={{ background: 'var(--bg-hover)' }}>
+              <div className="reply-bar-content">
+                <div className="reply-bar-sender">Editing message</div>
+                <div className="reply-bar-text">{editingMessage.text.length > 50 ? editingMessage.text.substring(0, 50) + '...' : editingMessage.text}</div>
+              </div>
+              <button className="reply-bar-close" onClick={cancelEdit}>
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Input Section */}
           <div className="input-section">
@@ -439,7 +727,7 @@ export default function ChatWindow() {
             )}
             <textarea
               ref={inputRef}
-              placeholder="Type a message... (or paste/drop an image)"
+              placeholder={editingMessage ? "Edit your message..." : "Type a message... (or paste/drop an image)"}
               rows="1"
               value={messageText}
               onChange={handleTextareaChange}
@@ -453,11 +741,34 @@ export default function ChatWindow() {
               onClick={handleSend}
               disabled={sending}
             >
-              ➤
+              {editingMessage ? '✓' : '➤'}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={() => { startReply(contextMenu.message.id, contextMenu.message.sender, contextMenu.message.text); setContextMenu(null); }}>
+            ↩ Reply
+          </button>
+          {contextMenu.message.senderId === user?.uid && (
+            <>
+              <button onClick={() => { startEdit(contextMenu.message.id, contextMenu.message.text); setContextMenu(null); }}>
+                Edit
+              </button>
+              <button onClick={() => { handleDeleteMessage(contextMenu.message.id); setContextMenu(null); }}>
+                💀 Undo Send
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }
