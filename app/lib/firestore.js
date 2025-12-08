@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup } from 'firebase/firestore';
 import { db } from './firebase';
 
 export async function saveUser(user) {
@@ -181,40 +181,15 @@ export async function discoverExistingDMs(userId) {
   if (!userId) return;
 
   try {
-    // Use collectionGroup to query all messages where senderId matches userId
-    const q = query(
-      collectionGroup(db, 'messages'),
-      where('senderId', '==', userId)
-    );
-
+    // Query all messages in DM subcollections (much more efficient)
+    const q = query(collectionGroup(db, 'messages'));
     const messagesSnapshot = await getDocs(q);
     const dmUserIds = new Set();
 
-    // Extract DM IDs from the parent path
+    // Extract DM IDs from paths where this user is involved
     messagesSnapshot.forEach((messageDoc) => {
       const pathParts = messageDoc.ref.path.split('/');
       // Path format: dms/{dmId}/messages/{messageId}
-      if (pathParts[0] === 'dms' && pathParts.length >= 2) {
-        const dmId = pathParts[1];
-        const [user1, user2] = dmId.split('_');
-
-        // Add the other user to the set
-        const otherUserId = user1 === userId ? user2 : user1;
-        if (otherUserId !== userId) {
-          dmUserIds.add(otherUserId);
-        }
-      }
-    });
-
-    // Also query for messages sent TO this user
-    const q2 = query(
-      collectionGroup(db, 'messages'),
-      where('senderId', '!=', userId)
-    );
-
-    const receivedSnapshot = await getDocs(q2);
-    receivedSnapshot.forEach((messageDoc) => {
-      const pathParts = messageDoc.ref.path.split('/');
       if (pathParts[0] === 'dms' && pathParts.length >= 2) {
         const dmId = pathParts[1];
         const [user1, user2] = dmId.split('_');
