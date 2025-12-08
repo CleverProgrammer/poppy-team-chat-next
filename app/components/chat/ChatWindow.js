@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs } from '../../lib/firestore';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -45,6 +45,13 @@ export default function ChatWindow() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Discover existing DMs when user logs in
+  useEffect(() => {
+    if (!user) return;
+
+    discoverExistingDMs(user.uid);
+  }, [user]);
 
   // Subscribe to active DMs from Firestore
   useEffect(() => {
