@@ -419,38 +419,24 @@ export default function ChatWindow() {
                 </button>
               </div>
             )}
-            <div className="input-row">
-              <label className="image-upload-btn" title="Upload image">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageSelect(file);
-                  }}
-                  style={{ display: 'none' }}
-                />
-                📎
-              </label>
-              <textarea
-                ref={inputRef}
-                placeholder="Type a message... (or paste/drop an image)"
-                rows="1"
-                value={messageText}
-                onChange={handleTextareaChange}
-                onKeyDown={handleKeyDown}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-              />
-              <button
-                onClick={handleSend}
-                disabled={sending || uploading || (!messageText.trim() && !imageFile)}
-              >
-                {uploading ? '⏳' : '➤'}
-              </button>
-            </div>
+            <textarea
+              ref={inputRef}
+              placeholder="Type a message... (or paste/drop an image)"
+              rows="1"
+              value={messageText}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+            />
+            <button
+              onClick={handleSend}
+              disabled={sending || uploading}
+            >
+              {uploading ? '⏳' : '➤'}
+            </button>
           </div>
         </div>
       </div>
