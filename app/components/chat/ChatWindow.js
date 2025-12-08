@@ -7,6 +7,29 @@ import NotificationBell from '../notifications/NotificationBell';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs } from '../../lib/firestore';
 
+// Helper function to linkify URLs in text
+function linkifyText(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="message-link"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 export default function ChatWindow() {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -274,7 +297,7 @@ export default function ChatWindow() {
                   <div key={msg.id} className={`message-wrapper ${isSent ? 'sent' : 'received'}`}>
                     {!isSent && <div className="message-sender">{msg.sender}</div>}
                     <div className="message">
-                      <div className="text">{msg.text}</div>
+                      <div className="text">{linkifyText(msg.text)}</div>
                     </div>
                   </div>
                 );

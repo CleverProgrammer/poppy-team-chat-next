@@ -224,6 +224,25 @@ body {
   white-space: pre-wrap;
 }
 
+.message-link {
+  color: #6eb5ff;
+  text-decoration: underline;
+  word-break: break-all;
+  transition: color 0.2s;
+}
+
+.message-link:hover {
+  color: #8fc7ff;
+}
+
+.message-wrapper.sent .message-link {
+  color: #a3d9ff;
+}
+
+.message-wrapper.sent .message-link:hover {
+  color: #c7e8ff;
+}
+
 .message .time {
   font-size: 10px;
   color: var(--text-tertiary);
