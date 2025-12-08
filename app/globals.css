@@ -134,6 +134,7 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .chat-header {
@@ -165,6 +166,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  padding-bottom: 140px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -219,6 +221,7 @@ body {
 .message .text {
   font-size: 15px;
   line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 .message .time {
@@ -245,15 +248,16 @@ body {
 }
 
 .input-section {
-  padding: 16px 24px 80px 24px;
-  background: var(--bg-app);
-  border-top: none;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   gap: 12px;
   align-items: flex-end;
-  max-width: 900px;
-  margin: 0 auto;
-  width: 100%;
+  z-index: 10;
+  background: var(--bg-messages);
+  padding: 40px 50px;
 }
 
 .input-section textarea {

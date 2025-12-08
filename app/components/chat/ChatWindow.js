@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId } from '../../lib/firestore';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -22,6 +22,26 @@ export default function ChatWindow() {
   });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Load saved chat on mount
+  useEffect(() => {
+    if (!user) return;
+
+    // Add a small delay to ensure Firestore has time to sync
+    const timer = setTimeout(() => {
+      getCurrentChat(user.uid).then((savedChat) => {
+        if (savedChat) {
+          setCurrentChat(savedChat);
+          // If it's a DM, add to active DMs
+          if (savedChat.type === 'dm') {
+            addToActiveDMs(savedChat.id);
+          }
+        }
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [user]);
 
   // Load all users
   useEffect(() => {
@@ -128,6 +148,10 @@ export default function ChatWindow() {
     // Add to active DMs if it's a DM
     if (chat.type === 'dm') {
       addToActiveDMs(chat.id);
+    }
+    // Save current chat to Firestore
+    if (user) {
+      saveCurrentChat(user.uid, chat);
     }
   };
 

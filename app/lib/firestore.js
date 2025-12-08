@@ -1,4 +1,4 @@
-import { doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 export async function saveUser(user) {
@@ -23,7 +23,7 @@ export async function sendMessage(channelId, user, text) {
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages');
     await addDoc(messagesRef, {
-      text: text.trim(),
+      text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
@@ -77,7 +77,7 @@ export async function sendMessageDM(dmId, user, text) {
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages');
     await addDoc(messagesRef, {
-      text: text.trim(),
+      text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
@@ -106,4 +106,33 @@ export function subscribeToUsers(callback) {
 
 export function getDMId(userId1, userId2) {
   return [userId1, userId2].sort().join('_');
+}
+
+export async function saveCurrentChat(userId, chatData) {
+  if (!userId) return;
+
+  try {
+    await setDoc(doc(db, 'users', userId), {
+      currentChat: chatData,
+      lastSeen: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error saving current chat:', error);
+  }
+}
+
+export async function getCurrentChat(userId) {
+  if (!userId) return null;
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      return data?.currentChat || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading current chat:', error);
+    return null;
+  }
 }
