@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat } from '../../lib/firestore';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -14,12 +14,7 @@ export default function ChatWindow() {
   const [currentChat, setCurrentChat] = useState({ type: 'channel', id: 'general', name: 'general' });
   const [allUsers, setAllUsers] = useState([]);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [activeDMs, setActiveDMs] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return JSON.parse(localStorage.getItem('activeDMs') || '[]');
-    }
-    return [];
-  });
+  const [activeDMs, setActiveDMs] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -34,7 +29,7 @@ export default function ChatWindow() {
           setCurrentChat(savedChat);
           // If it's a DM, add to active DMs
           if (savedChat.type === 'dm') {
-            addToActiveDMs(savedChat.id);
+            addActiveDM(user.uid, savedChat.id);
           }
         }
       });
@@ -51,17 +46,15 @@ export default function ChatWindow() {
     return () => unsubscribe();
   }, []);
 
-  // Add to active DMs when switching to a DM
-  const addToActiveDMs = (userId) => {
-    setActiveDMs((prev) => {
-      if (!prev.includes(userId)) {
-        const newActiveDMs = [...prev, userId];
-        localStorage.setItem('activeDMs', JSON.stringify(newActiveDMs));
-        return newActiveDMs;
-      }
-      return prev;
+  // Subscribe to active DMs from Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToActiveDMs(user.uid, (dms) => {
+      setActiveDMs(dms);
     });
-  };
+    return () => unsubscribe();
+  }, [user]);
 
   // Subscribe to messages based on current chat
   useEffect(() => {
@@ -113,7 +106,7 @@ export default function ChatWindow() {
         await sendMessage(currentChat.id, user, messageText);
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
-        await sendMessageDM(dmId, user, messageText);
+        await sendMessageDM(dmId, user, messageText, currentChat.id);
       }
       setMessageText('');
       // Reset textarea height
@@ -146,8 +139,8 @@ export default function ChatWindow() {
   const handleSelectChat = (chat) => {
     setCurrentChat(chat);
     // Add to active DMs if it's a DM
-    if (chat.type === 'dm') {
-      addToActiveDMs(chat.id);
+    if (chat.type === 'dm' && user) {
+      addActiveDM(user.uid, chat.id);
     }
     // Save current chat to Firestore
     if (user) {

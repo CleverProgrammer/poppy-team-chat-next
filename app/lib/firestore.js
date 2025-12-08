@@ -71,7 +71,7 @@ export function subscribeToMessagesDM(dmId, callback) {
   });
 }
 
-export async function sendMessageDM(dmId, user, text) {
+export async function sendMessageDM(dmId, user, text, recipientId) {
   if (!user || !text.trim()) return;
 
   try {
@@ -83,6 +83,12 @@ export async function sendMessageDM(dmId, user, text) {
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp()
     });
+
+    // Add both users to each other's active DMs
+    if (recipientId) {
+      await addActiveDM(user.uid, recipientId);
+      await addActiveDM(recipientId, user.uid);
+    }
   } catch (error) {
     console.error('Error sending message:', error);
     throw error;
@@ -135,4 +141,38 @@ export async function getCurrentChat(userId) {
     console.error('Error loading current chat:', error);
     return null;
   }
+}
+
+export async function addActiveDM(userId, dmUserId) {
+  if (!userId || !dmUserId) return;
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const currentActiveDMs = userDoc.exists() ? (userDoc.data().activeDMs || []) : [];
+
+    if (!currentActiveDMs.includes(dmUserId)) {
+      await setDoc(doc(db, 'users', userId), {
+        activeDMs: [...currentActiveDMs, dmUserId],
+        lastSeen: serverTimestamp()
+      }, { merge: true });
+    }
+  } catch (error) {
+    console.error('Error adding active DM:', error);
+  }
+}
+
+export function subscribeToActiveDMs(userId, callback) {
+  if (!userId) return () => {};
+
+  return onSnapshot(doc(db, 'users', userId), (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      callback(data?.activeDMs || []);
+    } else {
+      callback([]);
+    }
+  }, (error) => {
+    console.error('Error loading active DMs:', error);
+    callback([]);
+  });
 }
