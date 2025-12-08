@@ -257,6 +257,9 @@ export default function ChatWindow() {
   };
 
   const handleSend = async () => {
+    // Get the actual value from the textarea
+    const messageText = inputRef.current?.value || '';
+
     // If editing, use handleEdit instead
     if (editingMessage) {
       return handleEdit();
@@ -264,25 +267,58 @@ export default function ChatWindow() {
 
     if ((!messageText.trim() && !imageFile) || sending) return;
 
+    // Create optimistic message immediately
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      id: optimisticId,
+      text: messageText,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: new Date(),
+      imageUrl: imagePreview, // Show preview immediately if image
+      replyTo: replyingTo,
+      optimistic: true // Mark as optimistic
+    };
+
+    // Add optimistic message to UI instantly
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    // Clear input and state immediately for instant feel
+    const currentImageFile = imageFile;
+    const currentReplyingTo = replyingTo;
+
+    setImageFile(null);
+    setImagePreview(null);
+    setReplyingTo(null);
+
+    if (inputRef.current) {
+      inputRef.current.value = '';
+      inputRef.current.style.height = 'auto';
+    }
+
+    // Scroll to bottom
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+
     setSending(true);
     try {
       let imageUrl = null;
 
       // Upload image if present
-      if (imageFile) {
+      if (currentImageFile) {
         setUploading(true);
-        imageUrl = await uploadImage(imageFile, user.uid);
+        imageUrl = await uploadImage(currentImageFile, user.uid);
         setUploading(false);
       }
 
       if (currentChat.type === 'channel') {
         // Check if replying
-        if (replyingTo) {
+        if (currentReplyingTo) {
           if (imageUrl) {
             // TODO: Add support for reply with image
             await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
           } else {
-            await sendMessageWithReply(currentChat.id, user, messageText, replyingTo);
+            await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
           }
         } else {
           if (imageUrl) {
@@ -308,12 +344,12 @@ export default function ChatWindow() {
         const dmId = getDMId(user.uid, currentChat.id);
 
         // Check if replying
-        if (replyingTo) {
+        if (currentReplyingTo) {
           if (imageUrl) {
             // TODO: Add support for reply with image
             await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
           } else {
-            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, replyingTo);
+            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo);
           }
         } else {
           if (imageUrl) {
@@ -336,17 +372,12 @@ export default function ChatWindow() {
         }).catch(err => console.error('Notification error:', err));
       }
 
-      setMessageText('');
-      setImageFile(null);
-      setImagePreview(null);
-      setReplyingTo(null);
-
-      // Reset textarea height
-      if (inputRef.current) {
-        inputRef.current.style.height = 'auto';
-      }
+      // Remove optimistic message once real one arrives (Firestore subscription will add it)
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
     } catch (error) {
       console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
       alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
@@ -368,14 +399,12 @@ export default function ChatWindow() {
     }
   };
 
-  const handleTextareaChange = (e) => {
-    setMessageText(e.target.value);
-
+  const handleTextareaChange = useCallback((e) => {
     // Auto-expand textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-  };
+  }, []);
 
   const handleSelectChat = (chat) => {
     setCurrentChat(chat);
@@ -469,16 +498,21 @@ export default function ChatWindow() {
   // Edit handlers
   const startEdit = (messageId, currentText) => {
     setEditingMessage({ id: messageId, text: currentText });
-    setMessageText(currentText);
+    if (inputRef.current) {
+      inputRef.current.value = currentText;
+    }
     inputRef.current?.focus();
   };
 
   const cancelEdit = () => {
     setEditingMessage(null);
-    setMessageText('');
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
   };
 
   const handleEdit = async () => {
+    const messageText = inputRef.current?.value || '';
     if (!editingMessage || !messageText.trim()) return;
 
     const isDM = currentChat.type === 'dm';
@@ -487,7 +521,9 @@ export default function ChatWindow() {
     try {
       await editMessage(chatId, editingMessage.id, messageText, isDM);
       setEditingMessage(null);
-      setMessageText('');
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
     } catch (error) {
       console.error('Error editing message:', error);
       alert('Failed to edit message. Please try again.');
@@ -819,7 +855,6 @@ export default function ChatWindow() {
               ref={inputRef}
               placeholder={editingMessage ? "Edit your message..." : "Type a message... (or paste/drop an image)"}
               rows="1"
-              value={messageText}
               onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
               autoComplete="off"
