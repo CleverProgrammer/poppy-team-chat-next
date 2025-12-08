@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup } from 'firebase/firestore';
-import { db } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from './firebase';
 
 export async function saveUser(user) {
   if (!user) return;
@@ -215,5 +216,72 @@ export async function discoverExistingDMs(userId) {
     }
   } catch (error) {
     console.error('Error discovering existing DMs:', error);
+  }
+}
+
+// Image upload helper function
+export async function uploadImage(file, userId) {
+  if (!file) throw new Error('No file provided');
+
+  try {
+    // Generate unique filename with timestamp
+    const timestamp = Date.now();
+    const filename = `${userId}/${timestamp}_${file.name}`;
+    const storageRef = ref(storage, `chat-images/${filename}`);
+
+    // Upload the file
+    const snapshot = await uploadBytes(storageRef, file);
+
+    // Get download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    throw error;
+  }
+}
+
+// Send message with image
+export async function sendMessageWithImage(channelId, user, imageUrl, text = '') {
+  if (!user || !imageUrl) return;
+
+  try {
+    const messagesRef = collection(db, 'channels', channelId, 'messages');
+    await addDoc(messagesRef, {
+      text: text,
+      imageUrl: imageUrl,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error sending message with image:', error);
+    throw error;
+  }
+}
+
+// Send DM with image
+export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, text = '') {
+  if (!user || !imageUrl) return;
+
+  try {
+    const messagesRef = collection(db, 'dms', dmId, 'messages');
+    await addDoc(messagesRef, {
+      text: text,
+      imageUrl: imageUrl,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp()
+    });
+
+    // Add to active DMs
+    await addActiveDM(user.uid, recipientId);
+    await addActiveDM(recipientId, user.uid);
+  } catch (error) {
+    console.error('Error sending DM with image:', error);
+    throw error;
   }
 }
