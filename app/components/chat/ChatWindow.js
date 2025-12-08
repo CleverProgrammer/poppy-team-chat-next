@@ -14,6 +14,12 @@ export default function ChatWindow() {
   const [currentChat, setCurrentChat] = useState({ type: 'channel', id: 'general', name: 'general' });
   const [allUsers, setAllUsers] = useState([]);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [activeDMs, setActiveDMs] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('activeDMs') || '[]');
+    }
+    return [];
+  });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -24,6 +30,18 @@ export default function ChatWindow() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Add to active DMs when switching to a DM
+  const addToActiveDMs = (userId) => {
+    setActiveDMs((prev) => {
+      if (!prev.includes(userId)) {
+        const newActiveDMs = [...prev, userId];
+        localStorage.setItem('activeDMs', JSON.stringify(newActiveDMs));
+        return newActiveDMs;
+      }
+      return prev;
+    });
+  };
 
   // Subscribe to messages based on current chat
   useEffect(() => {
@@ -94,6 +112,10 @@ export default function ChatWindow() {
 
   const handleSelectChat = (chat) => {
     setCurrentChat(chat);
+    // Add to active DMs if it's a DM
+    if (chat.type === 'dm') {
+      addToActiveDMs(chat.id);
+    }
   };
 
   return (
@@ -107,7 +129,12 @@ export default function ChatWindow() {
 
       <div className="app-container">
         {/* Sidebar */}
-        <Sidebar />
+        <Sidebar
+          currentChat={currentChat}
+          onSelectChat={handleSelectChat}
+          activeDMs={activeDMs}
+          allUsers={allUsers}
+        />
 
         {/* Chat Container */}
         <div className="chat-container">

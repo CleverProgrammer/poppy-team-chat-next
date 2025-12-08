@@ -333,7 +333,8 @@ body {
   font-weight: 600;
 }
 
-.channel-item {
+.channel-item,
+.dm-item {
   padding: 10px 20px;
   cursor: pointer;
   display: flex;
@@ -342,16 +343,24 @@ body {
   transition: background 0.2s;
 }
 
-.channel-item:hover {
+.channel-item:hover,
+.dm-item:hover {
   background: rgba(255,255,255,0.05);
 }
 
-.channel-item.active {
+.channel-item.active,
+.dm-item.active {
   background: rgba(102, 126, 234, 0.3);
 }
 
 .channel-item .hash {
   color: #888;
+}
+
+.dm-item img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
 }
 
 .user-panel {
