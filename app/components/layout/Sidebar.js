@@ -1,9 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import SignOutButton from '../auth/SignOutButton';
 
-export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], allUsers = [] }) {
+export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], allUsers = [], unreadChats = [], isOpen = false }) {
   const { user } = useAuth();
 
   const handleChannelClick = (channelId) => {
@@ -20,7 +21,7 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
   };
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Sidebar Header */}
       <div className="sidebar-header">
         <h2>Poppy Chat</h2>
@@ -35,6 +36,7 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
         >
           <span className="hash">#</span>
           <span>general</span>
+          {unreadChats.includes('channel:general') && <div className="unread-badge" />}
         </div>
       </div>
 
@@ -55,6 +57,7 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
               >
                 <img src={dmUser.photoURL || ''} alt={dmUser.displayName} />
                 <span>{dmUser.displayName || dmUser.email}</span>
+                {unreadChats.includes(`dm:${dmUserId}`) && <div className="unread-badge" />}
               </div>
             );
           })}

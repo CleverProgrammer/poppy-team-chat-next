@@ -16,8 +16,11 @@ export default function ChatWindow() {
   const [allUsers, setAllUsers] = useState([]);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [activeDMs, setActiveDMs] = useState([]);
+  const [unreadChats, setUnreadChats] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const markChatAsReadRef = useRef(null);
 
   // Load saved chat on mount
   useEffect(() => {
@@ -171,6 +174,17 @@ export default function ChatWindow() {
 
   const handleSelectChat = (chat) => {
     setCurrentChat(chat);
+    setIsSidebarOpen(false); // Close sidebar on mobile after selecting chat
+
+    // Clear unread badge for this chat
+    const chatId = chat.type === 'channel' ? `channel:${chat.id}` : `dm:${chat.id}`;
+    setUnreadChats(prev => prev.filter(id => id !== chatId));
+
+    // Mark notifications as read in Knock
+    if (markChatAsReadRef.current) {
+      markChatAsReadRef.current(chat.type, chat.id);
+    }
+
     // Add to active DMs if it's a DM
     if (chat.type === 'dm' && user) {
       addActiveDM(user.uid, chat.id);
@@ -179,6 +193,14 @@ export default function ChatWindow() {
     if (user) {
       saveCurrentChat(user.uid, chat);
     }
+  };
+
+  const handleUnreadChatsChange = (newUnreadChats) => {
+    setUnreadChats(newUnreadChats);
+  };
+
+  const handleMarkChatReadCallback = (markReadFn) => {
+    markChatAsReadRef.current = markReadFn;
   };
 
   return (
@@ -191,18 +213,39 @@ export default function ChatWindow() {
       />
 
       <div className="app-container">
+        {/* Mobile Backdrop */}
+        {isSidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
         <Sidebar
           currentChat={currentChat}
           onSelectChat={handleSelectChat}
           activeDMs={activeDMs}
           allUsers={allUsers}
+          unreadChats={unreadChats}
+          isOpen={isSidebarOpen}
         />
 
         {/* Chat Container */}
         <div className="chat-container">
           {/* Chat Header */}
           <div className="chat-header">
+            <button
+              className="mobile-menu-button"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              aria-label="Toggle menu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </button>
             <span className="chat-header-icon">
               {currentChat.type === 'channel' ? '#' : '💬'}
             </span>
@@ -211,7 +254,10 @@ export default function ChatWindow() {
               {currentChat.type === 'channel' ? 'Team chat' : 'Direct message'}
             </span>
             <div style={{ marginLeft: 'auto' }}>
-              <NotificationBell />
+              <NotificationBell
+                onUnreadChatsChange={handleUnreadChatsChange}
+                onMarkChatRead={handleMarkChatReadCallback}
+              />
             </div>
           </div>
 
@@ -246,6 +292,11 @@ export default function ChatWindow() {
               value={messageText}
               onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-form-type="other"
             />
             <button onClick={handleSend} disabled={sending || !messageText.trim()}>
               ➤

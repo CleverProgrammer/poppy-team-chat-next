@@ -10,11 +10,12 @@ import {
 } from '@knocklabs/react';
 import { useAuth } from '../../contexts/AuthContext';
 
-function NotificationBellInner() {
+function NotificationBellInner({ onUnreadChatsChange, onMarkChatRead }) {
   const [isVisible, setIsVisible] = useState(false);
   const buttonRef = useRef(null);
   const { feedClient } = useKnockFeed();
   const prevUnseenCountRef = useRef(0);
+  const [hasUnreads, setHasUnreads] = useState(false);
 
   useEffect(() => {
     if (!feedClient) return;
@@ -23,6 +24,29 @@ function NotificationBellInner() {
     const handleNotificationsReceived = (data) => {
       const currentUnseenCount = data.metadata.unread_count || 0;
       const prevUnseenCount = prevUnseenCountRef.current;
+
+      // Update hasUnreads state
+      setHasUnreads(currentUnseenCount > 0);
+
+      // Extract unread chats from notification items
+      const unreadChatIds = new Set();
+      if (data.items) {
+        data.items.forEach(item => {
+          if (!item.read_at && item.data) {
+            // Extract chat identifier from notification data
+            if (item.data.channelId) {
+              unreadChatIds.add(`channel:${item.data.channelId}`);
+            } else if (item.data.senderId) {
+              unreadChatIds.add(`dm:${item.data.senderId}`);
+            }
+          }
+        });
+      }
+
+      // Notify parent component of unread chats
+      if (onUnreadChatsChange) {
+        onUnreadChatsChange(Array.from(unreadChatIds));
+      }
 
       // Play sound if unseen count increased and tab is not focused
       if (currentUnseenCount > prevUnseenCount && document.hidden) {
@@ -38,7 +62,34 @@ function NotificationBellInner() {
     return () => {
       feedClient.off('items.received.realtime', handleNotificationsReceived);
     };
-  }, [feedClient]);
+  }, [feedClient, onUnreadChatsChange]);
+
+  // Expose mark as read function to parent
+  useEffect(() => {
+    if (!feedClient || !onMarkChatRead) return;
+
+    const markChatAsRead = async (chatType, chatId) => {
+      try {
+        const feed = await feedClient.fetch();
+        const itemsToMark = feed.entries.filter(item => {
+          if (chatType === 'channel') {
+            return item.data?.channelId === chatId && !item.read_at;
+          } else {
+            return item.data?.senderId === chatId && !item.read_at;
+          }
+        });
+
+        if (itemsToMark.length > 0) {
+          const itemIds = itemsToMark.map(item => item.id);
+          await feedClient.markAsRead(itemIds);
+        }
+      } catch (error) {
+        console.error('Error marking chat as read:', error);
+      }
+    };
+
+    onMarkChatRead(markChatAsRead);
+  }, [feedClient, onMarkChatRead]);
 
   const playNotificationSound = () => {
     // Create a simple notification sound using Web Audio API
@@ -60,7 +111,7 @@ function NotificationBellInner() {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="notification-bell-wrapper">
       <NotificationIconButton
         ref={buttonRef}
         onClick={() => setIsVisible(!isVisible)}
@@ -74,7 +125,7 @@ function NotificationBellInner() {
   );
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ onUnreadChatsChange, onMarkChatRead }) {
   const { user } = useAuth();
 
   if (!user) return null;
@@ -85,7 +136,10 @@ export default function NotificationBell() {
       userId={user.uid}
     >
       <KnockFeedProvider feedId={process.env.NEXT_PUBLIC_KNOCK_FEED_ID}>
-        <NotificationBellInner />
+        <NotificationBellInner
+          onUnreadChatsChange={onUnreadChatsChange}
+          onMarkChatRead={onMarkChatRead}
+        />
       </KnockFeedProvider>
     </KnockProvider>
   );
