@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
+import NotificationBell from '../notifications/NotificationBell';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs } from '../../lib/firestore';
 
@@ -111,9 +112,34 @@ export default function ChatWindow() {
     try {
       if (currentChat.type === 'channel') {
         await sendMessage(currentChat.id, user, messageText);
+
+        // Trigger notification
+        fetch('/api/notify-channel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderId: user.uid,
+            senderName: user.displayName || user.email,
+            channelId: currentChat.id,
+            messageText,
+            allUsers
+          })
+        }).catch(err => console.error('Notification error:', err));
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
         await sendMessageDM(dmId, user, messageText, currentChat.id);
+
+        // Trigger notification
+        fetch('/api/notify-dm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderId: user.uid,
+            senderName: user.displayName || user.email,
+            recipientId: currentChat.id,
+            messageText
+          })
+        }).catch(err => console.error('Notification error:', err));
       }
       setMessageText('');
       // Reset textarea height
@@ -184,6 +210,9 @@ export default function ChatWindow() {
             <span className="chat-header-subtitle">
               {currentChat.type === 'channel' ? 'Team chat' : 'Direct message'}
             </span>
+            <div style={{ marginLeft: 'auto' }}>
+              <NotificationBell />
+            </div>
           </div>
 
           {/* Messages Area */}

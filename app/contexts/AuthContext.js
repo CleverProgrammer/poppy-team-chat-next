@@ -12,9 +12,29 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        saveUser(user);
+        console.log('🔵 User logged in, saving to Firestore and identifying in Knock:', user.email);
+        await saveUser(user);
+
+        // Identify user in Knock via API route
+        console.log('🔵 Calling /api/identify-user...');
+        fetch('/api/identify-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: user.uid,
+            displayName: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL
+          })
+        })
+        .then(res => {
+          console.log('✅ Identify user response:', res.status);
+          return res.json();
+        })
+        .then(data => console.log('✅ Identify user data:', data))
+        .catch(err => console.error('❌ Error identifying user:', err));
       }
       setUser(user);
       setLoading(false);
