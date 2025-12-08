@@ -245,12 +245,15 @@ body {
 }
 
 .input-section {
-  padding: 20px 20px 30px 20px;
+  padding: 16px 24px 80px 24px;
   background: var(--bg-app);
-  border-top: 1px solid var(--border-light);
+  border-top: none;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-end;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .input-section textarea {
