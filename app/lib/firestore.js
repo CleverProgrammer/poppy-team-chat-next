@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup, where } from 'firebase/firestore';
 import { db } from './firebase';
 
 export async function saveUser(user) {
@@ -181,27 +181,55 @@ export async function discoverExistingDMs(userId) {
   if (!userId) return;
 
   try {
-    // Get all DM collections
-    const dmsSnapshot = await getDocs(collection(db, 'dms'));
+    // Use collectionGroup to query all messages where senderId matches userId
+    const q = query(
+      collectionGroup(db, 'messages'),
+      where('senderId', '==', userId)
+    );
 
-    const existingDMs = [];
+    const messagesSnapshot = await getDocs(q);
+    const dmUserIds = new Set();
 
-    for (const dmDoc of dmsSnapshot.docs) {
-      const dmId = dmDoc.id;
-      const [user1, user2] = dmId.split('_');
+    // Extract DM IDs from the parent path
+    messagesSnapshot.forEach((messageDoc) => {
+      const pathParts = messageDoc.ref.path.split('/');
+      // Path format: dms/{dmId}/messages/{messageId}
+      if (pathParts[0] === 'dms' && pathParts.length >= 2) {
+        const dmId = pathParts[1];
+        const [user1, user2] = dmId.split('_');
 
-      // Check if this DM involves the current user
-      if (user1 === userId || user2 === userId) {
-        // Check if there are any messages in this DM
-        const messagesSnapshot = await getDocs(collection(db, 'dms', dmId, 'messages'));
-
-        if (!messagesSnapshot.empty) {
-          // Add the other user to the list
-          const otherUserId = user1 === userId ? user2 : user1;
-          existingDMs.push(otherUserId);
+        // Add the other user to the set
+        const otherUserId = user1 === userId ? user2 : user1;
+        if (otherUserId !== userId) {
+          dmUserIds.add(otherUserId);
         }
       }
-    }
+    });
+
+    // Also query for messages sent TO this user
+    const q2 = query(
+      collectionGroup(db, 'messages'),
+      where('senderId', '!=', userId)
+    );
+
+    const receivedSnapshot = await getDocs(q2);
+    receivedSnapshot.forEach((messageDoc) => {
+      const pathParts = messageDoc.ref.path.split('/');
+      if (pathParts[0] === 'dms' && pathParts.length >= 2) {
+        const dmId = pathParts[1];
+        const [user1, user2] = dmId.split('_');
+
+        // Check if current user is involved in this DM
+        if (user1 === userId || user2 === userId) {
+          const otherUserId = user1 === userId ? user2 : user1;
+          if (otherUserId !== userId) {
+            dmUserIds.add(otherUserId);
+          }
+        }
+      }
+    });
+
+    const existingDMs = Array.from(dmUserIds);
 
     // Update the user's activeDMs in Firestore
     if (existingDMs.length > 0) {
