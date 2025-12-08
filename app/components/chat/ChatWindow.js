@@ -45,6 +45,7 @@ export default function ChatWindow() {
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [previewModalImage, setPreviewModalImage] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
@@ -318,6 +319,22 @@ export default function ChatWindow() {
         onSelectChat={handleSelectChat}
       />
 
+      {/* Image Preview Modal */}
+      {previewModalImage && (
+        <div className="image-modal" onClick={() => setPreviewModalImage(null)}>
+          <div className="image-modal-content">
+            <img src={previewModalImage} alt="Preview" />
+            <button
+              className="image-modal-close"
+              onClick={() => setPreviewModalImage(null)}
+              aria-label="Close preview"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="app-container">
         {/* Mobile Backdrop */}
         {isSidebarOpen && (
@@ -394,6 +411,7 @@ export default function ChatWindow() {
                           alt="Shared image"
                           className="message-image"
                           loading="lazy"
+                          onClick={() => setPreviewModalImage(msg.imageUrl)}
                         />
                       )}
                       {msg.text && <div className="text">{linkifyText(msg.text)}</div>}
