@@ -16,6 +16,19 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Poppy Chat",
   description: "Team chat with AI-powered assistance",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Poppy Chat",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  themeColor: "#667eea",
 };
 
 export default function RootLayout({ children }) {

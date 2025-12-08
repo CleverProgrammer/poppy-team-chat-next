@@ -296,7 +296,6 @@ export default function ChatWindow() {
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck="false"
-              data-form-type="other"
             />
             <button onClick={handleSend} disabled={sending || !messageText.trim()}>
               ➤

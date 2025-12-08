@@ -252,12 +252,15 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
   z-index: 10;
   background: var(--bg-messages);
   padding: 40px 50px;
+}
+
+.input-section {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
 }
 
 .input-section textarea {
@@ -558,6 +561,18 @@ body {
   display: none !important;
 }
 
+/* Hide Vercel dev indicator */
+#__next-build-watcher,
+.__next-build-watcher,
+[class*="nextjs-toast"],
+[class*="vercel-live-feedback"],
+iframe[src*="vercel"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Mobile Menu Button */
 .mobile-menu-button {
   display: none;
@@ -644,8 +659,22 @@ body {
   }
 
   .input-section {
-    padding: 15px;
+    padding: 0;
     position: fixed;
+    border: none;
+    gap: 0;
+  }
+
+  .input-section textarea {
+    border: none;
+    border-radius: 0;
+    padding: 16px;
+  }
+
+  .input-section button {
+    border-radius: 0;
+    height: 100%;
+    min-height: 52px;
   }
 
   .login-container {
