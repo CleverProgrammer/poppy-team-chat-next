@@ -393,3 +393,39 @@ export async function sendMessageDMWithReply(dmId, user, text, recipientId, repl
     throw error;
   }
 }
+
+// Get emoji usage for user
+export async function getEmojiUsage(userId) {
+  if (!userId) return {};
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (userDoc.exists()) {
+      return userDoc.data()?.emojiUsage || {};
+    }
+    return {};
+  } catch (error) {
+    console.error('Error getting emoji usage:', error);
+    return {};
+  }
+}
+
+// Update emoji usage count
+export async function updateEmojiUsage(userId, emoji) {
+  if (!userId || !emoji) return;
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const currentUsage = userDoc.exists() ? (userDoc.data().emojiUsage || {}) : {};
+
+    // Increment count for this emoji
+    currentUsage[emoji] = (currentUsage[emoji] || 0) + 1;
+
+    await setDoc(doc(db, 'users', userId), {
+      emojiUsage: currentUsage,
+      lastSeen: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error updating emoji usage:', error);
+  }
+}

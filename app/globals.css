@@ -178,6 +178,7 @@ body {
   flex-direction: column;
   max-width: 80%;
   position: relative;
+  width: fit-content;
 }
 
 .message-wrapper.sent {
@@ -744,13 +745,13 @@ iframe[src*="vercel"] {
   top: 50%;
   transform: translateY(-50%);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 4px;
   opacity: 0;
   transition: opacity 0.2s;
   background: var(--bg-app);
-  border-radius: 20px;
-  padding: 4px 6px;
+  border-radius: 12px;
+  padding: 6px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   z-index: 10;
 }
@@ -759,12 +760,22 @@ iframe[src*="vercel"] {
   opacity: 1;
 }
 
+.message-wrapper .quick-reactions:hover {
+  opacity: 1;
+}
+
 .message-wrapper.sent .quick-reactions {
-  left: -240px;
+  left: -220px;
 }
 
 .message-wrapper.received .quick-reactions {
-  right: -240px;
+  right: -220px;
+}
+
+.quick-reactions-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .quick-reactions span {
@@ -1092,6 +1103,23 @@ iframe[src*="vercel"] {
 @keyframes highlight-msg {
   0% { background: rgba(102, 126, 234, 0.3); }
   100% { background: transparent; }
+}
+
+/* Reply animation - iMessage style */
+.messages.replying-active .message-wrapper {
+  opacity: 0.15;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.messages.replying-active .message-wrapper.reply-target {
+  opacity: 1;
+  transform: scale(1.02);
+  z-index: 100;
+  position: relative;
+}
+
+.messages.replying-active .message-wrapper.reply-target .message {
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
 }
 
 /* Mobile Menu Button */

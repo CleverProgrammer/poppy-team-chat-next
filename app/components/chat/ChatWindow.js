@@ -6,7 +6,7 @@ import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import NotificationBell from '../notifications/NotificationBell';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply } from '../../lib/firestore';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage } from '../../lib/firestore';
 
 // Helper function to linkify URLs in text
 function linkifyText(text) {
@@ -31,8 +31,8 @@ function linkifyText(text) {
   });
 }
 
-// Top reactions to show in quick reactions
-const topReactions = ['👍', '❤️', '😂', '🔥', '🎉'];
+// Default emoji set - matching the quick reactions layout
+const defaultEmojis = ['🤩', '❤️', '😊', '😱', '🔥', '💪', '👏', '🙌', '🎉', '✨'];
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -53,6 +53,8 @@ export default function ChatWindow() {
   const [contextMenu, setContextMenu] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
+  const [emojiUsage, setEmojiUsage] = useState({});
+  const [topReactions, setTopReactions] = useState(defaultEmojis);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
@@ -92,6 +94,31 @@ export default function ChatWindow() {
 
     discoverExistingDMs(user.uid);
   }, [user]);
+
+  // Load emoji usage from Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    getEmojiUsage(user.uid).then((usage) => {
+      setEmojiUsage(usage);
+    });
+  }, [user]);
+
+  // Sort topReactions based on emoji usage
+  useEffect(() => {
+    // Get all emojis from emoji panel plus default emojis
+    const allEmojis = ['👍', '👎', '❤️', '🧡', '💛', '💚', '💙', '😂', '🤣', '😊', '😍', '🥰', '😘', '🤗', '🤔', '🤯', '😱', '😮', '😢', '😭', '😤', '🔥', '💯', '💪', '👏', '🙌', '🎉', '✨', '👀', '💀', '🤡', '💩'];
+
+    // Sort by usage count (descending)
+    const sortedEmojis = allEmojis.sort((a, b) => {
+      const countA = emojiUsage[a] || 0;
+      const countB = emojiUsage[b] || 0;
+      return countB - countA;
+    });
+
+    // Take top 10
+    setTopReactions(sortedEmojis.slice(0, 10));
+  }, [emojiUsage]);
 
   // Subscribe to active DMs from Firestore
   useEffect(() => {
@@ -141,13 +168,37 @@ export default function ChatWindow() {
       if (e.key === 'Escape') {
         if (previewModalImage) {
           setPreviewModalImage(null);
+        } else if (replyingTo) {
+          cancelReply();
+        }
+      }
+
+      // Cmd+R: Reply to most recent message from another person
+      if ((e.metaKey || e.ctrlKey) && e.key === 'r' && !editingMessage && !replyingTo) {
+        e.preventDefault();
+        // Find the most recent message from another person
+        const otherPersonMessages = messages.filter(msg => msg.senderId !== user?.uid);
+        if (otherPersonMessages.length > 0) {
+          const lastMsg = otherPersonMessages[otherPersonMessages.length - 1];
+          startReply(lastMsg.id, lastMsg.sender, lastMsg.text);
+        }
+      }
+
+      // Cmd+E: Edit most recently sent message
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e' && !editingMessage && !replyingTo) {
+        e.preventDefault();
+        // Find the most recent message from the current user
+        const myMessages = messages.filter(msg => msg.senderId === user?.uid);
+        if (myMessages.length > 0) {
+          const lastMyMsg = myMessages[myMessages.length - 1];
+          startEdit(lastMyMsg.id, lastMyMsg.text);
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [previewModalImage]);
+  }, [previewModalImage, replyingTo, editingMessage, messages, user]);
 
   // Paste image handler
   useEffect(() => {
@@ -367,6 +418,15 @@ export default function ChatWindow() {
     try {
       await addReaction(chatId, messageId, user.uid, emoji, isDM);
       setOpenEmojiPanel(null);
+
+      // Update emoji usage count
+      await updateEmojiUsage(user.uid, emoji);
+
+      // Update local state to reflect new usage immediately
+      setEmojiUsage(prev => ({
+        ...prev,
+        [emoji]: (prev[emoji] || 0) + 1
+      }));
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
@@ -379,11 +439,20 @@ export default function ChatWindow() {
   // Reply handlers
   const startReply = (messageId, sender, text) => {
     setReplyingTo({ msgId: messageId, sender, text });
+    setContextMenu(null);
     inputRef.current?.focus();
   };
 
   const cancelReply = () => {
     setReplyingTo(null);
+  };
+
+  const handleMessagesAreaClick = (e) => {
+    // Cancel reply when clicking in the messages area
+    // But don't cancel if clicking on interactive elements like buttons, emojis, etc.
+    if (replyingTo && !e.target.closest('.quick-reactions') && !e.target.closest('.emoji-panel') && !e.target.closest('.more-reactions-btn') && !e.target.closest('.message-image')) {
+      cancelReply();
+    }
   };
 
   const scrollToMessage = (messageId) => {
@@ -448,9 +517,16 @@ export default function ChatWindow() {
     });
   };
 
-  // Close context menu on click outside
+  // Close context menu and emoji panel on click outside
   useEffect(() => {
-    const handleClick = () => setContextMenu(null);
+    const handleClick = (e) => {
+      // Don't close if clicking inside emoji panel or the more reactions button
+      if (e.target.closest('.emoji-panel') || e.target.closest('.more-reactions-btn')) {
+        return;
+      }
+      setContextMenu(null);
+      setOpenEmojiPanel(null);
+    };
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
         setContextMenu(null);
@@ -542,7 +618,7 @@ export default function ChatWindow() {
           </div>
 
           {/* Messages Area */}
-          <div className="messages" {...getRootProps()}>
+          <div className={`messages ${replyingTo ? 'replying-active' : ''}`} {...getRootProps()} onClick={handleMessagesAreaClick}>
             <input {...getInputProps()} />
             {isDragActive && (
               <div className="drag-overlay">
@@ -574,12 +650,14 @@ export default function ChatWindow() {
                   }
                 });
 
+                const isReplyTarget = replyingTo?.msgId === msg.id;
+
                 return (
                   <div
                     key={msg.id}
                     ref={el => messageRefs.current[msg.id] = el}
                     data-msg-id={msg.id}
-                    className={`message-wrapper ${isSent ? 'sent' : 'received'}`}
+                    className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''}`}
                     onContextMenu={(e) => handleContextMenu(e, msg)}
                   >
                     {!isSent && <div className="message-sender">{msg.sender}</div>}
@@ -609,22 +687,34 @@ export default function ChatWindow() {
 
                     {/* Quick Reactions */}
                     <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
-                      <button className="reply-btn" onClick={() => startReply(msg.id, msg.sender, msg.text)} title="Reply">
-                        ↩
-                      </button>
-                      {isSent && (
-                        <button className="edit-btn" onClick={() => startEdit(msg.id, msg.text)} title="Edit">
-                          ✎
+                      {/* First Row: Reply + Edit (if own message) + 5 emojis */}
+                      <div className="quick-reactions-row">
+                        <button className="reply-btn" onClick={() => startReply(msg.id, msg.sender, msg.text)} title="Reply">
+                          ↩
                         </button>
-                      )}
-                      {topReactions.map(emoji => (
-                        <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
-                          {emoji}
-                        </span>
-                      ))}
-                      <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); toggleEmojiPanel(msg.id); }}>
-                        +
-                      </button>
+                        {isSent && (
+                          <button className="edit-btn" onClick={() => startEdit(msg.id, msg.text)} title="Edit">
+                            ✎
+                          </button>
+                        )}
+                        {topReactions.slice(0, isSent ? 4 : 5).map(emoji => (
+                          <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
+                            {emoji}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Second Row: 5 emojis + More button */}
+                      <div className="quick-reactions-row">
+                        {topReactions.slice(isSent ? 4 : 5, 10).map(emoji => (
+                          <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
+                            {emoji}
+                          </span>
+                        ))}
+                        <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); toggleEmojiPanel(msg.id); }}>
+                          +
+                        </button>
+                      </div>
                     </div>
 
                     {/* Emoji Panel */}
