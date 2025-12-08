@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
+import { saveUser } from '../lib/firestore';
 
 const AuthContext = createContext({});
 
@@ -12,6 +13,9 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        saveUser(user);
+      }
       setUser(user);
       setLoading(false);
     });
