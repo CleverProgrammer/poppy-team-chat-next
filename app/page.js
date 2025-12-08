@@ -2,7 +2,7 @@
 
 import { useAuth } from './contexts/AuthContext';
 import SignInButton from './components/auth/SignInButton';
-import SignOutButton from './components/auth/SignOutButton';
+import ChatWindow from './components/chat/ChatWindow';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -27,20 +27,5 @@ export default function Home() {
     );
   }
 
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-      <div className="flex flex-col items-center gap-4">
-        <img
-          src={user.photoURL || ''}
-          alt="Profile"
-          className="rounded-full w-20 h-20"
-        />
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">{user.displayName}</h1>
-          <p className="text-gray-600">{user.email}</p>
-        </div>
-      </div>
-      <SignOutButton />
-    </div>
-  );
+  return <ChatWindow />;
 }

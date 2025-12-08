@@ -1,4 +1,4 @@
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 export async function saveUser(user) {
@@ -15,4 +15,40 @@ export async function saveUser(user) {
   } catch (error) {
     console.error('Error saving user:', error);
   }
+}
+
+export async function sendMessage(channelId, user, text) {
+  if (!user || !text.trim()) return;
+
+  try {
+    const messagesRef = collection(db, 'channels', channelId, 'messages');
+    await addDoc(messagesRef, {
+      text: text.trim(),
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw error;
+  }
+}
+
+export function subscribeToMessages(channelId, callback) {
+  const messagesRef = collection(db, 'channels', channelId, 'messages');
+  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const messages = [];
+    snapshot.forEach((doc) => {
+      messages.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    callback(messages);
+  }, (error) => {
+    console.error('Error loading messages:', error);
+  });
 }
