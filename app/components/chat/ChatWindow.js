@@ -96,6 +96,10 @@ export default function ChatWindow() {
         await sendMessageDM(dmId, user, messageText);
       }
       setMessageText('');
+      // Reset textarea height
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+      }
     } catch (error) {
       alert('Failed to send message. Please try again.');
     } finally {
@@ -108,6 +112,15 @@ export default function ChatWindow() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleTextareaChange = (e) => {
+    setMessageText(e.target.value);
+
+    // Auto-expand textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
   };
 
   const handleSelectChat = (chat) => {
@@ -178,7 +191,7 @@ export default function ChatWindow() {
               placeholder="Type a message..."
               rows="1"
               value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
+              onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
             />
             <button onClick={handleSend} disabled={sending || !messageText.trim()}>
