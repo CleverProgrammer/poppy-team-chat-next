@@ -837,6 +837,7 @@ export default function ChatWindow() {
                   key={msg.id}
                   msg={msg}
                   index={index}
+                  messages={messages}
                   totalMessages={messages.length}
                   user={user}
                   currentChat={currentChat}
