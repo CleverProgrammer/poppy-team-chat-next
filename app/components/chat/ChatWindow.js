@@ -55,8 +55,17 @@ export default function ChatWindow() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [emojiUsage, setEmojiUsage] = useState({});
   const [topReactions, setTopReactions] = useState(defaultEmojis);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [mentionMenu, setMentionMenu] = useState(null); // { type: 'mention' | 'command', position: number, query: string }
+  const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalChat, setAiModalChat] = useState([]); // Array of {role: 'user'|'assistant', text: string}
+  const [aiModalInput, setAiModalInput] = useState('');
+  const [aiModalProcessing, setAiModalProcessing] = useState(false);
+  const [insertPosition, setInsertPosition] = useState(null); // Cursor position to insert at
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const aiModalInputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
   const messageRefs = useRef({});
 
@@ -267,6 +276,11 @@ export default function ChatWindow() {
 
     if ((!messageText.trim() && !imageFile) || sending) return;
 
+    // Check for @poppy mention - match @poppy anywhere in text and capture everything after
+    const poppyMention = messageText.match(/@poppy\s*(.*)/i);
+    const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null;
+    const shouldTriggerAI = !!aiQuestion;
+
     // Create optimistic message immediately
     const optimisticId = `temp-${Date.now()}`;
     const optimisticMessage = {
@@ -374,6 +388,11 @@ export default function ChatWindow() {
 
       // Remove optimistic message once real one arrives (Firestore subscription will add it)
       setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+
+      // Trigger AI response if @poppy was mentioned
+      if (shouldTriggerAI) {
+        askPoppy(aiQuestion);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       // Remove optimistic message on error
@@ -385,7 +404,123 @@ export default function ChatWindow() {
     }
   };
 
+  // AI Function - Ask Poppy
+  const askPoppy = async (userQuestion) => {
+    if (aiProcessing) return;
+
+    setAiProcessing(true);
+
+    // Show AI typing indicator
+    const typingId = `ai-typing-${Date.now()}`;
+    const typingMessage = {
+      id: typingId,
+      sender: '🤖 Poppy',
+      senderId: 'ai',
+      text: '',
+      timestamp: new Date(),
+      isTyping: true
+    };
+    setMessages(prev => [...prev, typingMessage]);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+
+    try {
+      console.log('🤖 Poppy AI: Calling API...');
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userQuestion,
+          chatHistory: messages.slice(-10) // Last 10 messages for context
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.response;
+
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== typingId));
+
+      // Post AI response as a real message
+      if (currentChat.type === 'channel') {
+        await sendMessage(currentChat.id, {
+          uid: 'ai',
+          displayName: '🤖 Poppy',
+          email: 'ai@poppy.chat',
+          photoURL: ''
+        }, aiResponse);
+      } else {
+        const dmId = getDMId(user.uid, currentChat.id);
+        await sendMessageDM(dmId, {
+          uid: 'ai',
+          displayName: '🤖 Poppy',
+          email: 'ai@poppy.chat',
+          photoURL: ''
+        }, aiResponse, currentChat.id);
+      }
+
+      console.log('🤖 Poppy AI: Response posted');
+    } catch (error) {
+      console.error('🤖 Poppy AI: Error:', error);
+
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== typingId));
+
+      // Post error message
+      if (currentChat.type === 'channel') {
+        await sendMessage(currentChat.id, {
+          uid: 'ai',
+          displayName: '🤖 Poppy',
+          email: 'ai@poppy.chat',
+          photoURL: ''
+        }, `Sorry, I had a problem: ${error.message}. Try again! 🤖`);
+      } else {
+        const dmId = getDMId(user.uid, currentChat.id);
+        await sendMessageDM(dmId, {
+          uid: 'ai',
+          displayName: '🤖 Poppy',
+          email: 'ai@poppy.chat',
+          photoURL: ''
+        }, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, currentChat.id);
+      }
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
+    // Handle mention menu navigation
+    if (mentionMenu) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const items = getMentionMenuItems();
+        setMentionMenuIndex(prev => (prev + 1) % items.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = getMentionMenuItems();
+        setMentionMenuIndex(prev => (prev - 1 + items.length) % items.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const items = getMentionMenuItems();
+        if (items[mentionMenuIndex]) {
+          selectMentionItem(items[mentionMenuIndex]);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionMenu(null);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -404,7 +539,206 @@ export default function ChatWindow() {
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+
+    const value = textarea.value;
+    const cursorPos = textarea.selectionStart;
+
+    // Check for / command at start of input
+    if (value.startsWith('/')) {
+      const query = value.substring(1, cursorPos);
+      // Only show command picker if no space yet (still typing command name)
+      if (!query.includes(' ')) {
+        setMentionMenu({
+          type: 'command',
+          position: 0,
+          query: query.toLowerCase()
+        });
+        setMentionMenuIndex(0);
+        return;
+      }
+    }
+
+    // Find @ before cursor (look backwards from cursor)
+    let atPos = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      if (value[i] === '@') {
+        atPos = i;
+        break;
+      }
+      // Stop if we hit a space or newline (@ mention can't span these)
+      if (value[i] === ' ' || value[i] === '\n') {
+        break;
+      }
+    }
+
+    if (atPos !== -1) {
+      // Get text between @ and cursor
+      const query = value.substring(atPos + 1, cursorPos);
+      // Only show if no space in query
+      if (!query.includes(' ') && !query.includes('\n')) {
+        setMentionMenu({
+          type: 'mention',
+          position: atPos,
+          query: query.toLowerCase()
+        });
+        setMentionMenuIndex(0);
+        return;
+      }
+    }
+
+    // Close menu if no match
+    setMentionMenu(null);
   }, []);
+
+  const getMentionMenuItems = useCallback(() => {
+    if (!mentionMenu) return [];
+
+    // For commands, show /ai
+    if (mentionMenu.type === 'command') {
+      if ('ai'.includes(mentionMenu.query)) {
+        return [{ type: 'ai-command', name: '/ai', description: 'Ask Poppy AI anything' }];
+      }
+      return [];
+    }
+
+    // For mentions, filter ALL items including Poppy based on query
+    const items = [];
+
+    // Only show Poppy if query matches
+    if (!mentionMenu.query || 'poppy'.includes(mentionMenu.query)) {
+      items.push({ type: 'ai', name: '🤖 Poppy', uid: 'poppy-ai', description: 'AI Assistant' });
+    }
+
+    // Add users that match the query
+    const filteredUsers = allUsers.filter(u =>
+      u.uid !== user?.uid &&
+      (u.displayName?.toLowerCase().includes(mentionMenu.query) ||
+       u.email?.toLowerCase().includes(mentionMenu.query))
+    );
+
+    filteredUsers.forEach(u => {
+      items.push({
+        type: 'user',
+        name: u.displayName || u.email,
+        uid: u.uid,
+        photoURL: u.photoURL
+      });
+    });
+
+    return items;
+  }, [mentionMenu, allUsers, user]);
+
+  const selectMentionItem = useCallback((item) => {
+    if (!mentionMenu || !inputRef.current) return;
+
+    const textarea = inputRef.current;
+    const value = textarea.value;
+    const { position } = mentionMenu;
+
+    // If it's /ai command, open the AI modal
+    if (item.type === 'ai-command') {
+      setMentionMenu(null);
+      // Save position where /ai was
+      setInsertPosition(position);
+      // Clear the /ai from input
+      textarea.value = value.substring(position + item.name.length).trim();
+      // Open modal
+      openAiModal();
+      return;
+    }
+
+    // Replace @query with @name
+    const beforeMention = value.substring(0, position);
+    const afterCursor = value.substring(textarea.selectionStart);
+    const mentionText = item.type === 'ai' ? '@poppy ' : `@${item.name} `;
+
+    textarea.value = beforeMention + mentionText + afterCursor;
+    const newCursorPos = position + mentionText.length;
+    textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+    setMentionMenu(null);
+    textarea.focus();
+
+    // Trigger change to update height
+    const event = new Event('input', { bubbles: true });
+    textarea.dispatchEvent(event);
+  }, [mentionMenu]);
+
+  // AI Modal Functions
+  const openAiModal = () => {
+    setAiModalOpen(true);
+    setAiModalInput('');
+    setAiModalChat([]);
+    // Focus AI modal input after a brief delay
+    setTimeout(() => aiModalInputRef.current?.focus(), 100);
+  };
+
+  const closeAiModal = () => {
+    setAiModalOpen(false);
+    setAiModalInput('');
+    setAiModalChat([]);
+    // Return focus to main input
+    inputRef.current?.focus();
+  };
+
+  const sendAiModalMessage = async () => {
+    if (!aiModalInput.trim() || aiModalProcessing) return;
+
+    const userMessage = aiModalInput.trim();
+    setAiModalProcessing(true);
+
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          chatHistory: []
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.response;
+
+      // Set the AI response
+      setAiModalChat([{ role: 'assistant', text: aiResponse }]);
+    } catch (error) {
+      console.error('AI Modal error:', error);
+      setAiModalChat([{ role: 'assistant', text: `Sorry, I had a problem: ${error.message}. Try again!` }]);
+    } finally {
+      setAiModalProcessing(false);
+    }
+  };
+
+  const insertAiResponse = () => {
+    // Get the assistant message
+    const aiMessage = aiModalChat.find(msg => msg.role === 'assistant');
+    if (!aiMessage || !inputRef.current) return;
+
+    const textarea = inputRef.current;
+    const value = textarea.value;
+    const pos = insertPosition !== null ? insertPosition : value.length;
+
+    // Insert AI response at the saved position
+    const before = value.substring(0, pos);
+    const after = value.substring(pos);
+    textarea.value = before + aiMessage.text + after;
+
+    // Set cursor after inserted text
+    const newPos = pos + aiMessage.text.length;
+    textarea.setSelectionRange(newPos, newPos);
+
+    // Close modal
+    closeAiModal();
+
+    // Trigger input event to update height
+    const event = new Event('input', { bubbles: true });
+    textarea.dispatchEvent(event);
+  };
 
   const handleSelectChat = (chat) => {
     setCurrentChat(chat);
@@ -669,6 +1003,20 @@ export default function ChatWindow() {
               </div>
             ) : (
               messages.map((msg) => {
+                // Handle AI typing indicator
+                if (msg.isTyping) {
+                  return (
+                    <div key={msg.id} className="message-wrapper received ai-typing">
+                      <div className="message-sender">{msg.sender}</div>
+                      <div className="message">
+                        <div className="ai-typing-indicator">
+                          <span></span><span></span><span></span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const isSent = msg.senderId === user?.uid;
                 const reactions = msg.reactions || {};
                 const reactionCounts = {};
@@ -837,6 +1185,103 @@ export default function ChatWindow() {
             </div>
           )}
 
+          {/* Mention Menu */}
+          {mentionMenu && (() => {
+            const items = getMentionMenuItems();
+            return items.length > 0 ? (
+              <div className="mention-menu">
+                <div className="mention-menu-title">Mention</div>
+                <div className="mention-menu-items">
+                  {items.map((item, index) => (
+                    <div
+                      key={item.uid || item.type}
+                      className={`mention-menu-item ${index === mentionMenuIndex ? 'selected' : ''}`}
+                      onClick={() => selectMentionItem(item)}
+                      onMouseEnter={() => setMentionMenuIndex(index)}
+                    >
+                      {item.photoURL ? (
+                        <img src={item.photoURL} alt={item.name} className="mention-avatar" />
+                      ) : (
+                        <div className="mention-avatar-placeholder">
+                          {item.name.substring(0, 2)}
+                        </div>
+                      )}
+                      <div className="mention-info">
+                        <div className="mention-name">{item.name}</div>
+                        {item.description && (
+                          <div className="mention-description">{item.description}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mention-menu-hint">
+                  <kbd>↑</kbd> <kbd>↓</kbd> to navigate • <kbd>↵</kbd> or <kbd>Tab</kbd> to select • <kbd>Esc</kbd> to cancel
+                </div>
+              </div>
+            ) : null;
+          })()}
+
+          {/* AI Chat Modal */}
+          {aiModalOpen && (
+            <>
+              <div className="ai-modal-overlay" onClick={closeAiModal} />
+              <div className="ai-modal">
+                <div className="ai-modal-header">
+                  <span>🤖</span>
+                  <h3>Ask Poppy</h3>
+                  <button className="ai-modal-close" onClick={closeAiModal}>✕</button>
+                </div>
+
+                <div className="ai-modal-body">
+                  <input
+                    ref={aiModalInputRef}
+                    type="text"
+                    className="ai-modal-input"
+                    value={aiModalInput}
+                    onChange={(e) => setAiModalInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        sendAiModalMessage();
+                      }
+                      if (e.key === 'Escape') {
+                        closeAiModal();
+                      }
+                    }}
+                    placeholder="What do you need help with?"
+                    disabled={aiModalProcessing}
+                  />
+
+                  {aiModalProcessing && (
+                    <div className="ai-modal-result loading">
+                      <div className="ai-typing">
+                        <span></span><span></span><span></span>
+                      </div>
+                      <span>Thinking...</span>
+                    </div>
+                  )}
+
+                  {!aiModalProcessing && aiModalChat.length > 0 && (
+                    <>
+                      <div className="ai-modal-result">
+                        {aiModalChat[0].text}
+                      </div>
+                      <div className="ai-modal-actions">
+                        <button onClick={insertAiResponse} className="ai-modal-btn primary">
+                          Insert
+                        </button>
+                        <button onClick={closeAiModal} className="ai-modal-btn secondary">
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Input Section */}
           <div className="input-section">
             {imagePreview && (
@@ -855,7 +1300,7 @@ export default function ChatWindow() {
               ref={inputRef}
               placeholder={editingMessage ? "Edit your message..." : "Type a message... (or paste/drop an image)"}
               rows="1"
-              onChange={handleTextareaChange}
+              onInput={handleTextareaChange}
               onKeyDown={handleKeyDown}
               autoComplete="off"
               autoCorrect="off"
