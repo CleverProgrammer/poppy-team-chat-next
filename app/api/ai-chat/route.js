@@ -34,28 +34,10 @@ async function getNotionPage(pageId) {
   return data.results || [];
 }
 
-export async function POST(request) {
-  try {
-    const { message, chatHistory } = await request.json();
-
-    if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
-    }
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      console.error('ANTHROPIC_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'AI service not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Build system prompt
-    const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
+// Main AI processing function (extracted for both streaming and non-streaming)
+async function processAIRequest(message, chatHistory, apiKey, sendStatus = null, controller = null, encoder = null) {
+  // Build system prompt
+  const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
 
 tldr bro. respond like SUPER fucking short unless I explicitly ask you to expand. Also keep shit very simple and easy to understand!
 
@@ -76,62 +58,139 @@ Let me know if that helps! 🙌
 
 Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.`;
 
-    // Build messages array from chat history
-    const messages = [];
+  // Build messages array from chat history
+  const messages = [];
 
-    // Add recent chat history if provided (last 10 messages for context)
-    if (chatHistory && chatHistory.length > 0) {
-      const recentHistory = chatHistory.slice(-10);
-      recentHistory.forEach(msg => {
-        if (msg.sender && msg.text) {
-          messages.push({
-            role: msg.senderId === 'ai' ? 'assistant' : 'user',
-            content: `${msg.sender}: ${msg.text}`
-          });
-        }
+  // Add recent chat history if provided (last 10 messages for context)
+  if (chatHistory && chatHistory.length > 0) {
+    const recentHistory = chatHistory.slice(-10);
+    recentHistory.forEach(msg => {
+      if (msg.sender && msg.text) {
+        messages.push({
+          role: msg.senderId === 'ai' ? 'assistant' : 'user',
+          content: `${msg.sender}: ${msg.text}`
+        });
+      }
+    });
+  }
+
+  // Add the current user message
+  messages.push({
+    role: 'user',
+    content: message
+  });
+
+  // Define Notion tools for Claude
+  const tools = [
+    {
+      name: 'search_notion',
+      description: 'Search through all Notion pages and databases. Use this when the user asks about information that might be stored in Notion, like notes, documents, tasks, knowledge bases, etc.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query to find relevant Notion pages'
+          }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'get_notion_page',
+      description: 'Get the full content of a specific Notion page. Use this after searching to read the actual content of a page.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          page_id: {
+            type: 'string',
+            description: 'The Notion page ID to retrieve content from'
+          }
+        },
+        required: ['page_id']
+      }
+    }
+  ];
+
+  console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5...');
+  if (sendStatus) sendStatus('Calling Claude AI...');
+
+  let response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: messages,
+      tools: tools
+    })
+  });
+
+  console.log('🤖 Poppy AI: Response status:', response.status);
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('🤖 Poppy AI: API Error Response:', error);
+    throw new Error(`API error: ${error}`);
+  }
+
+  let data = await response.json();
+  console.log('🤖 Poppy AI: Response received');
+
+  // Handle tool use loop
+  while (data.stop_reason === 'tool_use') {
+    console.log('🔧 Poppy AI: Claude wants to use a tool');
+
+    // Find tool use blocks
+    const toolUses = data.content.filter(block => block.type === 'tool_use');
+
+    // Execute each tool
+    const toolResults = [];
+    for (const toolUse of toolUses) {
+      console.log(`🔧 Poppy AI: Executing tool: ${toolUse.name}`);
+
+      let toolResult;
+      if (toolUse.name === 'search_notion') {
+        if (sendStatus) sendStatus(`Searching Notion for "${toolUse.input.query}"...`);
+        const searchResults = await searchNotion(toolUse.input.query);
+        toolResult = JSON.stringify(searchResults.map(page => ({
+          id: page.id,
+          title: page.properties?.title?.title?.[0]?.plain_text || page.properties?.Name?.title?.[0]?.plain_text || 'Untitled',
+          url: page.url
+        })));
+        if (sendStatus) sendStatus(`Found ${searchResults.length} pages in Notion`);
+      } else if (toolUse.name === 'get_notion_page') {
+        if (sendStatus) sendStatus('Reading Notion page...');
+        const pageContent = await getNotionPage(toolUse.input.page_id);
+        toolResult = JSON.stringify(pageContent);
+      }
+
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: toolResult
       });
     }
 
-    // Add the current user message
+    // Add assistant's response and tool results to messages
     messages.push({
-      role: 'user',
-      content: message
+      role: 'assistant',
+      content: data.content
     });
 
-    // Define Notion tools for Claude
-    const tools = [
-      {
-        name: 'search_notion',
-        description: 'Search through all Notion pages and databases. Use this when the user asks about information that might be stored in Notion, like notes, documents, tasks, knowledge bases, etc.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'The search query to find relevant Notion pages'
-            }
-          },
-          required: ['query']
-        }
-      },
-      {
-        name: 'get_notion_page',
-        description: 'Get the full content of a specific Notion page. Use this after searching to read the actual content of a page.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            page_id: {
-              type: 'string',
-              description: 'The Notion page ID to retrieve content from'
-            }
-          },
-          required: ['page_id']
-        }
-      }
-    ];
+    messages.push({
+      role: 'user',
+      content: toolResults
+    });
 
-    console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5...');
-    let response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Call Claude again with tool results
+    if (sendStatus) sendStatus('Processing results...');
+    response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -147,88 +206,78 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       })
     });
 
-    console.log('🤖 Poppy AI: Response status:', response.status);
+    data = await response.json();
+    console.log('🤖 Poppy AI: Got response after tool use');
+  }
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('🤖 Poppy AI: API Error Response:', error);
+  // Extract final text from response
+  const textBlock = data.content.find(block => block.type === 'text');
+  const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!';
+
+  if (sendStatus) sendStatus('Done!');
+
+  // If streaming, send the final response
+  if (controller && encoder) {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`));
+  }
+
+  return aiResponse;
+}
+
+export async function POST(request) {
+  try {
+    const { message, chatHistory, stream } = await request.json();
+
+    if (!message) {
       return NextResponse.json(
-        { error: `API error: ${error}` },
-        { status: response.status }
+        { error: 'Message is required' },
+        { status: 400 }
       );
     }
 
-    let data = await response.json();
-    console.log('🤖 Poppy AI: Response received');
-
-    // Handle tool use loop
-    while (data.stop_reason === 'tool_use') {
-      console.log('🔧 Poppy AI: Claude wants to use a tool');
-
-      // Find tool use blocks
-      const toolUses = data.content.filter(block => block.type === 'tool_use');
-
-      // Execute each tool
-      const toolResults = [];
-      for (const toolUse of toolUses) {
-        console.log(`🔧 Poppy AI: Executing tool: ${toolUse.name}`);
-
-        let toolResult;
-        if (toolUse.name === 'search_notion') {
-          const searchResults = await searchNotion(toolUse.input.query);
-          toolResult = JSON.stringify(searchResults.map(page => ({
-            id: page.id,
-            title: page.properties?.title?.title?.[0]?.plain_text || page.properties?.Name?.title?.[0]?.plain_text || 'Untitled',
-            url: page.url
-          })));
-        } else if (toolUse.name === 'get_notion_page') {
-          const pageContent = await getNotionPage(toolUse.input.page_id);
-          toolResult = JSON.stringify(pageContent);
-        }
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: toolResult
-        });
-      }
-
-      // Add assistant's response and tool results to messages
-      messages.push({
-        role: 'assistant',
-        content: data.content
-      });
-
-      messages.push({
-        role: 'user',
-        content: toolResults
-      });
-
-      // Call Claude again with tool results
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5-20250929',
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: messages,
-          tools: tools
-        })
-      });
-
-      data = await response.json();
-      console.log('🤖 Poppy AI: Got response after tool use');
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error('ANTHROPIC_API_KEY not configured');
+      return NextResponse.json(
+        { error: 'AI service not configured' },
+        { status: 500 }
+      );
     }
 
-    // Extract final text from response
-    const textBlock = data.content.find(block => block.type === 'text');
-    const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!';
+    // If streaming is requested, use SSE
+    if (stream) {
+      const encoder = new TextEncoder();
+      const customReadable = new ReadableStream({
+        async start(controller) {
+          const sendStatus = (status) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status })}\n\n`));
+          };
 
+          try {
+            sendStatus('Thinking...');
+
+            // Continue with AI processing (code below will be wrapped)
+            await processAIRequest(message, chatHistory, apiKey, sendStatus, controller, encoder);
+
+            controller.close();
+          } catch (error) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: error.message })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(customReadable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
+    // Non-streaming mode - use the extracted function
+    const aiResponse = await processAIRequest(message, chatHistory, apiKey);
     return NextResponse.json({ response: aiResponse });
 
   } catch (error) {

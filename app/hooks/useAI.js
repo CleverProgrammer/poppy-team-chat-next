@@ -14,23 +14,24 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
   const [aiProcessing, setAiProcessing] = useState(false);
 
   // Create typing indicator message
-  const createTypingMessage = useCallback(() => ({
+  const createTypingMessage = useCallback((status = '') => ({
     id: `ai-typing-${Date.now()}`,
     sender: '🤖 Poppy',
     senderId: 'ai',
-    text: '',
+    text: status,
     timestamp: new Date(),
     isTyping: true
   }), []);
 
-  // Call AI API
-  const callAI = useCallback(async (question, chatHistory) => {
+  // Call AI API with streaming support
+  const callAI = useCallback(async (question, chatHistory, onStatus = null) => {
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: question,
-        chatHistory
+        chatHistory,
+        stream: !!onStatus  // Enable streaming if onStatus callback is provided
       })
     });
 
@@ -38,6 +39,38 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
       throw new Error(`API error: ${response.status}`);
     }
 
+    // If streaming
+    if (onStatus && response.headers.get('content-type')?.includes('text/event-stream')) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let finalResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.status) {
+              onStatus(data.status);
+            } else if (data.response) {
+              finalResponse = data.response;
+            } else if (data.error) {
+              throw new Error(data.error);
+            }
+          }
+        }
+      }
+
+      return finalResponse;
+    }
+
+    // Non-streaming fallback
     const data = await response.json();
     return data.response;
   }, []);
@@ -49,16 +82,29 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     setAiProcessing(true);
 
     // Show typing indicator
-    const typingMessage = createTypingMessage();
-    setMessages(prev => [...prev, typingMessage]);
+    const typingMessageId = `ai-typing-${Date.now()}`;
+    const initialTypingMessage = createTypingMessage('Thinking...');
+    initialTypingMessage.id = typingMessageId;
+
+    setMessages(prev => [...prev, initialTypingMessage]);
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
 
     try {
       console.log('🤖 Poppy AI: Calling API...');
-      const aiResponse = await callAI(userQuestion, messages.slice(-10));
+
+      // Update typing indicator with status updates
+      const onStatus = (status) => {
+        setMessages(prev => prev.map(msg =>
+          msg.id === typingMessageId
+            ? { ...msg, text: status }
+            : msg
+        ));
+      };
+
+      const aiResponse = await callAI(userQuestion, messages.slice(-10), onStatus);
 
       // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.id !== typingMessage.id));
+      setMessages(prev => prev.filter(msg => msg.id !== typingMessageId));
 
       // Post AI response as a real message
       if (currentChat.type === 'channel') {
@@ -73,7 +119,7 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
       console.error('🤖 Poppy AI: Error:', error);
 
       // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.id !== typingMessage.id));
+      setMessages(prev => prev.filter(msg => msg.id === typingMessageId));
 
       // Post error message
       const errorMsg = `Sorry, I had a problem: ${error.message}. Try again! 🤖`;
