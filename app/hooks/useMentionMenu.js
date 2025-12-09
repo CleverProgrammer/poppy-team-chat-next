@@ -25,14 +25,27 @@ export function useMentionMenu({
     // Update typing indicator (DMs only)
     updateTypingIndicator();
 
-    // Check for / command at start of input
-    if (value.startsWith('/')) {
-      const query = value.substring(1, cursorPos);
-      // Only show command picker if no space yet (still typing command name)
-      if (!query.includes(' ')) {
+    // Find / command before cursor (look backwards from cursor)
+    let slashPos = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      if (value[i] === '/') {
+        slashPos = i;
+        break;
+      }
+      // Stop if we hit a space or newline (/ command can't span these)
+      if (value[i] === ' ' || value[i] === '\n') {
+        break;
+      }
+    }
+
+    if (slashPos !== -1) {
+      // Get text between / and cursor
+      const query = value.substring(slashPos + 1, cursorPos);
+      // Only show if no space in query
+      if (!query.includes(' ') && !query.includes('\n')) {
         setMentionMenu({
           type: 'command',
-          position: 0,
+          position: slashPos,
           query: query.toLowerCase()
         });
         setMentionMenuIndex(0);
@@ -121,10 +134,14 @@ export function useMentionMenu({
     // If it's /ai command, open the AI modal
     if (item.type === 'ai-command') {
       setMentionMenu(null);
-      // Save position where /ai was
+      // Save position where /ai was (this is where AI response will be inserted)
       setInsertPosition(position);
-      // Clear the /ai from input
-      textarea.value = value.substring(position + item.name.length).trim();
+      // Remove the /ai command from the text
+      const beforeCommand = value.substring(0, position);
+      const afterCursor = value.substring(textarea.selectionStart);
+      textarea.value = beforeCommand + afterCursor;
+      // Set cursor at the position where /ai was
+      textarea.setSelectionRange(position, position);
       // Open modal
       openAiModal();
       return;
