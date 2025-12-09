@@ -96,6 +96,11 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
   let data = await response.json();
   console.log('🤖 Poppy AI: Response received');
 
+  // Log response structure for debugging
+  if (!data.content) {
+    console.error('🤖 Poppy AI: WARNING - No content in response:', JSON.stringify(data, null, 2));
+  }
+
   // Handle tool use loop
   while (data.stop_reason === 'tool_use') {
     console.log('🔧 Poppy AI: Claude wants to use a tool');
@@ -165,7 +170,7 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
   }
 
   // Extract final text from response
-  const textBlock = data.content.find(block => block.type === 'text');
+  const textBlock = data.content?.find(block => block.type === 'text');
   const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!';
 
   if (sendStatus) sendStatus('Done!');
