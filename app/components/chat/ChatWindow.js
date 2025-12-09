@@ -11,6 +11,7 @@ import MessageItem from './MessageItem';
 import { useAuth } from '../../contexts/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { useReactions } from '../../hooks/useReactions';
+import { useAI } from '../../hooks/useAI';
 import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, markDMMessagesAsRead, sendAIMessage, subscribeToAIMessages } from '../../lib/firestore';
 import { linkifyText } from '../../utils/messageFormatting';
 
@@ -29,7 +30,6 @@ export default function ChatWindow() {
   const [contextMenu, setContextMenu] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
-  const [aiProcessing, setAiProcessing] = useState(false);
   const [mentionMenu, setMentionMenu] = useState(null); // { type: 'mention' | 'command', position: number, query: string }
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -58,6 +58,14 @@ export default function ChatWindow() {
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // AI hook (must be after messagesEndRef is defined)
+  const {
+    aiProcessing,
+    askPoppy,
+    askPoppyDirectly
+  } = useAI(user, currentChat, messages, setMessages, messagesEndRef);
+
   const markChatAsReadRef = useRef(null);
   const messageRefs = useRef({});
   const previousMessagesRef = useRef([]);
@@ -390,131 +398,6 @@ export default function ChatWindow() {
     } finally {
       setSending(false);
       setUploading(false);
-    }
-  };
-
-  // AI Function - Ask Poppy
-  const askPoppy = async (userQuestion) => {
-    if (aiProcessing) return;
-
-    setAiProcessing(true);
-
-    // Show AI typing indicator
-    const typingId = `ai-typing-${Date.now()}`;
-    const typingMessage = {
-      id: typingId,
-      sender: '🤖 Poppy',
-      senderId: 'ai',
-      text: '',
-      timestamp: new Date(),
-      isTyping: true
-    };
-    setMessages(prev => [...prev, typingMessage]);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
-
-    try {
-      console.log('🤖 Poppy AI: Calling API...');
-      const response = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userQuestion,
-          chatHistory: messages.slice(-10) // Last 10 messages for context
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const aiResponse = data.response;
-
-      // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.id !== typingId));
-
-      // Post AI response as a real message
-      if (currentChat.type === 'channel') {
-        await sendMessage(currentChat.id, {
-          uid: 'ai',
-          displayName: '🤖 Poppy',
-          email: 'ai@poppy.chat',
-          photoURL: ''
-        }, aiResponse);
-      } else {
-        const dmId = getDMId(user.uid, currentChat.id);
-        await sendMessageDM(dmId, {
-          uid: 'ai',
-          displayName: '🤖 Poppy',
-          email: 'ai@poppy.chat',
-          photoURL: ''
-        }, aiResponse, currentChat.id);
-      }
-
-      console.log('🤖 Poppy AI: Response posted');
-    } catch (error) {
-      console.error('🤖 Poppy AI: Error:', error);
-
-      // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.id !== typingId));
-
-      // Post error message
-      if (currentChat.type === 'channel') {
-        await sendMessage(currentChat.id, {
-          uid: 'ai',
-          displayName: '🤖 Poppy',
-          email: 'ai@poppy.chat',
-          photoURL: ''
-        }, `Sorry, I had a problem: ${error.message}. Try again! 🤖`);
-      } else {
-        const dmId = getDMId(user.uid, currentChat.id);
-        await sendMessageDM(dmId, {
-          uid: 'ai',
-          displayName: '🤖 Poppy',
-          email: 'ai@poppy.chat',
-          photoURL: ''
-        }, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, currentChat.id);
-      }
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
-  // AI Function - Direct chat with Poppy (for AI chat type)
-  const askPoppyDirectly = async (userQuestion) => {
-    if (aiProcessing) return;
-
-    setAiProcessing(true);
-
-    try {
-      console.log('🤖 Poppy AI: Calling API for direct chat...');
-      const response = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userQuestion,
-          chatHistory: messages.slice(-10).map(m => ({ role: m.senderId === 'ai' ? 'assistant' : 'user', text: m.text }))
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const aiResponse = data.response;
-
-      // Save AI response to Firestore
-      await sendAIMessage(user.uid, aiResponse, true);
-
-      console.log('🤖 Poppy AI: Response added to direct chat');
-    } catch (error) {
-      console.error('🤖 Poppy AI: Error:', error);
-
-      // Save error message to Firestore
-      await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, true);
-    } finally {
-      setAiProcessing(false);
     }
   };
 

@@ -1,12 +1,20 @@
 import { Knock } from '@knocklabs/node';
 
+// Initialize Knock client
+let knockClient = null;
+
 // Get Knock client instance (lazy initialization)
 function getKnockClient() {
   if (typeof window !== 'undefined') {
     // Running on client side, return null
     return null;
   }
-  return new Knock(process.env.KNOCK_API_KEY);
+
+  if (!knockClient) {
+    knockClient = new Knock(process.env.KNOCK_API_KEY);
+  }
+
+  return knockClient;
 }
 
 // Identify user in Knock
