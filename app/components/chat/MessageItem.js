@@ -1,7 +1,7 @@
 'use client';
 
 import MessageTimestamp from './MessageTimestamp';
-import { linkifyText, isSingleEmoji } from '../../utils/messageFormatting';
+import { linkifyText, isSingleEmoji, isLoomUrl, getLoomEmbedUrl } from '../../utils/messageFormatting';
 import { ALL_EMOJIS } from '../../constants/emojis';
 
 export default function MessageItem({
@@ -181,6 +181,17 @@ export default function MessageItem({
             loading="lazy"
             onClick={() => onImageClick(msg.imageUrl)}
           />
+        )}
+        {/* Loom video embed */}
+        {msg.text && isLoomUrl(msg.text) && (
+          <div className="loom-container">
+            <iframe
+              src={getLoomEmbedUrl(msg.text)}
+              loading="lazy"
+              allowFullScreen
+              title="Loom video"
+            />
+          </div>
         )}
         {msg.text && (
           <div className="text">

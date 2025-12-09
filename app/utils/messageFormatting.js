@@ -39,3 +39,14 @@ export function isSingleEmoji(text) {
   // Allow 1-3 emojis
   return emojis.length >= 1 && emojis.length <= 3;
 }
+
+// Detect Loom share URLs
+export function isLoomUrl(url) {
+  return /https?:\/\/(www\.)?loom\.com\/share\/[a-zA-Z0-9]+/.test(url);
+}
+
+// Convert Loom share URL to embed URL
+export function getLoomEmbedUrl(url) {
+  const match = url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
+  return match ? `https://www.loom.com/embed/${match[1]}` : null;
+}

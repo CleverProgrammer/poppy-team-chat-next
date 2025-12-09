@@ -13,7 +13,8 @@ import {
   getCurrentChat,
   addActiveDM,
   getDMId,
-  markDMMessagesAsRead
+  markDMMessagesAsRead,
+  markChatAsRead
 } from '../lib/firestore';
 
 export function useSubscriptions({
@@ -80,16 +81,23 @@ export function useSubscriptions({
 
     let unsubscribe;
 
+    // Mark chat as read immediately when entering it
+    markChatAsRead(user.uid, currentChat.type, currentChat.id);
+
     if (currentChat.type === 'channel') {
       unsubscribe = subscribeToMessages(currentChat.id, (newMessages) => {
         setMessages(newMessages);
         messagesRef.current = newMessages;
+        // Mark as read whenever new messages arrive while viewing this chat
+        markChatAsRead(user.uid, currentChat.type, currentChat.id);
       });
     } else if (currentChat.type === 'dm') {
       const dmId = getDMId(user.uid, currentChat.id);
       unsubscribe = subscribeToMessagesDM(dmId, (newMessages) => {
         setMessages(newMessages);
         messagesRef.current = newMessages;
+        // Mark as read whenever new messages arrive while viewing this chat
+        markChatAsRead(user.uid, currentChat.type, currentChat.id);
       });
     } else if (currentChat.type === 'ai') {
       unsubscribe = subscribeToAIMessages(user.uid, (newMessages) => {
