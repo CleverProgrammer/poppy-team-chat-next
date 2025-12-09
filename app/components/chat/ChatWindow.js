@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { Howl } from 'howler';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import NotificationBell from '../notifications/NotificationBell';
+import AIModal from './AIModal';
+import MessageTimestamp from './MessageTimestamp';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage } from '../../lib/firestore';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage, markDMMessagesAsRead } from '../../lib/firestore';
 import { linkifyText } from '../../utils/messageFormatting';
-
-// Default emoji set - matching the quick reactions layout
-const defaultEmojis = ['🤩', '❤️', '😊', '😱', '🔥', '💪', '👏', '🙌', '🎉', '✨'];
+import { DEFAULT_EMOJIS, ALL_EMOJIS } from '../../constants/emojis';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -32,20 +33,18 @@ export default function ChatWindow() {
   const [editingMessage, setEditingMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [emojiUsage, setEmojiUsage] = useState({});
-  const [topReactions, setTopReactions] = useState(defaultEmojis);
+  const [topReactions, setTopReactions] = useState(DEFAULT_EMOJIS);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [mentionMenu, setMentionMenu] = useState(null); // { type: 'mention' | 'command', position: number, query: string }
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
   const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [aiModalChat, setAiModalChat] = useState([]); // Array of {role: 'user'|'assistant', text: string}
-  const [aiModalInput, setAiModalInput] = useState('');
-  const [aiModalProcessing, setAiModalProcessing] = useState(false);
   const [insertPosition, setInsertPosition] = useState(null); // Cursor position to insert at
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const aiModalInputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
   const messageRefs = useRef({});
+  const previousMessagesRef = useRef([]);
+  const soundRef = useRef(null);
 
   // Load saved chat on mount
   useEffect(() => {
@@ -93,11 +92,8 @@ export default function ChatWindow() {
 
   // Sort topReactions based on emoji usage
   useEffect(() => {
-    // Get all emojis from emoji panel plus default emojis
-    const allEmojis = ['👍', '👎', '❤️', '🧡', '💛', '💚', '💙', '😂', '🤣', '😊', '😍', '🥰', '😘', '🤗', '🤔', '🤯', '😱', '😮', '😢', '😭', '😤', '🔥', '💯', '💪', '👏', '🙌', '🎉', '✨', '👀', '💀', '🤡', '💩'];
-
     // Sort by usage count (descending)
-    const sortedEmojis = allEmojis.sort((a, b) => {
+    const sortedEmojis = ALL_EMOJIS.sort((a, b) => {
       const countA = emojiUsage[a] || 0;
       const countB = emojiUsage[b] || 0;
       return countB - countA;
@@ -130,6 +126,21 @@ export default function ChatWindow() {
       unsubscribe = subscribeToMessagesDM(dmId, (newMessages) => {
         setMessages(newMessages);
       });
+    } else if (currentChat.type === 'ai') {
+      // Load AI chat history from localStorage
+      const savedMessages = localStorage.getItem('poppy-ai-chat');
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
+      } else {
+        // Welcome message
+        setMessages([{
+          id: 'welcome',
+          sender: '🤖 Poppy AI',
+          senderId: 'ai',
+          text: "Hi! I'm Poppy, your AI assistant. Ask me anything!",
+          timestamp: new Date()
+        }]);
+      }
     }
 
     return () => unsubscribe?.();
@@ -140,10 +151,75 @@ export default function ChatWindow() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages]);
 
+  // Sound notifications - only play when tab is hidden and it's a DM
+  useEffect(() => {
+    if (!user || !currentChat || messages.length === 0) return;
+
+    // Find new messages (messages that weren't in previousMessagesRef)
+    const previousMessageIds = new Set(previousMessagesRef.current.map(m => m.id));
+    const newMessages = messages.filter(msg => !previousMessageIds.has(msg.id));
+
+    // Update ref for next comparison
+    previousMessagesRef.current = messages;
+
+    // Check if tab is hidden using Page Visibility API
+    const isTabHidden = document.hidden;
+
+    // Check each new message
+    newMessages.forEach(msg => {
+      // Don't play sound for your own messages
+      if (msg.senderId === user.uid) return;
+
+      // Don't play sound for optimistic or typing messages
+      if (msg.optimistic || msg.isTyping) return;
+
+      // Only play if tab is hidden
+      if (!isTabHidden) return;
+
+      // Only play sound for DMs
+      const isDM = currentChat.type === 'dm';
+
+      if (isDM) {
+        // Initialize sound on-demand if not already loaded
+        if (!soundRef.current) {
+          soundRef.current = new Howl({
+            src: ['/sounds/knock_sound.mp3'],
+            volume: 0.5
+          });
+        }
+        // Play knock sound
+        soundRef.current.play();
+      }
+    });
+  }, [messages, user, currentChat]);
+
   // Auto-focus input when switching chats
   useEffect(() => {
     inputRef.current?.focus();
   }, [currentChat]);
+
+  // Mark DM messages as read when viewing them
+  useEffect(() => {
+    if (!user || currentChat.type !== 'dm' || messages.length === 0) return;
+
+    // Find unread messages (messages from the other person that haven't been read by me)
+    const unreadMessages = messages.filter(msg =>
+      msg.senderId !== user.uid &&
+      (!msg.readBy || !msg.readBy[user.uid])
+    );
+
+    if (unreadMessages.length > 0) {
+      const dmId = getDMId(user.uid, currentChat.id);
+      const messageIds = unreadMessages.map(msg => msg.id);
+
+      // Mark as read after a short delay to simulate reading
+      const timer = setTimeout(() => {
+        markDMMessagesAsRead(dmId, user.uid, messageIds);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [messages, user, currentChat]);
 
   // Keyboard shortcut for command palette and escape key handlers
   useEffect(() => {
@@ -303,7 +379,28 @@ export default function ChatWindow() {
         setUploading(false);
       }
 
-      if (currentChat.type === 'channel') {
+      if (currentChat.type === 'ai') {
+        // Direct AI chat - save to localStorage and get AI response
+        const userMessage = {
+          id: `user-${Date.now()}`,
+          sender: user.displayName || user.email,
+          senderId: user.uid,
+          text: messageText,
+          timestamp: new Date(),
+          photoURL: user.photoURL || ''
+        };
+
+        // Replace optimistic message with real one
+        const updatedMessages = messages.filter(msg => msg.id !== optimisticId);
+        updatedMessages.push(userMessage);
+        setMessages(updatedMessages);
+
+        // Save to localStorage
+        localStorage.setItem('poppy-ai-chat', JSON.stringify(updatedMessages));
+
+        // Get AI response
+        await askPoppyDirectly(messageText, updatedMessages);
+      } else if (currentChat.type === 'channel') {
         // Check if replying
         if (currentReplyingTo) {
           if (imageUrl) {
@@ -469,6 +566,87 @@ export default function ChatWindow() {
     }
   };
 
+  // AI Function - Direct chat with Poppy (for AI chat type)
+  const askPoppyDirectly = async (userQuestion, currentMessages) => {
+    if (aiProcessing) return;
+
+    setAiProcessing(true);
+
+    // Show AI typing indicator
+    const typingId = `ai-typing-${Date.now()}`;
+    const typingMessage = {
+      id: typingId,
+      sender: '🤖 Poppy AI',
+      senderId: 'ai',
+      text: '',
+      timestamp: new Date(),
+      isTyping: true
+    };
+    setMessages(prev => [...prev, typingMessage]);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+
+    try {
+      console.log('🤖 Poppy AI: Calling API for direct chat...');
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userQuestion,
+          chatHistory: currentMessages.slice(-10) // Last 10 messages for context
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.response;
+
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== typingId));
+
+      // Add AI response message
+      const aiMessage = {
+        id: `ai-${Date.now()}`,
+        sender: '🤖 Poppy AI',
+        senderId: 'ai',
+        text: aiResponse,
+        timestamp: new Date()
+      };
+
+      const updatedMessages = [...currentMessages, aiMessage];
+      setMessages(updatedMessages);
+
+      // Save to localStorage
+      localStorage.setItem('poppy-ai-chat', JSON.stringify(updatedMessages));
+
+      console.log('🤖 Poppy AI: Response added to direct chat');
+    } catch (error) {
+      console.error('🤖 Poppy AI: Error:', error);
+
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== typingId));
+
+      // Add error message
+      const errorMessage = {
+        id: `ai-error-${Date.now()}`,
+        sender: '🤖 Poppy AI',
+        senderId: 'ai',
+        text: `Sorry, I had a problem: ${error.message}. Try again! 🤖`,
+        timestamp: new Date()
+      };
+
+      const updatedMessages = [...currentMessages, errorMessage];
+      setMessages(updatedMessages);
+
+      // Save to localStorage
+      localStorage.setItem('poppy-ai-chat', JSON.stringify(updatedMessages));
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
     // Handle mention menu navigation
     if (mentionMenu) {
@@ -599,7 +777,8 @@ export default function ChatWindow() {
         type: 'user',
         name: u.displayName || u.email,
         uid: u.uid,
-        photoURL: u.photoURL
+        photoURL: u.photoURL,
+        description: u.email // Show email to distinguish users with same names
       });
     });
 
@@ -645,73 +824,28 @@ export default function ChatWindow() {
   // AI Modal Functions
   const openAiModal = () => {
     setAiModalOpen(true);
-    setAiModalInput('');
-    setAiModalChat([]);
-    // Focus AI modal input after a brief delay
-    setTimeout(() => aiModalInputRef.current?.focus(), 100);
   };
 
   const closeAiModal = () => {
     setAiModalOpen(false);
-    setAiModalInput('');
-    setAiModalChat([]);
-    // Return focus to main input
     inputRef.current?.focus();
   };
 
-  const sendAiModalMessage = async () => {
-    if (!aiModalInput.trim() || aiModalProcessing) return;
-
-    const userMessage = aiModalInput.trim();
-    setAiModalProcessing(true);
-
-    try {
-      const response = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage,
-          chatHistory: []
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const aiResponse = data.response;
-
-      // Set the AI response
-      setAiModalChat([{ role: 'assistant', text: aiResponse }]);
-    } catch (error) {
-      console.error('AI Modal error:', error);
-      setAiModalChat([{ role: 'assistant', text: `Sorry, I had a problem: ${error.message}. Try again!` }]);
-    } finally {
-      setAiModalProcessing(false);
-    }
-  };
-
-  const insertAiResponse = () => {
-    // Get the assistant message
-    const aiMessage = aiModalChat.find(msg => msg.role === 'assistant');
-    if (!aiMessage || !inputRef.current) return;
+  const handleInsertAiResponse = (text, position) => {
+    if (!inputRef.current) return;
 
     const textarea = inputRef.current;
     const value = textarea.value;
-    const pos = insertPosition !== null ? insertPosition : value.length;
+    const pos = position !== null ? position : value.length;
 
     // Insert AI response at the saved position
     const before = value.substring(0, pos);
     const after = value.substring(pos);
-    textarea.value = before + aiMessage.text + after;
+    textarea.value = before + text + after;
 
     // Set cursor after inserted text
-    const newPos = pos + aiMessage.text.length;
+    const newPos = pos + text.length;
     textarea.setSelectionRange(newPos, newPos);
-
-    // Close modal
-    closeAiModal();
 
     // Trigger input event to update height
     const event = new Event('input', { bubbles: true });
@@ -951,11 +1085,11 @@ export default function ChatWindow() {
               </svg>
             </button>
             <span className="chat-header-icon">
-              {currentChat.type === 'channel' ? '#' : '💬'}
+              {currentChat.type === 'channel' ? '#' : currentChat.type === 'ai' ? '🤖' : '💬'}
             </span>
             <h1>{currentChat.name}</h1>
             <span className="chat-header-subtitle">
-              {currentChat.type === 'channel' ? 'Team chat' : 'Direct message'}
+              {currentChat.type === 'channel' ? 'Team chat' : currentChat.type === 'ai' ? 'AI Assistant' : 'Direct message'}
             </span>
             <div style={{ marginLeft: 'auto' }}>
               <NotificationBell
@@ -1022,7 +1156,12 @@ export default function ChatWindow() {
                     className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''}`}
                     onContextMenu={(e) => handleContextMenu(e, msg)}
                   >
-                    {!isSent && <div className="message-sender">{msg.sender}</div>}
+                    {!isSent && (
+                      <div className="message-sender">
+                        {msg.sender}
+                        <MessageTimestamp timestamp={msg.timestamp} />
+                      </div>
+                    )}
                     <div className="message">
                       {msg.replyTo && (
                         <div className="reply-preview" onClick={() => scrollToMessage(msg.replyTo.msgId)}>
@@ -1043,6 +1182,11 @@ export default function ChatWindow() {
                         <div className="text">
                           {linkifyText(msg.text)}
                           {msg.edited && <span className="edited-indicator"> (edited)</span>}
+                        </div>
+                      )}
+                      {isSent && (
+                        <div className="message-timestamp-sent">
+                          <MessageTimestamp timestamp={msg.timestamp} />
                         </div>
                       )}
                     </div>
@@ -1084,7 +1228,7 @@ export default function ChatWindow() {
                       <div className="emoji-panel" onClick={(e) => e.stopPropagation()}>
                         <div className="emoji-panel-title">Reactions</div>
                         <div className="emoji-grid">
-                          {['👍', '👎', '❤️', '🧡', '💛', '💚', '💙', '😂', '🤣', '😊', '😍', '🥰', '😘', '🤗', '🤔', '🤯', '😱', '😮', '😢', '😭', '😤', '🔥', '💯', '💪', '👏', '🙌', '🎉', '✨', '👀', '💀', '🤡', '💩'].map(emoji => (
+                          {ALL_EMOJIS.map(emoji => (
                             <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
                               {emoji}
                             </span>
@@ -1128,6 +1272,13 @@ export default function ChatWindow() {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {/* Read Receipt (only for sent DM messages) */}
+                    {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && (
+                      <div className="read-receipt">
+                        Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                       </div>
                     )}
                   </div>
@@ -1201,64 +1352,12 @@ export default function ChatWindow() {
           })()}
 
           {/* AI Chat Modal */}
-          {aiModalOpen && (
-            <>
-              <div className="ai-modal-overlay" onClick={closeAiModal} />
-              <div className="ai-modal">
-                <div className="ai-modal-header">
-                  <span>🤖</span>
-                  <h3>Ask Poppy</h3>
-                  <button className="ai-modal-close" onClick={closeAiModal}>✕</button>
-                </div>
-
-                <div className="ai-modal-body">
-                  <input
-                    ref={aiModalInputRef}
-                    type="text"
-                    className="ai-modal-input"
-                    value={aiModalInput}
-                    onChange={(e) => setAiModalInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        sendAiModalMessage();
-                      }
-                      if (e.key === 'Escape') {
-                        closeAiModal();
-                      }
-                    }}
-                    placeholder="What do you need help with?"
-                    disabled={aiModalProcessing}
-                  />
-
-                  {aiModalProcessing && (
-                    <div className="ai-modal-result loading">
-                      <div className="ai-typing">
-                        <span></span><span></span><span></span>
-                      </div>
-                      <span>Thinking...</span>
-                    </div>
-                  )}
-
-                  {!aiModalProcessing && aiModalChat.length > 0 && (
-                    <>
-                      <div className="ai-modal-result">
-                        {aiModalChat[0].text}
-                      </div>
-                      <div className="ai-modal-actions">
-                        <button onClick={insertAiResponse} className="ai-modal-btn primary">
-                          Insert
-                        </button>
-                        <button onClick={closeAiModal} className="ai-modal-btn secondary">
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+          <AIModal
+            isOpen={aiModalOpen}
+            onClose={closeAiModal}
+            onInsert={handleInsertAiResponse}
+            insertPosition={insertPosition}
+          />
 
           {/* Input Section */}
           <div className="input-section">

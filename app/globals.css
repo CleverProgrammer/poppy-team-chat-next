@@ -195,10 +195,28 @@ body {
   color: var(--text-secondary);
   margin-bottom: 4px;
   margin-left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .message-wrapper.sent .message-sender {
   display: none;
+}
+
+/* Message timestamps */
+.message-timestamp {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+.message-timestamp-sent {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+  text-align: right;
 }
 
 .message {
@@ -882,6 +900,14 @@ iframe[src*="vercel"] {
 
 .message-wrapper.sent .reactions-display {
   justify-content: flex-end;
+}
+
+.read-receipt {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  opacity: 0.7;
+  text-align: right;
 }
 
 .reaction-badge {
