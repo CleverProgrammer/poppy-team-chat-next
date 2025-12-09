@@ -429,3 +429,60 @@ export async function updateEmojiUsage(userId, emoji) {
     console.error('Error updating emoji usage:', error);
   }
 }
+
+// Mark DM messages as read
+export async function markDMMessagesAsRead(dmId, userId, messageIds) {
+  if (!dmId || !userId || !messageIds || messageIds.length === 0) return;
+
+  try {
+    const batch = [];
+    const messagesRef = collection(db, 'dms', dmId, 'messages');
+
+    for (const messageId of messageIds) {
+      const messageRef = doc(messagesRef, messageId);
+      batch.push(
+        updateDoc(messageRef, {
+          [`readBy.${userId}`]: serverTimestamp()
+        })
+      );
+    }
+
+    await Promise.all(batch);
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+  }
+}
+
+// AI Chat functions
+export async function sendAIMessage(userId, text, isAI = false) {
+  if (!userId || !text.trim()) return;
+
+  try {
+    const messagesRef = collection(db, 'aiChats', userId, 'messages');
+    await addDoc(messagesRef, {
+      text: text,
+      sender: isAI ? '🤖 Poppy AI' : null,
+      senderId: isAI ? 'ai' : userId,
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error sending AI message:', error);
+    throw error;
+  }
+}
+
+export function subscribeToAIMessages(userId, callback) {
+  const messagesRef = collection(db, 'aiChats', userId, 'messages');
+  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const messages = [];
+    snapshot.forEach((doc) => {
+      messages.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    callback(messages);
+  });
+}

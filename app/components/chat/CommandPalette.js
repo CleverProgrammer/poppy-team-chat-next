@@ -14,6 +14,10 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
     { type: 'channel', id: 'general', name: 'general', hint: 'Team chat' }
   ];
 
+  const AI_ASSISTANT = [
+    { type: 'ai', id: 'poppy-ai', name: 'Poppy AI', hint: 'Chat with AI assistant' }
+  ];
+
   useEffect(() => {
     if (isOpen) {
       setQuery('');
@@ -27,6 +31,15 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
 
     const searchQuery = query.toLowerCase();
     let items = [];
+
+    // Filter AI Assistant
+    const matchingAI = AI_ASSISTANT.filter(a =>
+      a.name.toLowerCase().includes(searchQuery) ||
+      a.hint.toLowerCase().includes(searchQuery) ||
+      'ai'.includes(searchQuery) ||
+      'poppy'.includes(searchQuery)
+    );
+    items.push(...matchingAI.map(a => ({ ...a, type: 'ai' })));
 
     // Filter channels
     const matchingChannels = CHANNELS.filter(c =>
@@ -66,6 +79,8 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
   const handleSelect = (item) => {
     if (item.type === 'channel') {
       onSelectChat({ type: 'channel', id: item.id, name: item.name });
+    } else if (item.type === 'ai') {
+      onSelectChat({ type: 'ai', id: item.id, name: item.name });
     } else if (item.type === 'user') {
       onSelectChat({ type: 'dm', id: item.user.uid, name: item.user.displayName || item.user.email, user: item.user });
     }
@@ -74,6 +89,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
 
   if (!isOpen) return null;
 
+  const aiItems = filteredItems.filter(i => i.type === 'ai');
   const channels = filteredItems.filter(i => i.type === 'channel');
   const users = filteredItems.filter(i => i.type === 'user');
 
@@ -96,6 +112,27 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
             </div>
           ) : (
             <>
+              {aiItems.length > 0 && (
+                <div className="cmd-palette-section">
+                  <div className="cmd-palette-section-title">AI Assistant</div>
+                  {aiItems.map((item) => {
+                    const globalIdx = filteredItems.indexOf(item);
+                    return (
+                      <div
+                        key={`ai-${item.id}`}
+                        className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
+                        onClick={() => handleSelect(item)}
+                      >
+                        <div className="cmd-palette-item-icon" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '50%' }}>🤖</div>
+                        <div className="cmd-palette-item-info">
+                          <div className="cmd-palette-item-name">{item.name}</div>
+                          <div className="cmd-palette-item-hint">{item.hint}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {channels.length > 0 && (
                 <div className="cmd-palette-section">
                   <div className="cmd-palette-section-title">Channels</div>

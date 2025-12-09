@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
 import { Howl } from 'howler';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import NotificationBell from '../notifications/NotificationBell';
 import AIModal from './AIModal';
 import MessageTimestamp from './MessageTimestamp';
+import ImagePreviewModal from './ImagePreviewModal';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage, markDMMessagesAsRead } from '../../lib/firestore';
+import { useImageUpload } from '../../hooks/useImageUpload';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage, markDMMessagesAsRead, sendAIMessage, subscribeToAIMessages } from '../../lib/firestore';
 import { linkifyText } from '../../utils/messageFormatting';
 import { DEFAULT_EMOJIS, ALL_EMOJIS } from '../../constants/emojis';
 
@@ -24,9 +25,6 @@ export default function ChatWindow() {
   const [activeDMs, setActiveDMs] = useState([]);
   const [unreadChats, setUnreadChats] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [previewModalImage, setPreviewModalImage] = useState(null);
   const [openEmojiPanel, setOpenEmojiPanel] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
@@ -39,6 +37,19 @@ export default function ChatWindow() {
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [insertPosition, setInsertPosition] = useState(null); // Cursor position to insert at
+
+  // Image upload hook
+  const {
+    imagePreview,
+    imageFile,
+    uploading,
+    setUploading,
+    handleRemoveImage,
+    clearImage,
+    dropzoneProps
+  } = useImageUpload();
+  const { getRootProps, getInputProps, isDragActive } = dropzoneProps;
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
@@ -127,20 +138,10 @@ export default function ChatWindow() {
         setMessages(newMessages);
       });
     } else if (currentChat.type === 'ai') {
-      // Load AI chat history from localStorage
-      const savedMessages = localStorage.getItem('poppy-ai-chat');
-      if (savedMessages) {
-        setMessages(JSON.parse(savedMessages));
-      } else {
-        // Welcome message
-        setMessages([{
-          id: 'welcome',
-          sender: '🤖 Poppy AI',
-          senderId: 'ai',
-          text: "Hi! I'm Poppy, your AI assistant. Ask me anything!",
-          timestamp: new Date()
-        }]);
-      }
+      // Subscribe to AI chat messages from Firestore
+      unsubscribe = subscribeToAIMessages(user.uid, (newMessages) => {
+        setMessages(newMessages);
+      });
     }
 
     return () => unsubscribe?.();
@@ -263,62 +264,6 @@ export default function ChatWindow() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [previewModalImage, replyingTo, editingMessage, messages, user]);
 
-  // Paste image handler
-  useEffect(() => {
-    const handlePaste = (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          e.preventDefault();
-          const file = items[i].getAsFile();
-          if (file) {
-            handleImageSelect(file);
-          }
-          break;
-        }
-      }
-    };
-
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, []);
-
-  // Drag and drop handler
-  const onDrop = useCallback((acceptedFiles) => {
-    if (acceptedFiles.length > 0) {
-      const file = acceptedFiles[0];
-      if (file.type.startsWith('image/')) {
-        handleImageSelect(file);
-      }
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
-    },
-    multiple: false,
-    noClick: true,
-    noKeyboard: true
-  });
-
-  const handleImageSelect = (file) => {
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-  };
-
   const handleSend = async () => {
     // Get the actual value from the textarea
     const messageText = inputRef.current?.value || '';
@@ -356,8 +301,7 @@ export default function ChatWindow() {
     const currentImageFile = imageFile;
     const currentReplyingTo = replyingTo;
 
-    setImageFile(null);
-    setImagePreview(null);
+    clearImage();
     setReplyingTo(null);
 
     if (inputRef.current) {
@@ -380,26 +324,11 @@ export default function ChatWindow() {
       }
 
       if (currentChat.type === 'ai') {
-        // Direct AI chat - save to localStorage and get AI response
-        const userMessage = {
-          id: `user-${Date.now()}`,
-          sender: user.displayName || user.email,
-          senderId: user.uid,
-          text: messageText,
-          timestamp: new Date(),
-          photoURL: user.photoURL || ''
-        };
-
-        // Replace optimistic message with real one
-        const updatedMessages = messages.filter(msg => msg.id !== optimisticId);
-        updatedMessages.push(userMessage);
-        setMessages(updatedMessages);
-
-        // Save to localStorage
-        localStorage.setItem('poppy-ai-chat', JSON.stringify(updatedMessages));
+        // Send user message to Firestore
+        await sendAIMessage(user.uid, messageText, false);
 
         // Get AI response
-        await askPoppyDirectly(messageText, updatedMessages);
+        await askPoppyDirectly(messageText);
       } else if (currentChat.type === 'channel') {
         // Check if replying
         if (currentReplyingTo) {
@@ -567,23 +496,10 @@ export default function ChatWindow() {
   };
 
   // AI Function - Direct chat with Poppy (for AI chat type)
-  const askPoppyDirectly = async (userQuestion, currentMessages) => {
+  const askPoppyDirectly = async (userQuestion) => {
     if (aiProcessing) return;
 
     setAiProcessing(true);
-
-    // Show AI typing indicator
-    const typingId = `ai-typing-${Date.now()}`;
-    const typingMessage = {
-      id: typingId,
-      sender: '🤖 Poppy AI',
-      senderId: 'ai',
-      text: '',
-      timestamp: new Date(),
-      isTyping: true
-    };
-    setMessages(prev => [...prev, typingMessage]);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
 
     try {
       console.log('🤖 Poppy AI: Calling API for direct chat...');
@@ -592,7 +508,7 @@ export default function ChatWindow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userQuestion,
-          chatHistory: currentMessages.slice(-10) // Last 10 messages for context
+          chatHistory: messages.slice(-10).map(m => ({ role: m.senderId === 'ai' ? 'assistant' : 'user', text: m.text }))
         })
       });
 
@@ -603,45 +519,15 @@ export default function ChatWindow() {
       const data = await response.json();
       const aiResponse = data.response;
 
-      // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.id !== typingId));
-
-      // Add AI response message
-      const aiMessage = {
-        id: `ai-${Date.now()}`,
-        sender: '🤖 Poppy AI',
-        senderId: 'ai',
-        text: aiResponse,
-        timestamp: new Date()
-      };
-
-      const updatedMessages = [...currentMessages, aiMessage];
-      setMessages(updatedMessages);
-
-      // Save to localStorage
-      localStorage.setItem('poppy-ai-chat', JSON.stringify(updatedMessages));
+      // Save AI response to Firestore
+      await sendAIMessage(user.uid, aiResponse, true);
 
       console.log('🤖 Poppy AI: Response added to direct chat');
     } catch (error) {
       console.error('🤖 Poppy AI: Error:', error);
 
-      // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.id !== typingId));
-
-      // Add error message
-      const errorMessage = {
-        id: `ai-error-${Date.now()}`,
-        sender: '🤖 Poppy AI',
-        senderId: 'ai',
-        text: `Sorry, I had a problem: ${error.message}. Try again! 🤖`,
-        timestamp: new Date()
-      };
-
-      const updatedMessages = [...currentMessages, errorMessage];
-      setMessages(updatedMessages);
-
-      // Save to localStorage
-      localStorage.setItem('poppy-ai-chat', JSON.stringify(updatedMessages));
+      // Save error message to Firestore
+      await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, true);
     } finally {
       setAiProcessing(false);
     }
@@ -1035,20 +921,10 @@ export default function ChatWindow() {
       />
 
       {/* Image Preview Modal */}
-      {previewModalImage && (
-        <div className="image-modal" onClick={() => setPreviewModalImage(null)}>
-          <div className="image-modal-content">
-            <img src={previewModalImage} alt="Preview" />
-            <button
-              className="image-modal-close"
-              onClick={() => setPreviewModalImage(null)}
-              aria-label="Close preview"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+      <ImagePreviewModal
+        imageUrl={previewModalImage}
+        onClose={() => setPreviewModalImage(null)}
+      />
 
       <div className="app-container">
         {/* Mobile Backdrop */}
@@ -1114,7 +990,7 @@ export default function ChatWindow() {
                 <p>Welcome to the chat! Start a conversation.</p>
               </div>
             ) : (
-              messages.map((msg) => {
+              messages.map((msg, index) => {
                 // Handle AI typing indicator
                 if (msg.isTyping) {
                   return (
@@ -1275,10 +1151,15 @@ export default function ChatWindow() {
                       </div>
                     )}
 
-                    {/* Read Receipt (only for sent DM messages) */}
-                    {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && (
+                    {/* Read Receipt (only for most recent sent DM message) */}
+                    {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && index === messages.length - 1 && (
                       <div className="read-receipt">
-                        Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                        <img
+                          src={currentChat.user?.photoURL || ''}
+                          alt={currentChat.user?.displayName || 'User'}
+                          className="read-receipt-avatar"
+                        />
                       </div>
                     )}
                   </div>

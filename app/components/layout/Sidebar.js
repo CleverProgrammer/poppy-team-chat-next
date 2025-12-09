@@ -40,6 +40,21 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
         </div>
       </div>
 
+      {/* Poppy AI Chat Section */}
+      <div className="sidebar-section">
+        <div className="sidebar-section-title">AI Assistant</div>
+        <div
+          className={`dm-item ${currentChat?.type === 'ai' ? 'active' : ''}`}
+          onClick={() => onSelectChat({ type: 'ai', id: 'poppy-ai', name: '🤖 Poppy AI' })}
+        >
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+            🤖
+          </div>
+          <span>Poppy AI</span>
+          {unreadChats.includes('ai:poppy-ai') && <div className="unread-badge" />}
+        </div>
+      </div>
+
       {/* Direct Messages Section */}
       {activeDMs.length > 0 && (
         <div className="sidebar-section">
