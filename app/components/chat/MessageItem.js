@@ -193,29 +193,18 @@ export default function MessageItem({
         </div>
       )}
 
-      {/* Read Receipt - Show for last message from each sender in DM */}
-      {currentChat.type === 'dm' && msg.readBy && isLastMessageFromSender && (() => {
-        // Determine the recipient (the other person in the DM)
-        const recipientId = isSent ? currentChat.id : user.uid;
-        const readTimestamp = msg.readBy[recipientId];
-
-        if (!readTimestamp) return null;
-
-        // Get the recipient's user data for avatar
-        const recipientUser = isSent ? currentChat.user : (allUsers.find(u => u.uid === user.uid) || user);
-
-        return (
-          <div className="read-receipt">
-            <span className="read-text">Read {new Date(readTimestamp.seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
-            <img
-              key={`avatar-${readTimestamp.seconds}`}
-              src={recipientUser?.photoURL || ''}
-              alt={recipientUser?.displayName || 'User'}
-              className="read-receipt-avatar"
-            />
-          </div>
-        );
-      })()}
+      {/* Read Receipt - Only show on messages I sent that were read by the other person */}
+      {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && isLastMessageFromSender && (
+        <div className="read-receipt">
+          <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+          <img
+            key={`avatar-${msg.readBy[currentChat.id].seconds}`}
+            src={currentChat.user?.photoURL || ''}
+            alt={currentChat.user?.displayName || 'User'}
+            className="read-receipt-avatar"
+          />
+        </div>
+      )}
     </div>
   );
 }
