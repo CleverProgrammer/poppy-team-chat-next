@@ -6,32 +6,29 @@ import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
 import NotificationBell from '../notifications/NotificationBell';
 import AIModal from './AIModal';
-import MessageTimestamp from './MessageTimestamp';
 import ImagePreviewModal from './ImagePreviewModal';
+import MessageItem from './MessageItem';
 import { useAuth } from '../../contexts/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage, markDMMessagesAsRead, sendAIMessage, subscribeToAIMessages } from '../../lib/firestore';
+import { useReactions } from '../../hooks/useReactions';
+import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, markDMMessagesAsRead, sendAIMessage, subscribeToAIMessages } from '../../lib/firestore';
 import { linkifyText } from '../../utils/messageFormatting';
-import { DEFAULT_EMOJIS, ALL_EMOJIS } from '../../constants/emojis';
 
 export default function ChatWindow() {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
-  const [currentChat, setCurrentChat] = useState({ type: 'channel', id: 'general', name: 'general' });
+  const [currentChat, setCurrentChat] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [activeDMs, setActiveDMs] = useState([]);
   const [unreadChats, setUnreadChats] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [previewModalImage, setPreviewModalImage] = useState(null);
-  const [openEmojiPanel, setOpenEmojiPanel] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
-  const [emojiUsage, setEmojiUsage] = useState({});
-  const [topReactions, setTopReactions] = useState(DEFAULT_EMOJIS);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [mentionMenu, setMentionMenu] = useState(null); // { type: 'mention' | 'command', position: number, query: string }
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
@@ -50,6 +47,15 @@ export default function ChatWindow() {
   } = useImageUpload();
   const { getRootProps, getInputProps, isDragActive } = dropzoneProps;
 
+  // Reactions hook
+  const {
+    topReactions,
+    openEmojiPanel,
+    handleAddReaction,
+    toggleEmojiPanel,
+    setOpenEmojiPanel
+  } = useReactions(user, currentChat);
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const markChatAsReadRef = useRef(null);
@@ -61,20 +67,19 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!user) return;
 
-    // Add a small delay to ensure Firestore has time to sync
-    const timer = setTimeout(() => {
-      getCurrentChat(user.uid).then((savedChat) => {
-        if (savedChat) {
-          setCurrentChat(savedChat);
-          // If it's a DM, add to active DMs
-          if (savedChat.type === 'dm') {
-            addActiveDM(user.uid, savedChat.id);
-          }
+    // Load saved chat or default to general channel
+    getCurrentChat(user.uid).then((savedChat) => {
+      if (savedChat) {
+        setCurrentChat(savedChat);
+        // If it's a DM, add to active DMs
+        if (savedChat.type === 'dm') {
+          addActiveDM(user.uid, savedChat.id);
         }
-      });
-    }, 500);
-
-    return () => clearTimeout(timer);
+      } else {
+        // Default to general channel if no saved chat
+        setCurrentChat({ type: 'channel', id: 'general', name: 'general' });
+      }
+    });
   }, [user]);
 
   // Load all users
@@ -92,28 +97,6 @@ export default function ChatWindow() {
     discoverExistingDMs(user.uid);
   }, [user]);
 
-  // Load emoji usage from Firestore
-  useEffect(() => {
-    if (!user) return;
-
-    getEmojiUsage(user.uid).then((usage) => {
-      setEmojiUsage(usage);
-    });
-  }, [user]);
-
-  // Sort topReactions based on emoji usage
-  useEffect(() => {
-    // Sort by usage count (descending)
-    const sortedEmojis = ALL_EMOJIS.sort((a, b) => {
-      const countA = emojiUsage[a] || 0;
-      const countB = emojiUsage[b] || 0;
-      return countB - countA;
-    });
-
-    // Take top 10
-    setTopReactions(sortedEmojis.slice(0, 10));
-  }, [emojiUsage]);
-
   // Subscribe to active DMs from Firestore
   useEffect(() => {
     if (!user) return;
@@ -126,6 +109,8 @@ export default function ChatWindow() {
 
   // Subscribe to messages based on current chat
   useEffect(() => {
+    if (!currentChat || !user) return;
+
     let unsubscribe;
 
     if (currentChat.type === 'channel') {
@@ -769,34 +754,6 @@ export default function ChatWindow() {
     markChatAsReadRef.current = markReadFn;
   };
 
-  // Reaction handlers
-  const handleAddReaction = async (messageId, emoji) => {
-    if (!user) return;
-
-    const isDM = currentChat.type === 'dm';
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
-
-    try {
-      await addReaction(chatId, messageId, user.uid, emoji, isDM);
-      setOpenEmojiPanel(null);
-
-      // Update emoji usage count
-      await updateEmojiUsage(user.uid, emoji);
-
-      // Update local state to reflect new usage immediately
-      setEmojiUsage(prev => ({
-        ...prev,
-        [emoji]: (prev[emoji] || 0) + 1
-      }));
-    } catch (error) {
-      console.error('Error adding reaction:', error);
-    }
-  };
-
-  const toggleEmojiPanel = (messageId) => {
-    setOpenEmojiPanel(openEmojiPanel === messageId ? null : messageId);
-  };
-
   // Reply handlers
   const startReply = (messageId, sender, text) => {
     setReplyingTo({ msgId: messageId, sender, text });
@@ -885,20 +842,14 @@ export default function ChatWindow() {
     });
   };
 
-  // Close context menu and emoji panel on click outside
+  // Close context menu on click outside
   useEffect(() => {
-    const handleClick = (e) => {
-      // Don't close if clicking inside emoji panel or the more reactions button
-      if (e.target.closest('.emoji-panel') || e.target.closest('.more-reactions-btn')) {
-        return;
-      }
+    const handleClick = () => {
       setContextMenu(null);
-      setOpenEmojiPanel(null);
     };
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
         setContextMenu(null);
-        setOpenEmojiPanel(null);
       }
     };
 
@@ -910,6 +861,11 @@ export default function ChatWindow() {
       document.removeEventListener('keydown', handleEscape);
     };
   }, []);
+
+  // Show loading state while currentChat is being loaded
+  if (!currentChat) {
+    return <div className="loading-state">Loading...</div>;
+  }
 
   return (
     <>
@@ -990,181 +946,28 @@ export default function ChatWindow() {
                 <p>Welcome to the chat! Start a conversation.</p>
               </div>
             ) : (
-              messages.map((msg, index) => {
-                // Handle AI typing indicator
-                if (msg.isTyping) {
-                  return (
-                    <div key={msg.id} className="message-wrapper received ai-typing">
-                      <div className="message-sender">{msg.sender}</div>
-                      <div className="message">
-                        <div className="ai-typing-indicator">
-                          <span></span><span></span><span></span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                const isSent = msg.senderId === user?.uid;
-                const reactions = msg.reactions || {};
-                const reactionCounts = {};
-                const userReactedWith = {};
-
-                // Count reactions
-                Object.entries(reactions).forEach(([userId, emoji]) => {
-                  if (!reactionCounts[emoji]) {
-                    reactionCounts[emoji] = { count: 0, userIds: [] };
-                  }
-                  reactionCounts[emoji].count++;
-                  reactionCounts[emoji].userIds.push(userId);
-                  if (userId === user?.uid) {
-                    userReactedWith[emoji] = true;
-                  }
-                });
-
-                const isReplyTarget = replyingTo?.msgId === msg.id;
-
-                return (
-                  <div
-                    key={msg.id}
-                    ref={el => messageRefs.current[msg.id] = el}
-                    data-msg-id={msg.id}
-                    className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''}`}
-                    onContextMenu={(e) => handleContextMenu(e, msg)}
-                  >
-                    {!isSent && (
-                      <div className="message-sender">
-                        {msg.sender}
-                        <MessageTimestamp timestamp={msg.timestamp} />
-                      </div>
-                    )}
-                    <div className="message">
-                      {msg.replyTo && (
-                        <div className="reply-preview" onClick={() => scrollToMessage(msg.replyTo.msgId)}>
-                          <div className="reply-sender">{msg.replyTo.sender}</div>
-                          <div className="reply-text">{msg.replyTo.text}</div>
-                        </div>
-                      )}
-                      {msg.imageUrl && (
-                        <img
-                          src={msg.imageUrl}
-                          alt="Shared image"
-                          className="message-image"
-                          loading="lazy"
-                          onClick={() => setPreviewModalImage(msg.imageUrl)}
-                        />
-                      )}
-                      {msg.text && (
-                        <div className="text">
-                          {linkifyText(msg.text)}
-                          {msg.edited && <span className="edited-indicator"> (edited)</span>}
-                        </div>
-                      )}
-                      {isSent && (
-                        <div className="message-timestamp-sent">
-                          <MessageTimestamp timestamp={msg.timestamp} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick Reactions */}
-                    <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
-                      {/* First Row: Reply + Edit (if own message) + 5 emojis */}
-                      <div className="quick-reactions-row">
-                        <button className="reply-btn" onClick={() => startReply(msg.id, msg.sender, msg.text)} title="Reply">
-                          ↩
-                        </button>
-                        {isSent && (
-                          <button className="edit-btn" onClick={() => startEdit(msg.id, msg.text)} title="Edit">
-                            ✎
-                          </button>
-                        )}
-                        {topReactions.slice(0, isSent ? 4 : 5).map(emoji => (
-                          <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
-                            {emoji}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Second Row: 5 emojis + More button */}
-                      <div className="quick-reactions-row">
-                        {topReactions.slice(isSent ? 4 : 5, 10).map(emoji => (
-                          <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
-                            {emoji}
-                          </span>
-                        ))}
-                        <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); toggleEmojiPanel(msg.id); }}>
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Emoji Panel */}
-                    {openEmojiPanel === msg.id && (
-                      <div className="emoji-panel" onClick={(e) => e.stopPropagation()}>
-                        <div className="emoji-panel-title">Reactions</div>
-                        <div className="emoji-grid">
-                          {ALL_EMOJIS.map(emoji => (
-                            <span key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}>
-                              {emoji}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Reactions Display */}
-                    {Object.keys(reactionCounts).length > 0 && (
-                      <div className="reactions-display">
-                        {Object.entries(reactionCounts).map(([emoji, data]) => {
-                          const reactedUsers = data.userIds.map(uid => allUsers.find(u => u.uid === uid)).filter(Boolean);
-
-                          return (
-                            <div
-                              key={emoji}
-                              className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''}`}
-                              onClick={() => handleAddReaction(msg.id, emoji)}
-                            >
-                              {emoji}
-                              <span className="count">{data.count}</span>
-
-                              {/* Reaction tooltip with user avatars */}
-                              <div className="reaction-tooltip">
-                                <div className="reaction-tooltip-avatars">
-                                  {reactedUsers.map(user => (
-                                    <img
-                                      key={user.uid}
-                                      src={user.photoURL || ''}
-                                      alt={user.displayName}
-                                      className="reaction-tooltip-avatar"
-                                      title={user.displayName || user.email}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="reaction-tooltip-names">
-                                  {reactedUsers.map(u => u.displayName || u.email).join(', ')}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Read Receipt (only for most recent sent DM message) */}
-                    {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && index === messages.length - 1 && (
-                      <div className="read-receipt">
-                        <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
-                        <img
-                          src={currentChat.user?.photoURL || ''}
-                          alt={currentChat.user?.displayName || 'User'}
-                          className="read-receipt-avatar"
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+              messages.map((msg, index) => (
+                <MessageItem
+                  key={msg.id}
+                  msg={msg}
+                  index={index}
+                  totalMessages={messages.length}
+                  user={user}
+                  currentChat={currentChat}
+                  allUsers={allUsers}
+                  replyingTo={replyingTo}
+                  topReactions={topReactions}
+                  openEmojiPanel={openEmojiPanel}
+                  onReply={startReply}
+                  onEdit={startEdit}
+                  onAddReaction={handleAddReaction}
+                  onToggleEmojiPanel={toggleEmojiPanel}
+                  onImageClick={setPreviewModalImage}
+                  onScrollToMessage={scrollToMessage}
+                  onContextMenu={handleContextMenu}
+                  messageRef={el => messageRefs.current[msg.id] = el}
+                />
+              ))
             )}
             <div ref={messagesEndRef} />
           </div>
