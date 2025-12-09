@@ -7,29 +7,7 @@ import CommandPalette from './CommandPalette';
 import NotificationBell from '../notifications/NotificationBell';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, addReaction, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, getEmojiUsage, updateEmojiUsage } from '../../lib/firestore';
-
-// Helper function to linkify URLs in text
-function linkifyText(text) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
-
-  return parts.map((part, index) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="message-link"
-        >
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
-}
+import { linkifyText } from '../../utils/messageFormatting';
 
 // Default emoji set - matching the quick reactions layout
 const defaultEmojis = ['🤩', '❤️', '😊', '😱', '🔥', '💪', '👏', '🙌', '🎉', '✨'];
