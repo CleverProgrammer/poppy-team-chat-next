@@ -185,8 +185,8 @@ mcpManager.addServer('notion', {
     '@notionhq/notion-mcp-server'
   ],
   env: {
-    // Notion API key should be set in .env.local as NOTION_API_KEY
-    NOTION_API_KEY: process.env.NOTION_API_KEY || ''
+    // Notion MCP server expects NOTION_TOKEN env var
+    NOTION_TOKEN: process.env.NOTION_API_KEY || ''
   }
 });
 
