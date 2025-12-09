@@ -194,7 +194,7 @@ export default function ChatWindow() {
 
   // Mark DM messages as read when viewing them
   useEffect(() => {
-    if (!user || currentChat.type !== 'dm' || messages.length === 0) return;
+    if (!user || !currentChat || currentChat.type !== 'dm' || messages.length === 0) return;
 
     // Find unread messages (messages from the other person that haven't been read by me)
     const unreadMessages = messages.filter(msg =>
