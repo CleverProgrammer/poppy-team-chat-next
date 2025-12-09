@@ -17,7 +17,7 @@ import { useMessageSending } from '../../hooks/useMessageSending';
 import { useMentionMenu } from '../../hooks/useMentionMenu';
 import { useSubscriptions } from '../../hooks/useSubscriptions';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { getDMId, saveCurrentChat, deleteMessage, addActiveDM } from '../../lib/firestore';
+import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -176,13 +176,9 @@ export default function ChatWindow() {
     setCurrentChat(chat);
     setIsSidebarOpen(false); // Close sidebar on mobile after selecting chat
 
-    // Clear unread badge for this chat
-    const chatId = chat.type === 'channel' ? `channel:${chat.id}` : `dm:${chat.id}`;
-    setUnreadChats(prev => prev.filter(id => id !== chatId));
-
-    // Mark notifications as read in Knock
-    if (markChatAsReadRef.current) {
-      markChatAsReadRef.current(chat.type, chat.id);
+    // Mark this chat as read in Firestore
+    if (user) {
+      markChatAsRead(user.uid, chat.type, chat.id);
     }
 
     // Add to active DMs if it's a DM
@@ -287,6 +283,22 @@ export default function ChatWindow() {
       message
     });
   };
+
+  // Subscribe to unread chats
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('🔔 Subscribing to unread chats for user:', user.uid);
+    const unsubscribe = subscribeToUnreadChats(user.uid, (unreadChats) => {
+      console.log('📬 Unread chats updated:', unreadChats);
+      setUnreadChats(unreadChats);
+    });
+
+    return () => {
+      console.log('🔕 Unsubscribing from unread chats');
+      unsubscribe();
+    };
+  }, [user]);
 
   // Close context menu on click outside
   useEffect(() => {

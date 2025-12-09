@@ -533,3 +533,71 @@ export function subscribeToTypingStatus(dmId, otherUserId, callback) {
     callback(false);
   });
 }
+
+// Unread tracking functions
+export async function markChatAsRead(userId, chatType, chatId) {
+  if (!userId || !chatType || !chatId) return;
+
+  try {
+    const unreadRef = doc(db, 'unread', userId);
+    const chatKey = `${chatType}:${chatId}`;
+
+    await setDoc(unreadRef, {
+      [chatKey]: {
+        lastRead: serverTimestamp(),
+        read: true
+      }
+    }, { merge: true });
+
+    console.log(`✅ Marked ${chatKey} as read for user ${userId}`);
+  } catch (error) {
+    console.error('Error marking chat as read:', error);
+  }
+}
+
+export async function markChatAsUnread(userId, chatType, chatId) {
+  if (!userId || !chatType || !chatId) return;
+
+  try {
+    const unreadRef = doc(db, 'unread', userId);
+    const chatKey = `${chatType}:${chatId}`;
+
+    await setDoc(unreadRef, {
+      [chatKey]: {
+        lastMessageTime: serverTimestamp(),
+        read: false
+      }
+    }, { merge: true });
+
+    console.log(`🔵 Marked ${chatKey} as unread for user ${userId}`);
+  } catch (error) {
+    console.error('Error marking chat as unread:', error);
+  }
+}
+
+export function subscribeToUnreadChats(userId, callback) {
+  if (!userId) return () => {};
+
+  const unreadRef = doc(db, 'unread', userId);
+
+  return onSnapshot(unreadRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      const unreadChats = [];
+
+      // Iterate through all chat keys and find unread ones
+      Object.keys(data).forEach(chatKey => {
+        if (data[chatKey].read === false) {
+          unreadChats.push(chatKey);
+        }
+      });
+
+      callback(unreadChats);
+    } else {
+      callback([]);
+    }
+  }, (error) => {
+    console.error('Error subscribing to unread chats:', error);
+    callback([]);
+  });
+}

@@ -12,7 +12,8 @@ import {
   sendMessageDMWithReply,
   editMessage,
   sendAIMessage,
-  setUserTyping
+  setUserTyping,
+  markChatAsUnread
 } from '../lib/firestore';
 
 export function useMessageSending({
@@ -174,6 +175,13 @@ export function useMessageSending({
           }
         }
 
+        // Mark as unread for all other users
+        allUsers.forEach(otherUser => {
+          if (otherUser.uid !== user.uid) {
+            markChatAsUnread(otherUser.uid, 'channel', currentChat.id);
+          }
+        });
+
         // Trigger notification
         fetch('/api/notify-channel', {
           method: 'POST',
@@ -204,6 +212,9 @@ export function useMessageSending({
             await sendMessageDM(dmId, user, messageText, currentChat.id);
           }
         }
+
+        // Mark as unread for the recipient
+        markChatAsUnread(currentChat.id, 'dm', user.uid);
 
         // Trigger notification
         fetch('/api/notify-dm', {

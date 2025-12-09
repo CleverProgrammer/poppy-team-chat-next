@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { sendMessage, sendMessageDM, getDMId, sendAIMessage } from '../lib/firestore';
+import { sendMessage, sendMessageDM, getDMId, sendAIMessage, markChatAsUnread } from '../lib/firestore';
 
 const AI_USER = {
   uid: 'ai',
@@ -106,12 +106,18 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
       // Save AI response to Firestore
       await sendAIMessage(user.uid, aiResponse, true);
 
+      // Mark AI chat as unread for the user
+      markChatAsUnread(user.uid, 'ai', 'poppy-ai');
+
       console.log('🤖 Poppy AI: Response added to direct chat');
     } catch (error) {
       console.error('🤖 Poppy AI: Error:', error);
 
       // Save error message to Firestore
       await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, true);
+
+      // Mark AI chat as unread for the user
+      markChatAsUnread(user.uid, 'ai', 'poppy-ai');
     } finally {
       setAiProcessing(false);
     }
