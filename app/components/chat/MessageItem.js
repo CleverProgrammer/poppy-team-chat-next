@@ -1,7 +1,7 @@
 'use client';
 
 import MessageTimestamp from './MessageTimestamp';
-import { linkifyText } from '../../utils/messageFormatting';
+import { linkifyText, isSingleEmoji } from '../../utils/messageFormatting';
 import { ALL_EMOJIS } from '../../constants/emojis';
 
 export default function MessageItem({
@@ -42,6 +42,7 @@ export default function MessageItem({
   const reactions = msg.reactions || {};
   const reactionCounts = {};
   const userReactedWith = {};
+  const isJumboEmoji = msg.text && !msg.imageUrl && isSingleEmoji(msg.text);
 
   // Count reactions
   Object.entries(reactions).forEach(([userId, emoji]) => {
@@ -65,6 +66,91 @@ export default function MessageItem({
       isLastMessageFromSender = false;
       break;
     }
+  }
+
+  // Render jumbo emoji differently (no bubble)
+  if (isJumboEmoji) {
+    return (
+      <div
+        ref={messageRef}
+        data-msg-id={msg.id}
+        className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper`}
+        onContextMenu={(e) => onContextMenu(e, msg)}
+      >
+        <div className="jumbo-emoji">
+          {msg.text}
+        </div>
+        {isSent && (
+          <div className="message-timestamp-sent">
+            <MessageTimestamp timestamp={msg.timestamp} />
+          </div>
+        )}
+        {!isSent && (
+          <div className="message-timestamp-received">
+            <MessageTimestamp timestamp={msg.timestamp} />
+          </div>
+        )}
+
+        {/* Quick Reactions for jumbo emoji */}
+        <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
+          <div className="quick-reactions-row">
+            <button className="reply-btn" onClick={() => onReply(msg.id, msg.sender, msg.text)} title="Reply">
+              ↩
+            </button>
+            {isSent && (
+              <button className="edit-btn" onClick={() => onEdit(msg.id, msg.text)} title="Edit">
+                ✎
+              </button>
+            )}
+            {topReactions.slice(0, isSent ? 4 : 5).map(emoji => (
+              <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
+                {emoji}
+              </span>
+            ))}
+          </div>
+          <div className="quick-reactions-row">
+            {topReactions.slice(isSent ? 4 : 5, 10).map(emoji => (
+              <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
+                {emoji}
+              </span>
+            ))}
+            <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); onToggleEmojiPanel(msg.id); }}>
+              +
+            </button>
+          </div>
+        </div>
+
+        {/* Emoji Panel */}
+        {openEmojiPanel === msg.id && (
+          <div className="emoji-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="emoji-panel-title">Reactions</div>
+            <div className="emoji-grid">
+              {ALL_EMOJIS.map(emoji => (
+                <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
+                  {emoji}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reaction Badges */}
+        {Object.keys(reactionCounts).length > 0 && (
+          <div className="reactions-display">
+            {Object.entries(reactionCounts).map(([emoji, data]) => (
+              <div
+                key={emoji}
+                className={`reaction-badge ${userReactedWith[emoji] ? 'user-reacted' : ''}`}
+                onClick={() => onAddReaction(msg.id, emoji)}
+              >
+                <span>{emoji}</span>
+                <span className="reaction-count">{data.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -102,12 +188,12 @@ export default function MessageItem({
             {msg.edited && <span className="edited-indicator"> (edited)</span>}
           </div>
         )}
-        {isSent && (
-          <div className="message-timestamp-sent">
-            <MessageTimestamp timestamp={msg.timestamp} />
-          </div>
-        )}
       </div>
+      {isSent && (
+        <div className="message-timestamp-sent">
+          <MessageTimestamp timestamp={msg.timestamp} />
+        </div>
+      )}
 
       {/* Quick Reactions */}
       <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
@@ -198,7 +284,6 @@ export default function MessageItem({
         <div className="read-receipt">
           <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
           <img
-            key={`avatar-${msg.readBy[currentChat.id].seconds}`}
             src={currentChat.user?.photoURL || ''}
             alt={currentChat.user?.displayName || 'User'}
             className="read-receipt-avatar"

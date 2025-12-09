@@ -491,3 +491,45 @@ export function subscribeToAIMessages(userId, callback) {
     callback(messages);
   });
 }
+
+// Typing indicator functions
+export async function setUserTyping(dmId, userId, isTyping) {
+  if (!dmId || !userId) return;
+
+  try {
+    const typingRef = doc(db, 'typing', dmId);
+    await setDoc(typingRef, {
+      [userId]: isTyping ? serverTimestamp() : null
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error setting typing status:', error);
+  }
+}
+
+export function subscribeToTypingStatus(dmId, otherUserId, callback) {
+  if (!dmId || !otherUserId) return () => {};
+
+  const typingRef = doc(db, 'typing', dmId);
+
+  return onSnapshot(typingRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      const typingTimestamp = data?.[otherUserId];
+
+      if (typingTimestamp) {
+        // Check if typing timestamp is recent (within 3 seconds)
+        const now = Date.now();
+        const typingTime = typingTimestamp.seconds * 1000;
+        const isTyping = (now - typingTime) < 3000;
+        callback(isTyping);
+      } else {
+        callback(false);
+      }
+    } else {
+      callback(false);
+    }
+  }, (error) => {
+    console.error('Error subscribing to typing status:', error);
+    callback(false);
+  });
+}

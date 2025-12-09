@@ -8,18 +8,17 @@ import NotificationBell from '../notifications/NotificationBell';
 import AIModal from './AIModal';
 import ImagePreviewModal from './ImagePreviewModal';
 import MessageItem from './MessageItem';
+import ChatInput from './ChatInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { useReactions } from '../../hooks/useReactions';
 import { useAI } from '../../hooks/useAI';
-import { sendMessage, sendMessageDM, subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, uploadImage, sendMessageWithImage, sendMessageDMWithImage, editMessage, deleteMessage, sendMessageWithReply, sendMessageDMWithReply, markDMMessagesAsRead, sendAIMessage, subscribeToAIMessages } from '../../lib/firestore';
-import { linkifyText } from '../../utils/messageFormatting';
+import { useMessageSending } from '../../hooks/useMessageSending';
+import { subscribeToMessages, subscribeToMessagesDM, subscribeToUsers, getDMId, saveCurrentChat, getCurrentChat, addActiveDM, subscribeToActiveDMs, discoverExistingDMs, deleteMessage, markDMMessagesAsRead, subscribeToAIMessages, subscribeToTypingStatus } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
-  const [messageText, setMessageText] = useState('');
-  const [sending, setSending] = useState(false);
   const [currentChat, setCurrentChat] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -34,6 +33,7 @@ export default function ChatWindow() {
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [insertPosition, setInsertPosition] = useState(null); // Cursor position to insert at
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
 
   // Image upload hook
   const {
@@ -65,6 +65,33 @@ export default function ChatWindow() {
     askPoppy,
     askPoppyDirectly
   } = useAI(user, currentChat, messages, setMessages, messagesEndRef);
+
+  // Message sending hook
+  const {
+    sending,
+    handleSend,
+    handleEdit,
+    updateTypingIndicator,
+    clearTypingIndicator,
+    typingTimeoutRef
+  } = useMessageSending({
+    user,
+    currentChat,
+    inputRef,
+    messagesEndRef,
+    imageFile,
+    imagePreview,
+    clearImage,
+    replyingTo,
+    setReplyingTo,
+    editingMessage,
+    setEditingMessage,
+    setMessages,
+    setUploading,
+    allUsers,
+    askPoppy,
+    askPoppyDirectly
+  });
 
   const markChatAsReadRef = useRef(null);
   const messageRefs = useRef({});
@@ -140,6 +167,21 @@ export default function ChatWindow() {
     }
 
     return () => unsubscribe?.();
+  }, [currentChat, user]);
+
+  // Subscribe to typing status (DMs only)
+  useEffect(() => {
+    if (!currentChat || !user || currentChat.type !== 'dm') {
+      setOtherUserTyping(false);
+      return;
+    }
+
+    const dmId = getDMId(user.uid, currentChat.id);
+    const unsubscribe = subscribeToTypingStatus(dmId, currentChat.id, (isTyping) => {
+      setOtherUserTyping(isTyping);
+    });
+
+    return () => unsubscribe();
   }, [currentChat, user]);
 
   // Auto scroll to bottom when new messages arrive
@@ -259,150 +301,6 @@ export default function ChatWindow() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [previewModalImage, replyingTo, editingMessage, messages, user]);
 
-  const handleSend = async () => {
-    // Get the actual value from the textarea
-    const messageText = inputRef.current?.value || '';
-
-    // If editing, use handleEdit instead
-    if (editingMessage) {
-      return handleEdit();
-    }
-
-    if ((!messageText.trim() && !imageFile) || sending) return;
-
-    // Check for @poppy mention - match @poppy anywhere in text and capture everything after
-    const poppyMention = messageText.match(/@poppy\s*(.*)/i);
-    const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null;
-    const shouldTriggerAI = !!aiQuestion;
-
-    // Create optimistic message immediately
-    const optimisticId = `temp-${Date.now()}`;
-    const optimisticMessage = {
-      id: optimisticId,
-      text: messageText,
-      sender: user.displayName || user.email,
-      senderId: user.uid,
-      photoURL: user.photoURL || '',
-      timestamp: new Date(),
-      imageUrl: imagePreview, // Show preview immediately if image
-      replyTo: replyingTo,
-      optimistic: true // Mark as optimistic
-    };
-
-    // Add optimistic message to UI instantly
-    setMessages(prev => [...prev, optimisticMessage]);
-
-    // Clear input and state immediately for instant feel
-    const currentImageFile = imageFile;
-    const currentReplyingTo = replyingTo;
-
-    clearImage();
-    setReplyingTo(null);
-
-    if (inputRef.current) {
-      inputRef.current.value = '';
-      inputRef.current.style.height = 'auto';
-    }
-
-    // Scroll to bottom
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
-
-    setSending(true);
-    try {
-      let imageUrl = null;
-
-      // Upload image if present
-      if (currentImageFile) {
-        setUploading(true);
-        imageUrl = await uploadImage(currentImageFile, user.uid);
-        setUploading(false);
-      }
-
-      if (currentChat.type === 'ai') {
-        // Send user message to Firestore
-        await sendAIMessage(user.uid, messageText, false);
-
-        // Get AI response
-        await askPoppyDirectly(messageText);
-      } else if (currentChat.type === 'channel') {
-        // Check if replying
-        if (currentReplyingTo) {
-          if (imageUrl) {
-            // TODO: Add support for reply with image
-            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
-          } else {
-            await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
-          }
-        } else {
-          if (imageUrl) {
-            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
-          } else {
-            await sendMessage(currentChat.id, user, messageText);
-          }
-        }
-
-        // Trigger notification
-        fetch('/api/notify-channel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senderId: user.uid,
-            senderName: user.displayName || user.email,
-            channelId: currentChat.id,
-            messageText: imageUrl ? `${messageText} [Image]` : messageText,
-            allUsers
-          })
-        }).catch(err => console.error('Notification error:', err));
-      } else {
-        const dmId = getDMId(user.uid, currentChat.id);
-
-        // Check if replying
-        if (currentReplyingTo) {
-          if (imageUrl) {
-            // TODO: Add support for reply with image
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
-          } else {
-            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo);
-          }
-        } else {
-          if (imageUrl) {
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
-          } else {
-            await sendMessageDM(dmId, user, messageText, currentChat.id);
-          }
-        }
-
-        // Trigger notification
-        fetch('/api/notify-dm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senderId: user.uid,
-            senderName: user.displayName || user.email,
-            recipientId: currentChat.id,
-            messageText: imageUrl ? `${messageText} [Image]` : messageText
-          })
-        }).catch(err => console.error('Notification error:', err));
-      }
-
-      // Remove optimistic message once real one arrives (Firestore subscription will add it)
-      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
-
-      // Trigger AI response if @poppy was mentioned
-      if (shouldTriggerAI) {
-        askPoppy(aiQuestion);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setSending(false);
-      setUploading(false);
-    }
-  };
-
   const handleKeyDown = (e) => {
     // Handle mention menu navigation
     if (mentionMenu) {
@@ -455,6 +353,9 @@ export default function ChatWindow() {
     const value = textarea.value;
     const cursorPos = textarea.selectionStart;
 
+    // Update typing indicator (DMs only)
+    updateTypingIndicator();
+
     // Check for / command at start of input
     if (value.startsWith('/')) {
       const query = value.substring(1, cursorPos);
@@ -500,7 +401,7 @@ export default function ChatWindow() {
 
     // Close menu if no match
     setMentionMenu(null);
-  }, []);
+  }, [updateTypingIndicator]);
 
   const getMentionMenuItems = useCallback(() => {
     if (!mentionMenu) return [];
@@ -686,25 +587,6 @@ export default function ChatWindow() {
     }
   };
 
-  const handleEdit = async () => {
-    const messageText = inputRef.current?.value || '';
-    if (!editingMessage || !messageText.trim()) return;
-
-    const isDM = currentChat.type === 'dm';
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
-
-    try {
-      await editMessage(chatId, editingMessage.id, messageText, isDM);
-      setEditingMessage(null);
-      if (inputRef.current) {
-        inputRef.current.value = '';
-      }
-    } catch (error) {
-      console.error('Error editing message:', error);
-      alert('Failed to edit message. Please try again.');
-    }
-  };
-
   // Delete handler
   const handleDeleteMessage = async (messageId) => {
     const isDM = currentChat.type === 'dm';
@@ -859,68 +741,21 @@ export default function ChatWindow() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Reply Bar */}
-          {replyingTo && (
-            <div className="reply-bar active">
-              <div className="reply-bar-content">
-                <div className="reply-bar-sender">Replying to {replyingTo.sender}</div>
-                <div className="reply-bar-text">{replyingTo.text.length > 50 ? replyingTo.text.substring(0, 50) + '...' : replyingTo.text}</div>
+          {/* Typing indicator */}
+          {otherUserTyping && currentChat?.type === 'dm' && (
+            <div className="typing-indicator">
+              <img
+                src={currentChat.user?.photoURL || ''}
+                alt={currentChat.user?.displayName || 'User'}
+                className="typing-avatar"
+              />
+              <div className="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
-              <button className="reply-bar-close" onClick={cancelReply}>
-                ✕
-              </button>
             </div>
           )}
-
-          {/* Edit Bar */}
-          {editingMessage && (
-            <div className="reply-bar active" style={{ background: 'var(--bg-hover)' }}>
-              <div className="reply-bar-content">
-                <div className="reply-bar-sender">Editing message</div>
-                <div className="reply-bar-text">{editingMessage.text.length > 50 ? editingMessage.text.substring(0, 50) + '...' : editingMessage.text}</div>
-              </div>
-              <button className="reply-bar-close" onClick={cancelEdit}>
-                ✕
-              </button>
-            </div>
-          )}
-
-          {/* Mention Menu */}
-          {mentionMenu && (() => {
-            const items = getMentionMenuItems();
-            return items.length > 0 ? (
-              <div className="mention-menu">
-                <div className="mention-menu-title">Mention</div>
-                <div className="mention-menu-items">
-                  {items.map((item, index) => (
-                    <div
-                      key={item.uid || item.type}
-                      className={`mention-menu-item ${index === mentionMenuIndex ? 'selected' : ''}`}
-                      onClick={() => selectMentionItem(item)}
-                      onMouseEnter={() => setMentionMenuIndex(index)}
-                    >
-                      {item.photoURL ? (
-                        <img src={item.photoURL} alt={item.name} className="mention-avatar" />
-                      ) : (
-                        <div className="mention-avatar-placeholder">
-                          {item.name.substring(0, 2)}
-                        </div>
-                      )}
-                      <div className="mention-info">
-                        <div className="mention-name">{item.name}</div>
-                        {item.description && (
-                          <div className="mention-description">{item.description}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mention-menu-hint">
-                  <kbd>↑</kbd> <kbd>↓</kbd> to navigate • <kbd>↵</kbd> or <kbd>Tab</kbd> to select • <kbd>Esc</kbd> to cancel
-                </div>
-              </div>
-            ) : null;
-          })()}
 
           {/* AI Chat Modal */}
           <AIModal
@@ -930,38 +765,24 @@ export default function ChatWindow() {
             insertPosition={insertPosition}
           />
 
-          {/* Input Section */}
-          <div className="input-section">
-            {imagePreview && (
-              <div className="image-preview-container">
-                <img src={imagePreview} alt="Preview" className="image-preview" />
-                <button
-                  onClick={handleRemoveImage}
-                  className="remove-image-btn"
-                  aria-label="Remove image"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            <textarea
-              ref={inputRef}
-              placeholder={editingMessage ? "Edit your message..." : "Type a message... (or paste/drop an image)"}
-              rows="1"
-              onInput={handleTextareaChange}
-              onKeyDown={handleKeyDown}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-            />
-            <button
-              onClick={handleSend}
-              disabled={sending}
-            >
-              {editingMessage ? '✓' : '➤'}
-            </button>
-          </div>
+          <ChatInput
+            inputRef={inputRef}
+            editingMessage={editingMessage}
+            replyingTo={replyingTo}
+            sending={sending}
+            imagePreview={imagePreview}
+            mentionMenu={mentionMenu}
+            mentionMenuIndex={mentionMenuIndex}
+            handleTextareaChange={handleTextareaChange}
+            handleKeyDown={handleKeyDown}
+            handleSend={handleSend}
+            handleRemoveImage={handleRemoveImage}
+            cancelEdit={cancelEdit}
+            cancelReply={cancelReply}
+            getMentionMenuItems={getMentionMenuItems}
+            selectMentionItem={selectMentionItem}
+            setMentionMenuIndex={setMentionMenuIndex}
+          />
         </div>
       </div>
 
