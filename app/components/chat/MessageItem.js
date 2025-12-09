@@ -188,6 +188,7 @@ export default function MessageItem({
         <div className="read-receipt">
           <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
           <img
+            key={`avatar-${msg.readBy[currentChat.id].seconds}`}
             src={currentChat.user?.photoURL || ''}
             alt={currentChat.user?.displayName || 'User'}
             className="read-receipt-avatar"

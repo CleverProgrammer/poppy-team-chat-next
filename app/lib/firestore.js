@@ -118,11 +118,13 @@ export function getDMId(userId1, userId2) {
 export async function saveCurrentChat(userId, chatData) {
   if (!userId) return;
 
+  console.log('📌 [Firestore] saveCurrentChat called with:', { userId, chatData });
   try {
     await setDoc(doc(db, 'users', userId), {
       currentChat: chatData,
       lastSeen: serverTimestamp()
     }, { merge: true });
+    console.log('📌 [Firestore] saveCurrentChat SUCCESS');
   } catch (error) {
     console.error('Error saving current chat:', error);
   }
@@ -131,12 +133,15 @@ export async function saveCurrentChat(userId, chatData) {
 export async function getCurrentChat(userId) {
   if (!userId) return null;
 
+  console.log('📌 [Firestore] getCurrentChat called for userId:', userId);
   try {
     const userDoc = await getDoc(doc(db, 'users', userId));
     if (userDoc.exists()) {
       const data = userDoc.data();
+      console.log('📌 [Firestore] getCurrentChat found:', data?.currentChat);
       return data?.currentChat || null;
     }
+    console.log('📌 [Firestore] getCurrentChat - user doc does not exist');
     return null;
   } catch (error) {
     console.error('Error loading current chat:', error);

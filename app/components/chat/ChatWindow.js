@@ -77,6 +77,7 @@ export default function ChatWindow() {
 
     // Load saved chat or default to general channel
     getCurrentChat(user.uid).then((savedChat) => {
+      console.log('📌 Loaded saved chat from Firestore:', savedChat);
       if (savedChat) {
         setCurrentChat(savedChat);
         // If it's a DM, add to active DMs
@@ -85,6 +86,7 @@ export default function ChatWindow() {
         }
       } else {
         // Default to general channel if no saved chat
+        console.log('📌 No saved chat found, defaulting to general');
         setCurrentChat({ type: 'channel', id: 'general', name: 'general' });
       }
     });
@@ -625,6 +627,7 @@ export default function ChatWindow() {
     }
     // Save current chat to Firestore
     if (user) {
+      console.log('📌 Saving chat to Firestore:', chat);
       saveCurrentChat(user.uid, chat);
     }
   };
