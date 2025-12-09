@@ -1462,6 +1462,14 @@ iframe[src*="vercel"] {
   }
 }
 
+/* AI Status Text */
+.ai-status-text {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-style: italic;
+}
+
 /* Mention/Command Menu */
 .mention-menu {
   position: fixed;

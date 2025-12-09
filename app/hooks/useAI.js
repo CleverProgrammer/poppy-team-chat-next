@@ -94,11 +94,15 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
 
       // Update typing indicator with status updates
       const onStatus = (status) => {
-        setMessages(prev => prev.map(msg =>
-          msg.id === typingMessageId
-            ? { ...msg, text: status }
-            : msg
-        ));
+        console.log('🔄 Poppy Status Update:', status);
+        setMessages(prev => {
+          const updated = prev.map(msg =>
+            msg.id === typingMessageId
+              ? { ...msg, text: status, isTyping: true }
+              : msg
+          );
+          return updated;
+        });
       };
 
       const aiResponse = await callAI(userQuestion, messages.slice(-10), onStatus);
