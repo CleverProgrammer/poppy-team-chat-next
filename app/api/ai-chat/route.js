@@ -1,5 +1,39 @@
 import { NextResponse } from 'next/server';
 
+// Helper function to call Notion API directly
+async function searchNotion(query) {
+  const notionApiKey = process.env.NOTION_API_KEY;
+
+  const response = await fetch('https://api.notion.com/v1/search', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${notionApiKey}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ query })
+  });
+
+  const data = await response.json();
+  return data.results || [];
+}
+
+// Helper function to get page content from Notion
+async function getNotionPage(pageId) {
+  const notionApiKey = process.env.NOTION_API_KEY;
+
+  const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${notionApiKey}`,
+      'Notion-Version': '2022-06-28'
+    }
+  });
+
+  const data = await response.json();
+  return data.results || [];
+}
+
 export async function POST(request) {
   try {
     const { message, chatHistory } = await request.json();
@@ -64,8 +98,40 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       content: message
     });
 
+    // Define Notion tools for Claude
+    const tools = [
+      {
+        name: 'search_notion',
+        description: 'Search through all Notion pages and databases. Use this when the user asks about information that might be stored in Notion, like notes, documents, tasks, knowledge bases, etc.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The search query to find relevant Notion pages'
+            }
+          },
+          required: ['query']
+        }
+      },
+      {
+        name: 'get_notion_page',
+        description: 'Get the full content of a specific Notion page. Use this after searching to read the actual content of a page.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            page_id: {
+              type: 'string',
+              description: 'The Notion page ID to retrieve content from'
+            }
+          },
+          required: ['page_id']
+        }
+      }
+    ];
+
     console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5...');
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    let response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +142,8 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 4096,
         system: systemPrompt,
-        messages: messages
+        messages: messages,
+        tools: tools
       })
     });
 
@@ -91,10 +158,74 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       );
     }
 
-    const data = await response.json();
+    let data = await response.json();
     console.log('🤖 Poppy AI: Response received');
 
-    // Extract text from response
+    // Handle tool use loop
+    while (data.stop_reason === 'tool_use') {
+      console.log('🔧 Poppy AI: Claude wants to use a tool');
+
+      // Find tool use blocks
+      const toolUses = data.content.filter(block => block.type === 'tool_use');
+
+      // Execute each tool
+      const toolResults = [];
+      for (const toolUse of toolUses) {
+        console.log(`🔧 Poppy AI: Executing tool: ${toolUse.name}`);
+
+        let toolResult;
+        if (toolUse.name === 'search_notion') {
+          const searchResults = await searchNotion(toolUse.input.query);
+          toolResult = JSON.stringify(searchResults.map(page => ({
+            id: page.id,
+            title: page.properties?.title?.title?.[0]?.plain_text || page.properties?.Name?.title?.[0]?.plain_text || 'Untitled',
+            url: page.url
+          })));
+        } else if (toolUse.name === 'get_notion_page') {
+          const pageContent = await getNotionPage(toolUse.input.page_id);
+          toolResult = JSON.stringify(pageContent);
+        }
+
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: toolUse.id,
+          content: toolResult
+        });
+      }
+
+      // Add assistant's response and tool results to messages
+      messages.push({
+        role: 'assistant',
+        content: data.content
+      });
+
+      messages.push({
+        role: 'user',
+        content: toolResults
+      });
+
+      // Call Claude again with tool results
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: messages,
+          tools: tools
+        })
+      });
+
+      data = await response.json();
+      console.log('🤖 Poppy AI: Got response after tool use');
+    }
+
+    // Extract final text from response
     const textBlock = data.content.find(block => block.type === 'text');
     const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!';
 
