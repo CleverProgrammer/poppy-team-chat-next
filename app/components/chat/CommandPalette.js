@@ -60,6 +60,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
   }, [query, allUsers, user, isOpen]);
 
   const handleKeyDown = (e) => {
+    e.stopPropagation();
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex(prev => Math.min(prev + 1, filteredItems.length - 1));

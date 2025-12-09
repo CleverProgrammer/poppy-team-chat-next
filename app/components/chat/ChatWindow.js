@@ -17,7 +17,7 @@ import { useMessageSending } from '../../hooks/useMessageSending';
 import { useMentionMenu } from '../../hooks/useMentionMenu';
 import { useSubscriptions } from '../../hooks/useSubscriptions';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { getDMId, saveCurrentChat, deleteMessage } from '../../lib/firestore';
+import { getDMId, saveCurrentChat, deleteMessage, addActiveDM } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -258,6 +258,7 @@ export default function ChatWindow() {
     setPreviewModalImage,
     replyingTo,
     editingMessage,
+    isPaletteOpen,
     setIsPaletteOpen,
     startReply,
     startEdit,

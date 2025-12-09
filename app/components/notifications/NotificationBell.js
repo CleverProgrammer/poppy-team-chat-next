@@ -71,6 +71,8 @@ function NotificationBellInner({ onUnreadChatsChange, onMarkChatRead }) {
     const markChatAsRead = async (chatType, chatId) => {
       try {
         const feed = await feedClient.fetch();
+        if (!feed?.entries) return;
+
         const itemsToMark = feed.entries.filter(item => {
           if (chatType === 'channel') {
             return item.data?.channelId === chatId && !item.read_at;

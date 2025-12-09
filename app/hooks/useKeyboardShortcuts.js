@@ -9,6 +9,7 @@ export function useKeyboardShortcuts({
   setPreviewModalImage,
   replyingTo,
   editingMessage,
+  isPaletteOpen,
   setIsPaletteOpen,
   startReply,
   startEdit,
@@ -16,6 +17,9 @@ export function useKeyboardShortcuts({
 }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't handle shortcuts when command palette is open
+      if (isPaletteOpen) return;
+
       // Cmd+K: Open command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -61,6 +65,7 @@ export function useKeyboardShortcuts({
     setPreviewModalImage,
     replyingTo,
     editingMessage,
+    isPaletteOpen,
     setIsPaletteOpen,
     startReply,
     startEdit,
