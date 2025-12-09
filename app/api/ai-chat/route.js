@@ -170,7 +170,18 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
   }
 
   // Extract final text from response
-  const textBlock = data.content?.find(block => block.type === 'text');
+  if (!data || !data.content || !Array.isArray(data.content)) {
+    console.error('🤖 Poppy AI: Invalid response structure:', data);
+    const aiResponse = 'Sorry, I got a weird response. Try again! 🤖';
+
+    if (controller && encoder) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`));
+    }
+
+    return aiResponse;
+  }
+
+  const textBlock = data.content.find(block => block.type === 'text');
   const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!';
 
   if (sendStatus) sendStatus('Done!');
