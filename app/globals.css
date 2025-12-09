@@ -1462,9 +1462,16 @@ iframe[src*="vercel"] {
   }
 }
 
+/* AI Typing with Status Container */
+.ai-typing-with-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+
 /* AI Status Text */
 .ai-status-text {
-  padding: 8px 12px;
   color: var(--text-secondary);
   font-size: 14px;
   font-style: italic;

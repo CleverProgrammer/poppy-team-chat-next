@@ -30,13 +30,14 @@ export default function MessageItem({
       <div className="message-wrapper received ai-typing">
         <div className="message-sender">{msg.sender}</div>
         <div className="message">
-          {msg.text ? (
-            <div className="ai-status-text">{msg.text}</div>
-          ) : (
+          <div className="ai-typing-with-status">
             <div className="ai-typing-indicator">
               <span></span><span></span><span></span>
             </div>
-          )}
+            {msg.text && (
+              <div className="ai-status-text">{msg.text}</div>
+            )}
+          </div>
         </div>
       </div>
     );

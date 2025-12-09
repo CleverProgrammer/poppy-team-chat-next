@@ -142,6 +142,9 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
   let data = await response.json();
   console.log('🤖 Poppy AI: Response received');
 
+  // Track page titles from search results for better status messages
+  const pageIdToTitle = {};
+
   // Handle tool use loop
   while (data.stop_reason === 'tool_use') {
     console.log('🔧 Poppy AI: Claude wants to use a tool');
@@ -158,15 +161,24 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       if (toolUse.name === 'search_notion') {
         if (sendStatus) sendStatus(`Searching Notion for "${toolUse.input.query}"...`);
         const searchResults = await searchNotion(toolUse.input.query);
+
+        // Store page titles for later use
+        searchResults.forEach(page => {
+          const title = page.properties?.title?.title?.[0]?.plain_text || page.properties?.Name?.title?.[0]?.plain_text || 'Untitled';
+          pageIdToTitle[page.id] = title;
+        });
+
         toolResult = JSON.stringify(searchResults.map(page => ({
           id: page.id,
-          title: page.properties?.title?.title?.[0]?.plain_text || page.properties?.Name?.title?.[0]?.plain_text || 'Untitled',
+          title: pageIdToTitle[page.id],
           url: page.url
         })));
         if (sendStatus) sendStatus(`Found ${searchResults.length} pages in Notion`);
       } else if (toolUse.name === 'get_notion_page') {
-        if (sendStatus) sendStatus('Reading Notion page...');
-        const pageContent = await getNotionPage(toolUse.input.page_id);
+        const pageId = toolUse.input.page_id;
+        const pageTitle = pageIdToTitle[pageId] || 'Unknown page';
+        if (sendStatus) sendStatus(`Reading "${pageTitle}"...`);
+        const pageContent = await getNotionPage(pageId);
         toolResult = JSON.stringify(pageContent);
       }
 
