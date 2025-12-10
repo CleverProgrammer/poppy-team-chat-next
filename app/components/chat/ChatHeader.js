@@ -7,7 +7,9 @@ export default function ChatHeader({
   isSidebarOpen,
   setIsSidebarOpen,
   onUnreadChatsChange,
-  onMarkChatRead
+  onMarkChatRead,
+  viewMode,
+  onViewModeChange
 }) {
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#';
@@ -37,6 +39,24 @@ export default function ChatHeader({
       <span className="chat-header-icon">{getIcon()}</span>
       <h1>{currentChat.name}</h1>
       <span className="chat-header-subtitle">{getSubtitle()}</span>
+
+      {viewMode && onViewModeChange && (
+        <div className="view-mode-toggle">
+          <button
+            className={`toggle-btn ${viewMode === 'messages' ? 'active' : ''}`}
+            onClick={() => onViewModeChange('messages')}
+          >
+            Messages
+          </button>
+          <button
+            className={`toggle-btn ${viewMode === 'posts' ? 'active' : ''}`}
+            onClick={() => onViewModeChange('posts')}
+          >
+            Posts
+          </button>
+        </div>
+      )}
+
       <div style={{ marginLeft: 'auto' }}>
         <NotificationBell
           onUnreadChatsChange={onUnreadChatsChange}

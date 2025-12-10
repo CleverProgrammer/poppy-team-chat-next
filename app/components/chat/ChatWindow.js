@@ -9,6 +9,8 @@ import MessageItem from './MessageItem';
 import ChatInput from './ChatInput';
 import ChatHeader from './ChatHeader';
 import ContextMenu from './ContextMenu';
+import PostsView from './PostsView';
+import PostPreview from './PostPreview';
 import { useAuth } from '../../contexts/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { useReactions } from '../../hooks/useReactions';
@@ -17,7 +19,7 @@ import { useMessageSending } from '../../hooks/useMessageSending';
 import { useMentionMenu } from '../../hooks/useMentionMenu';
 import { useSubscriptions } from '../../hooks/useSubscriptions';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats } from '../../lib/firestore';
+import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats, subscribeToPosts } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -32,6 +34,9 @@ export default function ChatWindow() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [insertPosition, setInsertPosition] = useState(null);
+  const [viewMode, setViewMode] = useState('messages');
+  const [posts, setPosts] = useState([]);
+  const [selectedPost, setSelectedPost] = useState(null);
 
   // Image upload hook
   const {
@@ -300,6 +305,25 @@ export default function ChatWindow() {
     };
   }, [user]);
 
+  // Subscribe to posts
+  useEffect(() => {
+    if (!currentChat) return;
+
+    const chatId = currentChat.type === 'dm'
+      ? getDMId(user.uid, currentChat.id)
+      : currentChat.id;
+
+    const unsubscribe = subscribeToPosts(
+      currentChat.type,
+      chatId,
+      (loadedPosts) => {
+        setPosts(loadedPosts);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentChat, user]);
+
   // Close context menu on click outside
   useEffect(() => {
     const handleClick = () => {
@@ -367,10 +391,16 @@ export default function ChatWindow() {
             setIsSidebarOpen={setIsSidebarOpen}
             onUnreadChatsChange={handleUnreadChatsChange}
             onMarkChatRead={handleMarkChatReadCallback}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
 
-          {/* Messages Area */}
-          <div className={`messages ${replyingTo ? 'replying-active' : ''}`} {...getRootProps()} onClick={handleMessagesAreaClick}>
+          {viewMode === 'posts' ? (
+            <PostsView user={user} currentChat={currentChat} />
+          ) : (
+            <>
+              {/* Messages Area */}
+              <div className={`messages ${replyingTo ? 'replying-active' : ''}`} {...getRootProps()} onClick={handleMessagesAreaClick}>
             <input {...getInputProps()} />
             {isDragActive && (
               <div className="drag-overlay">
@@ -384,29 +414,41 @@ export default function ChatWindow() {
                 <p>Welcome to the chat! Start a conversation.</p>
               </div>
             ) : (
-              messages.map((msg, index) => (
-                <MessageItem
-                  key={msg.id}
-                  msg={msg}
-                  index={index}
-                  messages={messages}
-                  totalMessages={messages.length}
-                  user={user}
-                  currentChat={currentChat}
-                  allUsers={allUsers}
-                  replyingTo={replyingTo}
-                  topReactions={topReactions}
-                  openEmojiPanel={openEmojiPanel}
-                  onReply={startReply}
-                  onEdit={startEdit}
-                  onAddReaction={handleAddReaction}
-                  onToggleEmojiPanel={toggleEmojiPanel}
-                  onImageClick={setPreviewModalImage}
-                  onScrollToMessage={scrollToMessage}
-                  onContextMenu={handleContextMenu}
-                  messageRef={el => messageRefs.current[msg.id] = el}
-                />
-              ))
+              <>
+                {messages.map((msg, index) => (
+                  <MessageItem
+                    key={msg.id}
+                    msg={msg}
+                    index={index}
+                    messages={messages}
+                    totalMessages={messages.length}
+                    user={user}
+                    currentChat={currentChat}
+                    allUsers={allUsers}
+                    replyingTo={replyingTo}
+                    topReactions={topReactions}
+                    openEmojiPanel={openEmojiPanel}
+                    onReply={startReply}
+                    onEdit={startEdit}
+                    onAddReaction={handleAddReaction}
+                    onToggleEmojiPanel={toggleEmojiPanel}
+                    onImageClick={setPreviewModalImage}
+                    onScrollToMessage={scrollToMessage}
+                    onContextMenu={handleContextMenu}
+                    messageRef={el => messageRefs.current[msg.id] = el}
+                  />
+                ))}
+                {posts.map((post) => (
+                  <PostPreview
+                    key={`post-${post.id}`}
+                    post={post}
+                    onClick={() => {
+                      setSelectedPost(post);
+                      setViewMode('posts');
+                    }}
+                  />
+                ))}
+              </>
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -453,6 +495,8 @@ export default function ChatWindow() {
             selectMentionItem={selectMentionItem}
             setMentionMenuIndex={setMentionMenuIndex}
           />
+            </>
+          )}
         </div>
       </div>
 

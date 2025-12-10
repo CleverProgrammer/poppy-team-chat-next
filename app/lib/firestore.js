@@ -601,3 +601,81 @@ export function subscribeToUnreadChats(userId, callback) {
     callback([]);
   });
 }
+
+// Posts functions
+export async function createPost(chatType, chatId, user, title, content) {
+  if (!user || !content.trim()) return;
+
+  try {
+    const postsRef = chatType === 'dm'
+      ? collection(db, 'dms', chatId, 'posts')
+      : collection(db, 'channels', chatId, 'posts');
+
+    const postDoc = await addDoc(postsRef, {
+      title: title || '',
+      content: content,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+      edited: false
+    });
+
+    return postDoc.id;
+  } catch (error) {
+    console.error('Error creating post:', error);
+    throw error;
+  }
+}
+
+export function subscribeToPosts(chatType, chatId, callback) {
+  const postsRef = chatType === 'dm'
+    ? collection(db, 'dms', chatId, 'posts')
+    : collection(db, 'channels', chatId, 'posts');
+
+  const q = query(postsRef, orderBy('timestamp', 'desc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const posts = [];
+    snapshot.forEach((doc) => {
+      posts.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    callback(posts);
+  }, (error) => {
+    console.error('Error loading posts:', error);
+  });
+}
+
+export async function editPost(chatType, chatId, postId, newTitle, newContent) {
+  try {
+    const postRef = chatType === 'dm'
+      ? doc(db, 'dms', chatId, 'posts', postId)
+      : doc(db, 'channels', chatId, 'posts', postId);
+
+    await updateDoc(postRef, {
+      title: newTitle,
+      content: newContent,
+      edited: true,
+      editedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error editing post:', error);
+    throw error;
+  }
+}
+
+export async function deletePost(chatType, chatId, postId) {
+  try {
+    const postRef = chatType === 'dm'
+      ? doc(db, 'dms', chatId, 'posts', postId)
+      : doc(db, 'channels', chatId, 'posts', postId);
+
+    await deleteDoc(postRef);
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    throw error;
+  }
+}
