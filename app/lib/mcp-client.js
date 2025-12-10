@@ -179,10 +179,9 @@ const mcpManager = new MCPClientManager();
 // Configure Notion MCP Server
 // https://github.com/makenotion/notion-mcp-server
 mcpManager.addServer('notion', {
-  command: 'npx',
+  command: 'node',
   args: [
-    '-y',
-    '@notionhq/notion-mcp-server'
+    './node_modules/@notionhq/notion-mcp-server/bin/cli.mjs'
   ],
   env: {
     // Notion MCP server expects NOTION_TOKEN env var
