@@ -331,6 +331,13 @@ export default function ChatWindow() {
     return () => unsubscribe();
   }, [currentChat, user]);
 
+  // Scroll to bottom when switching from posts to messages
+  useEffect(() => {
+    if (viewMode === 'messages' && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [viewMode]);
+
   // Close context menu on click outside
   useEffect(() => {
     const handleClick = () => {
@@ -464,21 +471,6 @@ export default function ChatWindow() {
                     messageRef={el => messageRefs.current[msg.id] = el}
                   />
                 ))}
-
-                {/* Viewed posts in chronological order */}
-                {posts
-                  .filter(post => viewedPosts.includes(post.id))
-                  .map((post) => (
-                    <PostPreview
-                      key={`post-viewed-${post.id}`}
-                      post={post}
-                      isViewed={true}
-                      onClick={() => {
-                        setSelectedPost(post);
-                        setViewMode('posts');
-                      }}
-                    />
-                  ))}
               </>
             )}
             <div ref={messagesEndRef} />
