@@ -1,5 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 // MCP Client Manager
 // Handles connections to multiple MCP servers with a unified interface
@@ -40,14 +40,17 @@ class MCPClientManager {
     }
 
     console.log(`🔌 MCP: Connecting to "${name}"...`);
+    console.log(`🔌 MCP: URL = ${config.url}`);
+    console.log(`🔌 MCP: Headers = ${JSON.stringify(config.headers)}`);
 
     try {
-      // Create transport (stdio for Node.js based MCP servers)
-      const transport = new StdioClientTransport({
-        command: config.command,
-        args: config.args,
-        env: { ...process.env, ...config.env }
-      });
+      // Create transport (HTTP for hosted MCP servers like Klavis)
+      const transport = new StreamableHTTPClientTransport(
+        new URL(config.url),
+        {
+          headers: config.headers || {}
+        }
+      );
 
       // Create MCP client
       const client = new Client({
@@ -176,18 +179,13 @@ class MCPClientManager {
 // Singleton instance
 const mcpManager = new MCPClientManager();
 
-// Configure Notion MCP Server
-// https://github.com/makenotion/notion-mcp-server
-// Use the installed binary via npx --no-install to avoid cache directory issues
+// Configure Klavis Strata MCP Server (hosted Notion integration)
+// https://www.klavis.ai/
+// Using direct URL with strata_id for auth (fallback if headers don't work)
 mcpManager.addServer('notion', {
-  command: 'npx',
-  args: [
-    '--no-install',
-    'notion-mcp-server'
-  ],
-  env: {
-    // Notion MCP server expects NOTION_TOKEN env var
-    NOTION_TOKEN: process.env.NOTION_API_KEY || ''
+  url: process.env.KLAVIS_DIRECT_URL || 'https://strata.klavis.ai/mcp/',
+  headers: process.env.KLAVIS_DIRECT_URL ? {} : {
+    'Authorization': `Bearer ${process.env.KLAVIS_BEARER_TOKEN || ''}`
   }
 });
 
