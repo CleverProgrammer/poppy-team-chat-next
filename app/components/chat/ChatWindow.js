@@ -37,13 +37,6 @@ export default function ChatWindow() {
   const [viewMode, setViewMode] = useState('messages');
   const [posts, setPosts] = useState([]);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [viewedPosts, setViewedPosts] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('viewedPosts');
-      return stored ? JSON.parse(stored) : [];
-    }
-    return [];
-  });
 
   // Image upload hook
   const {
@@ -429,48 +422,52 @@ export default function ChatWindow() {
               </div>
             ) : (
               <>
-                {/* Unviewed posts at the top (sticky) */}
-                {posts
-                  .filter(post => !viewedPosts.includes(post.id))
-                  .map((post) => (
-                    <PostPreview
-                      key={`post-unviewed-${post.id}`}
-                      post={post}
-                      isViewed={false}
-                      onClick={() => {
-                        const newViewedPosts = [...viewedPosts, post.id];
-                        setViewedPosts(newViewedPosts);
-                        localStorage.setItem('viewedPosts', JSON.stringify(newViewedPosts));
-                        setSelectedPost(post);
-                        setViewMode('posts');
-                      }}
-                    />
-                  ))}
-
-                {/* Regular messages */}
-                {messages.map((msg, index) => (
-                  <MessageItem
-                    key={msg.id}
-                    msg={msg}
-                    index={index}
-                    messages={messages}
-                    totalMessages={messages.length}
-                    user={user}
-                    currentChat={currentChat}
-                    allUsers={allUsers}
-                    replyingTo={replyingTo}
-                    topReactions={topReactions}
-                    openEmojiPanel={openEmojiPanel}
-                    onReply={startReply}
-                    onEdit={startEdit}
-                    onAddReaction={handleAddReaction}
-                    onToggleEmojiPanel={toggleEmojiPanel}
-                    onImageClick={setPreviewModalImage}
-                    onScrollToMessage={scrollToMessage}
-                    onContextMenu={handleContextMenu}
-                    messageRef={el => messageRefs.current[msg.id] = el}
-                  />
-                ))}
+                {/* Render messages and posts in chronological order */}
+                {[...messages, ...posts.map(post => ({ ...post, isPost: true }))]
+                  .sort((a, b) => {
+                    const aTime = a.timestamp?.seconds || 0;
+                    const bTime = b.timestamp?.seconds || 0;
+                    return aTime - bTime;
+                  })
+                  .map((item) => {
+                    if (item.isPost) {
+                      return (
+                        <PostPreview
+                          key={`post-${item.id}`}
+                          post={item}
+                          onClick={() => {
+                            setSelectedPost(item);
+                            setViewMode('posts');
+                          }}
+                        />
+                      );
+                    } else {
+                      const index = messages.findIndex(m => m.id === item.id);
+                      return (
+                        <MessageItem
+                          key={item.id}
+                          msg={item}
+                          index={index}
+                          messages={messages}
+                          totalMessages={messages.length}
+                          user={user}
+                          currentChat={currentChat}
+                          allUsers={allUsers}
+                          replyingTo={replyingTo}
+                          topReactions={topReactions}
+                          openEmojiPanel={openEmojiPanel}
+                          onReply={startReply}
+                          onEdit={startEdit}
+                          onAddReaction={handleAddReaction}
+                          onToggleEmojiPanel={toggleEmojiPanel}
+                          onImageClick={setPreviewModalImage}
+                          onScrollToMessage={scrollToMessage}
+                          onContextMenu={handleContextMenu}
+                          messageRef={el => messageRefs.current[item.id] = el}
+                        />
+                      );
+                    }
+                  })}
               </>
             )}
             <div ref={messagesEndRef} />
