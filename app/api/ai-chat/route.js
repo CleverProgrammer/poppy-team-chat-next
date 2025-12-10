@@ -131,6 +131,8 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
     // Execute each tool via MCP
     const toolResults = [];
+    let executeActionFailed = false; // Track if execute_action caused truncation
+
     for (const toolUse of toolUses) {
       console.log(`🔧 MCP: Executing tool: ${toolUse.name}`);
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`);
@@ -142,10 +144,17 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
         // Truncate response if too large (prevent token limit errors)
         let responseContent = JSON.stringify(mcpResponse.content);
         const MAX_TOOL_RESPONSE_CHARS = 100000; // ~25K tokens (4 chars per token avg)
+        let wasTruncated = false;
 
         if (responseContent.length > MAX_TOOL_RESPONSE_CHARS) {
           console.warn(`🔧 MCP: Tool response too large (${responseContent.length} chars), truncating to ${MAX_TOOL_RESPONSE_CHARS}`);
           responseContent = responseContent.substring(0, MAX_TOOL_RESPONSE_CHARS) + '\n\n[Response truncated due to size. Query returned too many results - try filtering or limiting results.]';
+          wasTruncated = true;
+
+          // Flag if execute_action caused the truncation (so we can retry)
+          if (toolUse.name === 'execute_action') {
+            executeActionFailed = true;
+          }
         }
 
         toolResults.push({
@@ -176,6 +185,16 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       role: 'user',
       content: toolResults
     });
+
+    // If execute_action failed due to size, add a hint to retry with query_database
+    if (executeActionFailed) {
+      console.log('🔄 MCP: execute_action was truncated, adding retry hint for Claude');
+      messages.push({
+        role: 'user',
+        content: 'The previous execute_action query returned too much data and was truncated. Please retry using query_database instead, with proper filters (e.g., filter by "platform" column) and sorts (e.g., last_edited_time descending) to get a manageable number of results (10-20 max).'
+      });
+      if (sendStatus) sendStatus('Retrying with better query...');
+    }
 
     // Call Claude again with tool results
     if (sendStatus) sendStatus('Processing results...');
