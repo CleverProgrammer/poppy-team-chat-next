@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 
-export default function PostPreview({ post, onClick }) {
+export default function PostPreview({ post, onClick, isViewed }) {
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Just now';
     try {
@@ -19,26 +19,28 @@ export default function PostPreview({ post, onClick }) {
   };
 
   return (
-    <div className="post-preview" onClick={onClick}>
-      <div className="post-preview-badge">📌 Post</div>
-      <div className="post-preview-header">
+    <div className={`post-preview-message ${isViewed ? 'viewed' : 'unviewed'}`} onClick={onClick}>
+      <div className="post-banner">📌 Post</div>
+      <div className="message-content-wrapper">
         <img
           src={post.photoURL || '/default-avatar.png'}
           alt={post.sender}
-          className="post-preview-avatar"
+          className="message-avatar"
         />
-        <div>
-          <span className="post-preview-sender">{post.sender}</span>
-          <span className="post-preview-timestamp">{formatTimestamp(post.timestamp)}</span>
+        <div className="message-text-content">
+          <div className="message-header">
+            <span className="message-sender">{post.sender}</span>
+            <span className="message-timestamp">{formatTimestamp(post.timestamp)}</span>
+          </div>
+          {post.title && (
+            <div className="post-message-title">{post.title}</div>
+          )}
+          <div className="post-message-text">
+            {truncateContent(post.content)}
+          </div>
+          <div className="post-click-hint">Click to view full post →</div>
         </div>
       </div>
-      {post.title && (
-        <div className="post-preview-title">{post.title}</div>
-      )}
-      <div className="post-preview-content">
-        {truncateContent(post.content)}
-      </div>
-      <div className="post-preview-action">Click to view full post →</div>
     </div>
   );
 }

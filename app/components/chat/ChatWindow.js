@@ -37,6 +37,13 @@ export default function ChatWindow() {
   const [viewMode, setViewMode] = useState('messages');
   const [posts, setPosts] = useState([]);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [viewedPosts, setViewedPosts] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('viewedPosts');
+      return stored ? JSON.parse(stored) : [];
+    }
+    return [];
+  });
 
   // Image upload hook
   const {
@@ -409,12 +416,31 @@ export default function ChatWindow() {
                 </div>
               </div>
             )}
-            {messages.length === 0 ? (
+            {messages.length === 0 && posts.length === 0 ? (
               <div className="empty-state">
                 <p>Welcome to the chat! Start a conversation.</p>
               </div>
             ) : (
               <>
+                {/* Unviewed posts at the top (sticky) */}
+                {posts
+                  .filter(post => !viewedPosts.includes(post.id))
+                  .map((post) => (
+                    <PostPreview
+                      key={`post-unviewed-${post.id}`}
+                      post={post}
+                      isViewed={false}
+                      onClick={() => {
+                        const newViewedPosts = [...viewedPosts, post.id];
+                        setViewedPosts(newViewedPosts);
+                        localStorage.setItem('viewedPosts', JSON.stringify(newViewedPosts));
+                        setSelectedPost(post);
+                        setViewMode('posts');
+                      }}
+                    />
+                  ))}
+
+                {/* Regular messages */}
                 {messages.map((msg, index) => (
                   <MessageItem
                     key={msg.id}
@@ -438,16 +464,21 @@ export default function ChatWindow() {
                     messageRef={el => messageRefs.current[msg.id] = el}
                   />
                 ))}
-                {posts.map((post) => (
-                  <PostPreview
-                    key={`post-${post.id}`}
-                    post={post}
-                    onClick={() => {
-                      setSelectedPost(post);
-                      setViewMode('posts');
-                    }}
-                  />
-                ))}
+
+                {/* Viewed posts in chronological order */}
+                {posts
+                  .filter(post => viewedPosts.includes(post.id))
+                  .map((post) => (
+                    <PostPreview
+                      key={`post-viewed-${post.id}`}
+                      post={post}
+                      isViewed={true}
+                      onClick={() => {
+                        setSelectedPost(post);
+                        setViewMode('posts');
+                      }}
+                    />
+                  ))}
               </>
             )}
             <div ref={messagesEndRef} />
