@@ -1,34 +1,25 @@
 import { NextResponse } from 'next/server';
-import mcpManager from '../../lib/mcp-client';
+import notionClient from '../../lib/notion-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * MCP API Route
+ * Notion API Route
  *
- * Unified endpoint for interacting with all configured MCP servers
+ * Endpoint for interacting with Notion directly (Vercel-compatible)
  *
  * Usage:
  * POST /api/mcp
  * Body: {
- *   server: "notion",
- *   action: "list_tools" | "call_tool" | "list_resources" | "read_resource" | "list_prompts" | "get_prompt",
+ *   action: "search" | "get_page" | "query_database" | "list_databases",
  *   params: { ... }
  * }
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { server, action, params = {} } = body;
-
-    // Validate server name
-    if (!server) {
-      return NextResponse.json(
-        { error: 'Missing "server" field' },
-        { status: 400 }
-      );
-    }
+    const { action, params = {} } = body;
 
     // Validate action
     if (!action) {
@@ -38,71 +29,79 @@ export async function POST(request) {
       );
     }
 
-    console.log(`📡 MCP API: ${action} on server "${server}"`);
+    console.log(`📡 Notion API: ${action}`);
 
     let result;
 
     switch (action) {
-      case 'list_tools':
-        result = await mcpManager.listTools(server);
-        break;
-
-      case 'call_tool':
-        if (!params.toolName) {
+      case 'search':
+        if (!params.query) {
           return NextResponse.json(
-            { error: 'Missing "params.toolName" for call_tool action' },
+            { error: 'Missing "params.query" for search action' },
             { status: 400 }
           );
         }
-        result = await mcpManager.callTool(
-          server,
-          params.toolName,
-          params.args || {}
+        const searchResults = await notionClient.search(params.query);
+        result = searchResults.map(page => ({
+          id: page.id,
+          title: notionClient.extractTextFromProperties(page.properties),
+          url: page.url,
+          last_edited: page.last_edited_time
+        }));
+        break;
+
+      case 'get_page':
+        if (!params.page_id) {
+          return NextResponse.json(
+            { error: 'Missing "params.page_id" for get_page action' },
+            { status: 400 }
+          );
+        }
+        const page = await notionClient.getPage(params.page_id);
+        const blocks = await notionClient.getPageContent(params.page_id);
+        result = {
+          properties: notionClient.extractTextFromProperties(page.properties),
+          content: notionClient.extractTextFromBlocks(blocks),
+          url: page.url
+        };
+        break;
+
+      case 'query_database':
+        if (!params.database_id) {
+          return NextResponse.json(
+            { error: 'Missing "params.database_id" for query_database action' },
+            { status: 400 }
+          );
+        }
+        const dbResults = await notionClient.queryDatabase(
+          params.database_id,
+          params.filter || {}
         );
+        result = dbResults.map(item => ({
+          id: item.id,
+          properties: notionClient.extractTextFromProperties(item.properties),
+          url: item.url
+        }));
         break;
 
-      case 'list_resources':
-        result = await mcpManager.listResources(server);
-        break;
-
-      case 'read_resource':
-        if (!params.uri) {
-          return NextResponse.json(
-            { error: 'Missing "params.uri" for read_resource action' },
-            { status: 400 }
-          );
-        }
-        result = await mcpManager.readResource(server, params.uri);
-        break;
-
-      case 'list_prompts':
-        result = await mcpManager.listPrompts(server);
-        break;
-
-      case 'get_prompt':
-        if (!params.promptName) {
-          return NextResponse.json(
-            { error: 'Missing "params.promptName" for get_prompt action' },
-            { status: 400 }
-          );
-        }
-        result = await mcpManager.getPrompt(
-          server,
-          params.promptName,
-          params.args || {}
-        );
+      case 'list_databases':
+        const databases = await notionClient.listDatabases();
+        result = databases.map(db => ({
+          id: db.id,
+          title: notionClient.extractTextFromProperties(db.properties || {}),
+          url: db.url
+        }));
         break;
 
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}` },
+          { error: `Unknown action: ${action}. Supported: search, get_page, query_database, list_databases` },
           { status: 400 }
         );
     }
 
     return NextResponse.json({
       success: true,
-      server,
       action,
       result
     });
@@ -122,27 +121,13 @@ export async function POST(request) {
 }
 
 /**
- * GET endpoint - List configured servers
+ * GET endpoint - Info about available Notion API
  */
 export async function GET() {
-  try {
-    // List all configured MCP servers
-    const servers = Array.from(mcpManager.serverConfigs.keys());
-
-    return NextResponse.json({
-      success: true,
-      servers,
-      message: 'Available MCP servers'
-    });
-  } catch (error) {
-    console.error('❌ MCP API Error:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    success: true,
+    server: 'notion',
+    message: 'Notion MCP API available',
+    actions: ['search', 'get_page', 'query_database', 'list_databases']
+  });
 }

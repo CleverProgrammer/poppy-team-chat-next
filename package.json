@@ -11,20 +11,18 @@
   "dependencies": {
     "@knocklabs/node": "^1.24.0",
     "@knocklabs/react": "^0.9.4",
-    "@modelcontextprotocol/sdk": "^1.24.3",
-    "@notionhq/notion-mcp-server": "^1.9.1",
     "firebase": "^12.6.0",
     "howler": "^2.2.4",
     "next": "16.0.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "react-dropzone": "^14.3.8",
-    "zod": "^4.1.13"
+    "react-dropzone": "^14.3.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "tailwindcss": "^4"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
