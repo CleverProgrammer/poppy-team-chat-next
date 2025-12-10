@@ -2,15 +2,24 @@
  * Notion Token Management Utilities
  * 
  * Token management with automatic refresh using OAuth credentials.
+ * Works in serverless environments by caching refreshed tokens in memory.
  */
 
 let cachedToken = null;
 let tokenExpiresAt = 0;
+let refreshTokenValue = null; // Cache the latest refresh token
 
 /**
  * Check if token is expired or expiring soon
  */
 function isTokenExpired() {
+  // If we have a cached expiration, use that (more accurate for refreshed tokens)
+  if (tokenExpiresAt > 0) {
+    const bufferMs = 2 * 60 * 1000; // 2 minute buffer
+    return Date.now() >= tokenExpiresAt - bufferMs;
+  }
+  
+  // Fall back to env var if no cache
   const expiresAt = parseInt(process.env.NOTION_TOKEN_EXPIRES_AT || '0');
   const bufferMs = 2 * 60 * 1000; // 2 minute buffer
   return Date.now() >= expiresAt - bufferMs;
@@ -20,7 +29,8 @@ function isTokenExpired() {
  * Refresh Notion access token
  */
 async function refreshNotionToken() {
-  const refreshToken = process.env.NOTION_REFRESH_TOKEN;
+  // Use cached refresh token if available (from previous refresh), otherwise use env
+  const refreshToken = refreshTokenValue || process.env.NOTION_REFRESH_TOKEN;
   const clientId = process.env.NOTION_CLIENT_ID;
   const clientSecret = process.env.NOTION_CLIENT_SECRET;
 
@@ -46,18 +56,19 @@ async function refreshNotionToken() {
     });
 
     if (!response.ok) {
-      console.error('❌ Token refresh failed:', response.status, await response.text());
+      const errorText = await response.text();
+      console.error('❌ Token refresh failed:', response.status, errorText);
       return null;
     }
 
     const tokenData = await response.json();
     
-    // Cache the new token
+    // Cache the new tokens (refresh token rotates on each refresh)
     cachedToken = tokenData.access_token;
+    refreshTokenValue = tokenData.refresh_token; // Store new refresh token
     tokenExpiresAt = Date.now() + (tokenData.expires_in || 3600) * 1000;
 
     console.log('✅ Token refreshed successfully, expires at:', new Date(tokenExpiresAt).toISOString());
-    console.log('💡 Update .env with: NOTION_ACCESS_TOKEN=' + cachedToken);
     
     return cachedToken;
   } catch (error) {
@@ -72,7 +83,7 @@ async function refreshNotionToken() {
  */
 export async function getValidNotionToken() {
   // If we have a cached valid token, return it
-  if (cachedToken && Date.now() < tokenExpiresAt) {
+  if (cachedToken && tokenExpiresAt > 0 && Date.now() < tokenExpiresAt) {
     return cachedToken;
   }
 
@@ -83,17 +94,27 @@ export async function getValidNotionToken() {
     return null;
   }
 
-  // Check if env token is expired
-  if (isTokenExpired()) {
-    console.log('🔄 Token expired, attempting refresh...');
-    const refreshedToken = await refreshNotionToken();
-    return refreshedToken || envToken; // Fallback to env token if refresh fails
+  // Initialize cache from env on first run
+  if (!cachedToken) {
+    cachedToken = envToken;
+    tokenExpiresAt = parseInt(process.env.NOTION_TOKEN_EXPIRES_AT || '0');
   }
 
-  // Cache and return env token
-  cachedToken = envToken;
-  tokenExpiresAt = parseInt(process.env.NOTION_TOKEN_EXPIRES_AT || '0');
-  return envToken;
+  // Check if token is expired or expiring soon
+  if (isTokenExpired()) {
+    console.log('🔄 Token expired or expiring soon, attempting refresh...');
+    const refreshedToken = await refreshNotionToken();
+    
+    if (refreshedToken) {
+      return refreshedToken;
+    }
+    
+    // If refresh failed, try using env token anyway (might still work)
+    console.log('⚠️ Using env token as fallback');
+    return envToken;
+  }
+
+  return cachedToken;
 }
 
 /**

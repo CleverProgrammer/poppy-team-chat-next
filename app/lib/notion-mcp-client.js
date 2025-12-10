@@ -76,13 +76,21 @@ export async function setupNotionMCPIntegration() {
       console.log('✅ Notion MCP tools loaded:', Object.keys(prefixedNotionTools));
     } catch (error) {
       console.error('Failed to fetch Notion MCP tools:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // If 401, clear cache and try to refresh token for next request
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        console.log('⚠️ Got 401 when fetching tools, token may be invalid');
+        clearInvalidNotionToken();
+      }
     }
   } catch (error) {
     console.error('Failed to create Notion MCP client:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Clear invalid token on 401/Unauthorized
+    // Clear invalid token on 401/Unauthorized and force refresh next time
     if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+      console.log('⚠️ Got 401 when creating client, will force token refresh next request');
       clearInvalidNotionToken();
     }
   }
