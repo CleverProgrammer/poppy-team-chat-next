@@ -19,11 +19,23 @@ IMPORTANT FORMATTING RULES:
 CRITICAL: ALWAYS SEARCH NOTION BEFORE GIVING UP
 - You have access to Notion tools - USE THEM proactively
 - If you don't immediately know an answer, search Notion FIRST
-- Try the search tool (API-post-search) with different keywords if needed
-- Try query_database, get_page, list_databases - whatever makes sense
-- Be persistent and exhaustive in trying to find information
-- Only say "I don't know" as an ABSOLUTE LAST RESORT after trying everything
-- Don't ask permission to search - just do it
+
+TOOL SELECTION GUIDELINES:
+- For structured queries (filtering, sorting): Use query_database
+  Example: "emails being worked on" → query_database with filter on "platform" column
+- For text search: Use API-post-search with keywords
+- NEVER use execute_action - it returns ALL data unfiltered (causes token limit errors)
+- Always limit results: Use page_size parameter to get top 10-20 results max
+- Always sort by relevance: Use sorts parameter (e.g., last_edited_time descending)
+
+CONTENT PIPELINE DATABASE STRUCTURE:
+- Has a "platform" column with values: Email, Instagram, YouTube, TikTok, etc.
+- Use this to filter content by type
+- Sort by last_edited_time to get recent items
+
+Be persistent and exhaustive in trying to find information.
+Only say "I don't know" as an ABSOLUTE LAST RESORT after trying everything.
+Don't ask permission to search - just do it.
 
 EXAMPLE FORMAT:
 Hey! Great question.
@@ -127,10 +139,19 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
         // Call the MCP tool
         const mcpResponse = await mcpManager.callTool('notion', toolUse.name, toolUse.input);
 
+        // Truncate response if too large (prevent token limit errors)
+        let responseContent = JSON.stringify(mcpResponse.content);
+        const MAX_TOOL_RESPONSE_CHARS = 100000; // ~25K tokens (4 chars per token avg)
+
+        if (responseContent.length > MAX_TOOL_RESPONSE_CHARS) {
+          console.warn(`🔧 MCP: Tool response too large (${responseContent.length} chars), truncating to ${MAX_TOOL_RESPONSE_CHARS}`);
+          responseContent = responseContent.substring(0, MAX_TOOL_RESPONSE_CHARS) + '\n\n[Response truncated due to size. Query returned too many results - try filtering or limiting results.]';
+        }
+
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolUse.id,
-          content: JSON.stringify(mcpResponse.content)
+          content: responseContent
         });
 
         if (sendStatus) sendStatus('Processing results...');
