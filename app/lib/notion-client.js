@@ -4,7 +4,7 @@
  * Uses Notion's official MCP server via SSE (Server-Sent Events) transport.
  * This works on Vercel because it uses HTTP requests instead of child processes.
  */
-import { experimental_createMCPClient as createMCPClient } from 'ai';
+import { createMCPClient } from './mcp/mcp-client.js';
 
 /**
  * Notion MCP Manager for Vercel
