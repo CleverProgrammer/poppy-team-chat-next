@@ -40,7 +40,8 @@ class NotionMCPManager {
         },
       },
       onUncaughtError: (error) => {
-        console.error('Notion MCP client error:', error);
+         
+        console.error('Notion MCP client error:', error,notionAccessToken.length);
       },
     });
     console.log('✅ Notion MCP: Connected successfully');
