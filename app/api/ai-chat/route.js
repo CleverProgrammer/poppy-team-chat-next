@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import mcpManager from '../../lib/mcp-client.js';
+import notionClient from '../../lib/notion-client.js';
 
 // Main AI processing function (extracted for both streaming and non-streaming)
 async function processAIRequest(message, chatHistory, apiKey, sendStatus = null, controller = null, encoder = null) {
@@ -56,24 +56,30 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
     content: message
   });
 
-  // Get available MCP tools from Notion
-  console.log('🔧 MCP: Loading Notion tools...');
+  // Get Notion MCP tools
+  console.log('🔧 Notion MCP: Loading tools...');
   if (sendStatus) sendStatus('Loading Notion tools...');
 
-  let mcpTools = [];
+  let mcpTools = {};
+  let tools = [];
+  
   try {
-    mcpTools = await mcpManager.listTools('notion');
-    console.log(`🔧 MCP: Loaded ${mcpTools.length} Notion tools`);
+    mcpTools = await notionClient.listTools();
+    
+    // Convert MCP tools to Claude format
+    tools = Object.entries(mcpTools).map(([name, tool]) => ({
+      name: name,
+      description: tool.description,
+      input_schema: tool.parameters
+    }));
+
+    console.log(`🔧 Notion MCP: Loaded ${tools.length} tools`);
+    if (sendStatus) sendStatus('Ready!');
   } catch (error) {
     console.error('🔧 MCP: Failed to load Notion tools:', error);
+    // Continue without Notion tools
   }
-
-  // Convert MCP tools to Claude format
-  const tools = mcpTools.map(tool => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.inputSchema
-  }));
+  
 
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5...');
   if (sendStatus) sendStatus('Calling Claude AI...');
@@ -117,25 +123,35 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
     // Find tool use blocks
     const toolUses = data.content.filter(block => block.type === 'tool_use');
 
-    // Execute each tool via MCP
+    // Execute each tool via Notion MCP adapter
     const toolResults = [];
     for (const toolUse of toolUses) {
-      console.log(`🔧 MCP: Executing tool: ${toolUse.name}`);
+      console.log(`🔧 Notion MCP: Executing tool: ${toolUse.name}`);
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`);
 
       try {
-        // Call the MCP tool
-        const mcpResponse = await mcpManager.callTool('notion', toolUse.name, toolUse.input);
+        // Call tool through MCP interface
+        const mcpResponse = await notionClient.callTool(toolUse.name, toolUse.input);
+
+        // Format the response for Claude
+        let content;
+        if (typeof mcpResponse === 'string') {
+          content = mcpResponse;
+        } else if (mcpResponse.content) {
+          content = JSON.stringify(mcpResponse.content);
+        } else {
+          content = JSON.stringify(mcpResponse);
+        }
 
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolUse.id,
-          content: JSON.stringify(mcpResponse.content)
+          content: content
         });
 
         if (sendStatus) sendStatus('Processing results...');
       } catch (error) {
-        console.error(`🔧 MCP: Error executing tool ${toolUse.name}:`, error);
+        console.error(`🔧 Notion MCP: Error executing tool ${toolUse.name}:`, error);
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolUse.id,
