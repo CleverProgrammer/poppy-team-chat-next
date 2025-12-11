@@ -20,7 +20,7 @@ import { useMessageSending } from '../../hooks/useMessageSending';
 import { useMentionMenu } from '../../hooks/useMentionMenu';
 import { useSubscriptions } from '../../hooks/useSubscriptions';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats, subscribeToPosts, promoteMessageToPost, demotePostToMessage } from '../../lib/firestore';
+import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats, subscribeToPosts, promoteMessageToPost, demotePostToMessage, loadOlderMessages, loadOlderMessagesDM } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -38,6 +38,9 @@ export default function ChatWindow() {
   const [viewMode, setViewMode] = useState('messages');
   const [posts, setPosts] = useState([]);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const messageListRef = useRef(null);
 
   // Image upload hook
   const {
@@ -365,6 +368,63 @@ export default function ChatWindow() {
     }
   }, [viewMode]);
 
+  // Infinite scroll - load older messages when scrolling to top
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) return;
+
+    const handleScroll = async () => {
+      if (loadingOlder || !hasMoreMessages || !currentChat || !user) return;
+
+      // Check if scrolled to top (within 100px)
+      if (messageList.scrollTop < 100) {
+        setLoadingOlder(true);
+
+        try {
+          const oldestMessage = messages[0];
+          if (!oldestMessage || !oldestMessage.timestamp) {
+            setLoadingOlder(false);
+            return;
+          }
+
+          let olderMessages = [];
+          if (currentChat.type === 'channel') {
+            olderMessages = await loadOlderMessages(currentChat.id, oldestMessage.timestamp);
+          } else if (currentChat.type === 'dm') {
+            const dmId = getDMId(user.uid, currentChat.id);
+            olderMessages = await loadOlderMessagesDM(dmId, oldestMessage.timestamp);
+          }
+
+          if (olderMessages.length === 0) {
+            setHasMoreMessages(false);
+          } else {
+            // Save scroll position
+            const scrollHeight = messageList.scrollHeight;
+            // Prepend older messages
+            setMessages(prev => [...olderMessages, ...prev]);
+            // Restore scroll position after render
+            requestAnimationFrame(() => {
+              const newScrollHeight = messageList.scrollHeight;
+              messageList.scrollTop = newScrollHeight - scrollHeight;
+            });
+          }
+        } catch (error) {
+          console.error('Error loading older messages:', error);
+        } finally {
+          setLoadingOlder(false);
+        }
+      }
+    };
+
+    messageList.addEventListener('scroll', handleScroll);
+    return () => messageList.removeEventListener('scroll', handleScroll);
+  }, [messages, loadingOlder, hasMoreMessages, currentChat, user]);
+
+  // Reset hasMoreMessages when switching chats
+  useEffect(() => {
+    setHasMoreMessages(true);
+  }, [currentChat]);
+
   // Close context menu on click outside
   useEffect(() => {
     const handleClick = () => {
@@ -458,7 +518,7 @@ export default function ChatWindow() {
           ) : (
             <>
               {/* Messages Area */}
-              <div className={`messages ${replyingTo ? 'replying-active' : ''}`} {...getRootProps()} onClick={handleMessagesAreaClick}>
+              <div ref={messageListRef} className={`messages ${replyingTo ? 'replying-active' : ''}`} {...getRootProps()} onClick={handleMessagesAreaClick}>
             <input {...getInputProps()} />
             {isDragActive && (
               <div className="drag-overlay">

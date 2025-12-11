@@ -11,7 +11,8 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
   const inputRef = useRef(null);
 
   const CHANNELS = [
-    { type: 'channel', id: 'general', name: 'general', hint: 'Team chat' }
+    { type: 'channel', id: 'general', name: 'general', hint: 'Team chat' },
+    { type: 'channel', id: 'test', name: 'test', hint: 'Testing & experiments' }
   ];
 
   const AI_ASSISTANT = [

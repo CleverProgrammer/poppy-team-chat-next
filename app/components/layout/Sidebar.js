@@ -38,6 +38,14 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
           <span>general</span>
           {unreadChats.includes('channel:general') && <div className="unread-badge" />}
         </div>
+        <div
+          className={`channel-item ${currentChat?.type === 'channel' && currentChat?.id === 'test' ? 'active' : ''}`}
+          onClick={() => handleChannelClick('test')}
+        >
+          <span className="hash">#</span>
+          <span>test</span>
+          {unreadChats.includes('channel:test') && <div className="unread-badge" />}
+        </div>
       </div>
 
       {/* Poppy AI Chat Section */}

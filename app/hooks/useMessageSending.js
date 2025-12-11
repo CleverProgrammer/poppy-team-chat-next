@@ -175,12 +175,16 @@ export function useMessageSending({
           }
         }
 
-        // Mark as unread for all other users
-        allUsers.forEach(otherUser => {
-          if (otherUser.uid !== user.uid) {
-            markChatAsUnread(otherUser.uid, 'channel', currentChat.id);
-          }
-        });
+        // Mark as unread for all other users (async, non-blocking)
+        setTimeout(() => {
+          allUsers.forEach(otherUser => {
+            if (otherUser.uid !== user.uid) {
+              markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
+                console.error('Failed to mark as unread:', err)
+              );
+            }
+          });
+        }, 0);
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
 
@@ -200,8 +204,12 @@ export function useMessageSending({
           }
         }
 
-        // Mark as unread for the recipient
-        markChatAsUnread(currentChat.id, 'dm', user.uid);
+        // Mark as unread for the recipient (async, non-blocking)
+        setTimeout(() => {
+          markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
+            console.error('Failed to mark DM as unread:', err)
+          );
+        }, 0);
       }
 
       // Remove optimistic message once real one arrives (Firestore subscription will add it)

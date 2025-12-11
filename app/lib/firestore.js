@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup, updateDoc, deleteDoc, arrayUnion, limit, startAfter } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from './firebase';
 
@@ -36,9 +36,13 @@ export async function sendMessage(channelId, user, text) {
   }
 }
 
-export function subscribeToMessages(channelId, callback) {
+export function subscribeToMessages(channelId, callback, messageLimit = 50) {
   const messagesRef = collection(db, 'channels', channelId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const q = query(
+    messagesRef,
+    orderBy('timestamp', 'desc'),
+    limit(messageLimit)
+  );
 
   return onSnapshot(q, (snapshot) => {
     const messages = [];
@@ -48,15 +52,19 @@ export function subscribeToMessages(channelId, callback) {
         ...doc.data()
       });
     });
-    callback(messages);
+    callback(messages.reverse()); // Reverse to show oldest->newest
   }, (error) => {
     console.error('Error loading messages:', error);
   });
 }
 
-export function subscribeToMessagesDM(dmId, callback) {
+export function subscribeToMessagesDM(dmId, callback, messageLimit = 50) {
   const messagesRef = collection(db, 'dms', dmId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const q = query(
+    messagesRef,
+    orderBy('timestamp', 'desc'),
+    limit(messageLimit)
+  );
 
   return onSnapshot(q, (snapshot) => {
     const messages = [];
@@ -66,10 +74,51 @@ export function subscribeToMessagesDM(dmId, callback) {
         ...doc.data()
       });
     });
-    callback(messages);
+    callback(messages.reverse()); // Reverse to show oldest->newest
   }, (error) => {
     console.error('Error loading messages:', error);
   });
+}
+
+// Load older messages for infinite scroll
+export async function loadOlderMessages(channelId, oldestTimestamp, messageLimit = 50) {
+  const messagesRef = collection(db, 'channels', channelId, 'messages');
+  const q = query(
+    messagesRef,
+    orderBy('timestamp', 'desc'),
+    startAfter(oldestTimestamp),
+    limit(messageLimit)
+  );
+
+  const snapshot = await getDocs(q);
+  const messages = [];
+  snapshot.forEach((doc) => {
+    messages.push({
+      id: doc.id,
+      ...doc.data()
+    });
+  });
+  return messages.reverse();
+}
+
+export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 50) {
+  const messagesRef = collection(db, 'dms', dmId, 'messages');
+  const q = query(
+    messagesRef,
+    orderBy('timestamp', 'desc'),
+    startAfter(oldestTimestamp),
+    limit(messageLimit)
+  );
+
+  const snapshot = await getDocs(q);
+  const messages = [];
+  snapshot.forEach((doc) => {
+    messages.push({
+      id: doc.id,
+      ...doc.data()
+    });
+  });
+  return messages.reverse();
 }
 
 export async function sendMessageDM(dmId, user, text, recipientId) {
@@ -153,15 +202,10 @@ export async function addActiveDM(userId, dmUserId) {
   if (!userId || !dmUserId) return;
 
   try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    const currentActiveDMs = userDoc.exists() ? (userDoc.data().activeDMs || []) : [];
-
-    if (!currentActiveDMs.includes(dmUserId)) {
-      await setDoc(doc(db, 'users', userId), {
-        activeDMs: [...currentActiveDMs, dmUserId],
-        lastSeen: serverTimestamp()
-      }, { merge: true });
-    }
+    await setDoc(doc(db, 'users', userId), {
+      activeDMs: arrayUnion(dmUserId),
+      lastSeen: serverTimestamp()
+    }, { merge: true });
   } catch (error) {
     console.error('Error adding active DM:', error);
   }

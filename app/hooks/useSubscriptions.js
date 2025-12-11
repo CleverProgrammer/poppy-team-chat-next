@@ -85,61 +85,58 @@ export function useSubscriptions({
 
     const unsubscribers = [];
 
-    // Subscribe to general channel (only notify on mentions)
-    const channelUnsub = subscribeToMessages('general', (messages) => {
-      const chatKey = 'channel:general';
-      const previousCount = globalMessageCountsRef.current[chatKey] || 0;
-      const currentCount = messages.length;
+    // Subscribe to channels (only notify on mentions) - load only 1 message for performance
+    const channels = ['general', 'test'];
+    channels.forEach(channelId => {
+      const channelUnsub = subscribeToMessages(channelId, (messages) => {
+        const chatKey = `channel:${channelId}`;
 
-      console.log(`🌍 Global listener - Channel general: ${currentCount} messages (was ${previousCount})`);
+        if (messages.length > 0) {
+          const lastMessage = messages[messages.length - 1];
+          const lastMessageId = globalMessageCountsRef.current[chatKey];
 
-      if (previousCount > 0 && currentCount > previousCount) {
-        const newMessages = messages.slice(previousCount);
-        newMessages.forEach(msg => {
-          if (msg.senderId !== user.uid && !msg.optimistic && isTabHiddenRef.current) {
-            // Check if user is mentioned in the message
-            const isMentioned = msg.text?.includes(`@${user.displayName}`) ||
-                               msg.text?.includes(`@${user.email}`) ||
-                               msg.text?.includes('@everyone') ||
-                               msg.text?.includes('@channel');
+          // Only notify if this is a new message
+          if (lastMessageId && lastMessageId !== lastMessage.id) {
+            if (lastMessage.senderId !== user.uid && !lastMessage.optimistic && isTabHiddenRef.current) {
+              const isMentioned = lastMessage.text?.includes(`@${user.displayName}`) ||
+                                 lastMessage.text?.includes(`@${user.email}`) ||
+                                 lastMessage.text?.includes('@everyone') ||
+                                 lastMessage.text?.includes('@channel');
 
-            if (isMentioned) {
-              console.log(`🔔 Global notification - Mentioned in general channel by ${msg.sender}`);
-              playKnockSound();
-            } else {
-              console.log(`⏭️ Skipping sound - Not mentioned in channel message`);
+              if (isMentioned) {
+                console.log(`🔔 Global notification - Mentioned in ${channelId} channel by ${lastMessage.sender}`);
+                playKnockSound();
+              }
             }
           }
-        });
-      }
 
-      globalMessageCountsRef.current[chatKey] = currentCount;
+          globalMessageCountsRef.current[chatKey] = lastMessage.id;
+        }
+      }, 1); // Only load 1 most recent message
+      unsubscribers.push(channelUnsub);
     });
-    unsubscribers.push(channelUnsub);
 
-    // Subscribe to all active DMs
+    // Subscribe to all active DMs - load only 1 message for performance
     activeDMs.forEach(dmUserId => {
       const dmId = getDMId(user.uid, dmUserId);
       const chatKey = `dm:${dmUserId}`;
 
       const dmUnsub = subscribeToMessagesDM(dmId, (messages) => {
-        const previousCount = globalMessageCountsRef.current[chatKey] || 0;
-        const currentCount = messages.length;
+        if (messages.length > 0) {
+          const lastMessage = messages[messages.length - 1];
+          const lastMessageId = globalMessageCountsRef.current[chatKey];
 
-        console.log(`🌍 Global listener - DM ${dmUserId}: ${currentCount} messages (was ${previousCount})`);
-
-        if (previousCount > 0 && currentCount > previousCount) {
-          const newMessages = messages.slice(previousCount);
-          newMessages.forEach(msg => {
-            if (msg.senderId !== user.uid && !msg.optimistic && isTabHiddenRef.current) {
-              console.log(`🔔 Global notification - New DM from ${msg.sender}`);
+          // Only notify if this is a new message
+          if (lastMessageId && lastMessageId !== lastMessage.id) {
+            if (lastMessage.senderId !== user.uid && !lastMessage.optimistic && isTabHiddenRef.current) {
+              console.log(`🔔 Global notification - New DM from ${lastMessage.sender}`);
               playKnockSound();
             }
-          });
-        }
+          }
 
-        globalMessageCountsRef.current[chatKey] = currentCount;
-      });
+          globalMessageCountsRef.current[chatKey] = lastMessage.id;
+        }
+      }, 1); // Only load 1 most recent message
       unsubscribers.push(dmUnsub);
     });
 
