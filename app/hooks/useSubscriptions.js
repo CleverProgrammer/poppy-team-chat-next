@@ -85,7 +85,7 @@ export function useSubscriptions({
 
     const unsubscribers = [];
 
-    // Subscribe to general channel
+    // Subscribe to general channel (only notify on mentions)
     const channelUnsub = subscribeToMessages('general', (messages) => {
       const chatKey = 'channel:general';
       const previousCount = globalMessageCountsRef.current[chatKey] || 0;
@@ -97,8 +97,18 @@ export function useSubscriptions({
         const newMessages = messages.slice(previousCount);
         newMessages.forEach(msg => {
           if (msg.senderId !== user.uid && !msg.optimistic && isTabHiddenRef.current) {
-            console.log(`🔔 Global notification - New message in general channel from ${msg.sender}`);
-            playKnockSound();
+            // Check if user is mentioned in the message
+            const isMentioned = msg.text?.includes(`@${user.displayName}`) ||
+                               msg.text?.includes(`@${user.email}`) ||
+                               msg.text?.includes('@everyone') ||
+                               msg.text?.includes('@channel');
+
+            if (isMentioned) {
+              console.log(`🔔 Global notification - Mentioned in general channel by ${msg.sender}`);
+              playKnockSound();
+            } else {
+              console.log(`⏭️ Skipping sound - Not mentioned in channel message`);
+            }
           }
         });
       }
