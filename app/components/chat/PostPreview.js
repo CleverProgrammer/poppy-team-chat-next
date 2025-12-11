@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 
-export default function PostPreview({ post, onClick }) {
+export default function PostPreview({ post, onClick, onContextMenu }) {
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Just now';
     try {
@@ -18,8 +18,18 @@ export default function PostPreview({ post, onClick }) {
     return text.substring(0, maxLength) + '...';
   };
 
+  const handleContextMenu = (e) => {
+    if (onContextMenu) {
+      onContextMenu(e, post);
+    }
+  };
+
   return (
-    <div className="post-as-message" onClick={onClick}>
+    <div
+      className="post-as-message"
+      onClick={onClick}
+      onContextMenu={handleContextMenu}
+    >
       <div className="post-label">📌 Post</div>
       <div className="message-sender">
         {post.sender}

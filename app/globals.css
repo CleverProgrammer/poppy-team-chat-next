@@ -159,6 +159,10 @@ body {
 .chat-header-subtitle {
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+/* Push notification bell to the right */
+.chat-header > div:last-child {
   margin-left: auto;
 }
 

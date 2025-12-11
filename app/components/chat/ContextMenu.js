@@ -6,25 +6,38 @@ export default function ContextMenu({
   user,
   onReply,
   onEdit,
-  onDelete
+  onDelete,
+  onPromote,
+  onDemote
 }) {
   if (!contextMenu) return null;
 
   const { x, y, message } = contextMenu;
   const isOwnMessage = message.senderId === user?.uid;
+  const isPost = message.isPost;
 
   const handleReply = () => {
-    onReply(message.id, message.sender, message.text);
+    onReply(message.id, message.sender, message.text || message.content);
     setContextMenu(null);
   };
 
   const handleEdit = () => {
-    onEdit(message.id, message.text);
+    onEdit(message.id, message.text || message.content);
     setContextMenu(null);
   };
 
   const handleDelete = () => {
     onDelete(message.id);
+    setContextMenu(null);
+  };
+
+  const handlePromote = () => {
+    onPromote(message.id);
+    setContextMenu(null);
+  };
+
+  const handleDemote = () => {
+    onDemote(message.id);
     setContextMenu(null);
   };
 
@@ -34,13 +47,16 @@ export default function ContextMenu({
       style={{ top: y, left: x }}
       onClick={(e) => e.stopPropagation()}
     >
-      <button onClick={handleReply}>↩ Reply</button>
-      {isOwnMessage && (
+      {!isPost && <button onClick={handleReply}>↩ Reply</button>}
+      {isOwnMessage && !isPost && (
         <>
           <button onClick={handleEdit}>Edit</button>
           <button onClick={handleDelete}>💀 Undo Send</button>
         </>
       )}
+      {/* Promote/Demote options */}
+      {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
+      {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
     </div>
   );
 }

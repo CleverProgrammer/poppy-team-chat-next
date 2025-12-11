@@ -679,3 +679,83 @@ export async function deletePost(chatType, chatId, postId) {
     throw error;
   }
 }
+
+// Promote a message to a post
+export async function promoteMessageToPost(chatType, chatId, messageId) {
+  try {
+    // Get the message data
+    const messageRef = chatType === 'dm'
+      ? doc(db, 'dms', chatId, 'messages', messageId)
+      : doc(db, 'channels', chatId, 'messages', messageId);
+
+    const messageSnap = await getDoc(messageRef);
+    if (!messageSnap.exists()) {
+      throw new Error('Message not found');
+    }
+
+    const messageData = messageSnap.data();
+
+    // Create a post with the message data
+    const postsRef = chatType === 'dm'
+      ? collection(db, 'dms', chatId, 'posts')
+      : collection(db, 'channels', chatId, 'posts');
+
+    await addDoc(postsRef, {
+      title: '',
+      content: messageData.text || '',
+      sender: messageData.sender,
+      senderId: messageData.senderId,
+      photoURL: messageData.photoURL || '',
+      timestamp: messageData.timestamp,
+      edited: messageData.edited || false,
+      imageUrl: messageData.imageUrl || null,
+      replyTo: messageData.replyTo || null
+    });
+
+    // Delete the original message
+    await deleteDoc(messageRef);
+  } catch (error) {
+    console.error('Error promoting message to post:', error);
+    throw error;
+  }
+}
+
+// Demote a post to a message
+export async function demotePostToMessage(chatType, chatId, postId) {
+  try {
+    // Get the post data
+    const postRef = chatType === 'dm'
+      ? doc(db, 'dms', chatId, 'posts', postId)
+      : doc(db, 'channels', chatId, 'posts', postId);
+
+    const postSnap = await getDoc(postRef);
+    if (!postSnap.exists()) {
+      throw new Error('Post not found');
+    }
+
+    const postData = postSnap.data();
+
+    // Create a message with the post data
+    const messagesRef = chatType === 'dm'
+      ? collection(db, 'dms', chatId, 'messages')
+      : collection(db, 'channels', chatId, 'messages');
+
+    await addDoc(messagesRef, {
+      text: postData.content || '',
+      sender: postData.sender,
+      senderId: postData.senderId,
+      photoURL: postData.photoURL || '',
+      timestamp: postData.timestamp,
+      edited: postData.edited || false,
+      imageUrl: postData.imageUrl || null,
+      replyTo: postData.replyTo || null,
+      reactions: {}
+    });
+
+    // Delete the original post
+    await deleteDoc(postRef);
+  } catch (error) {
+    console.error('Error demoting post to message:', error);
+    throw error;
+  }
+}

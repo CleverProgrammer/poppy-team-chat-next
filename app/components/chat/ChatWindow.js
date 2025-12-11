@@ -19,7 +19,7 @@ import { useMessageSending } from '../../hooks/useMessageSending';
 import { useMentionMenu } from '../../hooks/useMentionMenu';
 import { useSubscriptions } from '../../hooks/useSubscriptions';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats, subscribeToPosts } from '../../lib/firestore';
+import { getDMId, saveCurrentChat, deleteMessage, addActiveDM, markChatAsRead, markChatAsUnread, subscribeToUnreadChats, subscribeToPosts, promoteMessageToPost, demotePostToMessage } from '../../lib/firestore';
 
 export default function ChatWindow() {
   const { user } = useAuth();
@@ -279,6 +279,34 @@ export default function ChatWindow() {
     }
   };
 
+  // Promote message to post
+  const handlePromoteMessage = async (messageId) => {
+    const chatId = currentChat.type === 'dm'
+      ? getDMId(user.uid, currentChat.id)
+      : currentChat.id;
+
+    try {
+      await promoteMessageToPost(currentChat.type, chatId, messageId);
+    } catch (error) {
+      console.error('Error promoting message to post:', error);
+      alert('Failed to promote message. Please try again.');
+    }
+  };
+
+  // Demote post to message
+  const handleDemotePost = async (postId) => {
+    const chatId = currentChat.type === 'dm'
+      ? getDMId(user.uid, currentChat.id)
+      : currentChat.id;
+
+    try {
+      await demotePostToMessage(currentChat.type, chatId, postId);
+    } catch (error) {
+      console.error('Error demoting post to message:', error);
+      alert('Failed to demote post. Please try again.');
+    }
+  };
+
   // Context menu handler
   const handleContextMenu = (e, message) => {
     e.preventDefault();
@@ -439,6 +467,7 @@ export default function ChatWindow() {
                             setSelectedPost(item);
                             setViewMode('posts');
                           }}
+                          onContextMenu={handleContextMenu}
                         />
                       );
                     } else {
@@ -527,6 +556,8 @@ export default function ChatWindow() {
         onReply={startReply}
         onEdit={startEdit}
         onDelete={handleDeleteMessage}
+        onPromote={handlePromoteMessage}
+        onDemote={handleDemotePost}
       />
     </>
   );
