@@ -34,6 +34,8 @@ export function useSubscriptions({
   const soundRef = useRef(null);
   const messagesRef = useRef([]);
   const isTabHiddenRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+  const globalMessageCountsRef = useRef({});
 
   // Load saved chat on mount
   useEffect(() => {
@@ -77,11 +79,91 @@ export function useSubscriptions({
     return () => unsubscribe();
   }, [user]);
 
+  // Global sound notifications - listen to ALL chats for notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribers = [];
+
+    // Subscribe to general channel
+    const channelUnsub = subscribeToMessages('general', (messages) => {
+      const chatKey = 'channel:general';
+      const previousCount = globalMessageCountsRef.current[chatKey] || 0;
+      const currentCount = messages.length;
+
+      console.log(`🌍 Global listener - Channel general: ${currentCount} messages (was ${previousCount})`);
+
+      if (previousCount > 0 && currentCount > previousCount) {
+        const newMessages = messages.slice(previousCount);
+        newMessages.forEach(msg => {
+          if (msg.senderId !== user.uid && !msg.optimistic && isTabHiddenRef.current) {
+            console.log(`🔔 Global notification - New message in general channel from ${msg.sender}`);
+            playKnockSound();
+          }
+        });
+      }
+
+      globalMessageCountsRef.current[chatKey] = currentCount;
+    });
+    unsubscribers.push(channelUnsub);
+
+    // Subscribe to all active DMs
+    activeDMs.forEach(dmUserId => {
+      const dmId = getDMId(user.uid, dmUserId);
+      const chatKey = `dm:${dmUserId}`;
+
+      const dmUnsub = subscribeToMessagesDM(dmId, (messages) => {
+        const previousCount = globalMessageCountsRef.current[chatKey] || 0;
+        const currentCount = messages.length;
+
+        console.log(`🌍 Global listener - DM ${dmUserId}: ${currentCount} messages (was ${previousCount})`);
+
+        if (previousCount > 0 && currentCount > previousCount) {
+          const newMessages = messages.slice(previousCount);
+          newMessages.forEach(msg => {
+            if (msg.senderId !== user.uid && !msg.optimistic && isTabHiddenRef.current) {
+              console.log(`🔔 Global notification - New DM from ${msg.sender}`);
+              playKnockSound();
+            }
+          });
+        }
+
+        globalMessageCountsRef.current[chatKey] = currentCount;
+      });
+      unsubscribers.push(dmUnsub);
+    });
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [user, activeDMs]);
+
+  // Helper function to play knock sound
+  const playKnockSound = () => {
+    if (!soundRef.current) {
+      console.log('📦 Creating new Howl instance...');
+      soundRef.current = new Howl({
+        src: ['/sounds/knock_sound.mp3'],
+        volume: 0.5,
+        onload: () => console.log('🎵 Sound loaded successfully'),
+        onloaderror: (id, err) => console.error('❌ Sound load error:', err),
+        onplay: () => console.log('🔊 Sound playing'),
+        onplayerror: (id, err) => console.error('❌ Sound play error:', err)
+      });
+    }
+    const playId = soundRef.current.play();
+    console.log('🎬 Playing knock sound, ID:', playId);
+  };
+
   // Subscribe to messages based on current chat
   useEffect(() => {
     if (!currentChat || !user) return;
 
     let unsubscribe;
+
+    // Reset initial load flag when switching chats
+    isInitialLoadRef.current = true;
+    previousMessagesRef.current = [];
 
     // Mark chat as read immediately when entering it
     markChatAsRead(user.uid, currentChat.type, currentChat.id);
@@ -148,67 +230,6 @@ export function useSubscriptions({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messagesRef.current, messagesEndRef]);
-
-  // Sound notifications - play knock sound when tab is hidden and new messages arrive
-  useEffect(() => {
-    if (!user || !currentChat) return;
-    if (currentMessages.length === 0) return;
-
-    console.log('🔄 Sound effect triggered, checking messages...');
-
-    // Find new messages
-    const previousMessageIds = new Set(previousMessagesRef.current.map(m => m.id));
-    const newMessages = currentMessages.filter(msg => !previousMessageIds.has(msg.id));
-
-    console.log(`📊 Found ${newMessages.length} new messages out of ${currentMessages.length} total`);
-
-    // Update ref for next comparison
-    previousMessagesRef.current = currentMessages;
-
-    // Use the ref that tracks visibility changes in real-time
-    const wasTabHidden = isTabHiddenRef.current;
-
-    newMessages.forEach(msg => {
-      console.log('🔔 New message detected:', {
-        text: msg.text?.substring(0, 30),
-        senderId: msg.senderId,
-        currentUserId: user.uid,
-        isOwnMessage: msg.senderId === user.uid,
-        wasTabHidden,
-        optimistic: msg.optimistic,
-        isTyping: msg.isTyping
-      });
-
-      if (msg.senderId === user.uid) {
-        console.log('❌ Skipping sound: own message');
-        return;
-      }
-      if (msg.optimistic || msg.isTyping) {
-        console.log('❌ Skipping sound: optimistic or typing indicator');
-        return;
-      }
-      if (!wasTabHidden) {
-        console.log('❌ Skipping sound: tab was active when message arrived');
-        return;
-      }
-
-      // Play knock sound for all message types when tab is hidden
-      console.log('✅ Playing knock sound!');
-      if (!soundRef.current) {
-        console.log('📦 Creating new Howl instance...');
-        soundRef.current = new Howl({
-          src: ['/sounds/knock.mp3'],
-          volume: 0.5,
-          onload: () => console.log('🎵 Sound loaded successfully'),
-          onloaderror: (id, err) => console.error('❌ Sound load error:', err),
-          onplay: () => console.log('🔊 Sound playing'),
-          onplayerror: (id, err) => console.error('❌ Sound play error:', err)
-        });
-      }
-      const playId = soundRef.current.play();
-      console.log('🎬 Called play(), ID:', playId);
-    });
-  }, [currentMessages, user, currentChat]);
 
   // Auto-focus input when switching chats
   useEffect(() => {
