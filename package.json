@@ -9,10 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@knocklabs/node": "^1.24.0",
-    "@knocklabs/react": "^0.9.4",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@notionhq/notion-mcp-server": "^1.9.1",
+    "date-fns": "^4.1.0",
     "firebase": "^12.6.0",
     "howler": "^2.2.4",
     "next": "16.0.7",

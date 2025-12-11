@@ -28,10 +28,12 @@ export function useSubscriptions({
   const [allUsers, setAllUsers] = useState([]);
   const [activeDMs, setActiveDMs] = useState([]);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [currentMessages, setCurrentMessages] = useState([]);
 
   const previousMessagesRef = useRef([]);
   const soundRef = useRef(null);
   const messagesRef = useRef([]);
+  const isTabHiddenRef = useRef(false);
 
   // Load saved chat on mount
   useEffect(() => {
@@ -88,6 +90,7 @@ export function useSubscriptions({
       unsubscribe = subscribeToMessages(currentChat.id, (newMessages) => {
         setMessages(newMessages);
         messagesRef.current = newMessages;
+        setCurrentMessages(newMessages);
         // Mark as read whenever new messages arrive while viewing this chat
         markChatAsRead(user.uid, currentChat.type, currentChat.id);
       });
@@ -96,6 +99,7 @@ export function useSubscriptions({
       unsubscribe = subscribeToMessagesDM(dmId, (newMessages) => {
         setMessages(newMessages);
         messagesRef.current = newMessages;
+        setCurrentMessages(newMessages);
         // Mark as read whenever new messages arrive while viewing this chat
         markChatAsRead(user.uid, currentChat.type, currentChat.id);
       });
@@ -103,6 +107,7 @@ export function useSubscriptions({
       unsubscribe = subscribeToAIMessages(user.uid, (newMessages) => {
         setMessages(newMessages);
         messagesRef.current = newMessages;
+        setCurrentMessages(newMessages);
       });
     }
 
@@ -124,46 +129,86 @@ export function useSubscriptions({
     return () => unsubscribe();
   }, [currentChat, user]);
 
+  // Track tab visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isTabHiddenRef.current = document.hidden;
+      console.log(`👁️ Tab visibility changed: ${document.hidden ? 'HIDDEN' : 'VISIBLE'}`);
+    };
+
+    // Set initial state
+    isTabHiddenRef.current = document.hidden;
+    console.log(`👁️ Initial tab state: ${document.hidden ? 'HIDDEN' : 'VISIBLE'}`);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messagesRef.current, messagesEndRef]);
 
-  // Sound notifications - only play when tab is hidden and it's a DM
+  // Sound notifications - play knock sound when tab is hidden and new messages arrive
   useEffect(() => {
     if (!user || !currentChat) return;
+    if (currentMessages.length === 0) return;
 
-    const messages = messagesRef.current;
-    if (messages.length === 0) return;
+    console.log('🔄 Sound effect triggered, checking messages...');
 
     // Find new messages
     const previousMessageIds = new Set(previousMessagesRef.current.map(m => m.id));
-    const newMessages = messages.filter(msg => !previousMessageIds.has(msg.id));
+    const newMessages = currentMessages.filter(msg => !previousMessageIds.has(msg.id));
+
+    console.log(`📊 Found ${newMessages.length} new messages out of ${currentMessages.length} total`);
 
     // Update ref for next comparison
-    previousMessagesRef.current = messages;
+    previousMessagesRef.current = currentMessages;
 
-    // Check if tab is hidden
-    const isTabHidden = document.hidden;
+    // Use the ref that tracks visibility changes in real-time
+    const wasTabHidden = isTabHiddenRef.current;
 
     newMessages.forEach(msg => {
-      if (msg.senderId === user.uid) return;
-      if (msg.optimistic || msg.isTyping) return;
-      if (!isTabHidden) return;
+      console.log('🔔 New message detected:', {
+        text: msg.text?.substring(0, 30),
+        senderId: msg.senderId,
+        currentUserId: user.uid,
+        isOwnMessage: msg.senderId === user.uid,
+        wasTabHidden,
+        optimistic: msg.optimistic,
+        isTyping: msg.isTyping
+      });
 
-      const isDM = currentChat.type === 'dm';
-
-      if (isDM) {
-        if (!soundRef.current) {
-          soundRef.current = new Howl({
-            src: ['/sounds/knock_sound.mp3'],
-            volume: 0.5
-          });
-        }
-        soundRef.current.play();
+      if (msg.senderId === user.uid) {
+        console.log('❌ Skipping sound: own message');
+        return;
       }
+      if (msg.optimistic || msg.isTyping) {
+        console.log('❌ Skipping sound: optimistic or typing indicator');
+        return;
+      }
+      if (!wasTabHidden) {
+        console.log('❌ Skipping sound: tab was active when message arrived');
+        return;
+      }
+
+      // Play knock sound for all message types when tab is hidden
+      console.log('✅ Playing knock sound!');
+      if (!soundRef.current) {
+        console.log('📦 Creating new Howl instance...');
+        soundRef.current = new Howl({
+          src: ['/sounds/knock.mp3'],
+          volume: 0.5,
+          onload: () => console.log('🎵 Sound loaded successfully'),
+          onloaderror: (id, err) => console.error('❌ Sound load error:', err),
+          onplay: () => console.log('🔊 Sound playing'),
+          onplayerror: (id, err) => console.error('❌ Sound play error:', err)
+        });
+      }
+      const playId = soundRef.current.play();
+      console.log('🎬 Called play(), ID:', playId);
     });
-  }, [messagesRef.current, user, currentChat]);
+  }, [currentMessages, user, currentChat]);
 
   // Auto-focus input when switching chats
   useEffect(() => {

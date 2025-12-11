@@ -181,19 +181,6 @@ export function useMessageSending({
             markChatAsUnread(otherUser.uid, 'channel', currentChat.id);
           }
         });
-
-        // Trigger notification
-        fetch('/api/notify-channel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senderId: user.uid,
-            senderName: user.displayName || user.email,
-            channelId: currentChat.id,
-            messageText: imageUrl ? `${messageText} [Image]` : messageText,
-            allUsers
-          })
-        }).catch(err => console.error('Notification error:', err));
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
 
@@ -215,18 +202,6 @@ export function useMessageSending({
 
         // Mark as unread for the recipient
         markChatAsUnread(currentChat.id, 'dm', user.uid);
-
-        // Trigger notification
-        fetch('/api/notify-dm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senderId: user.uid,
-            senderName: user.displayName || user.email,
-            recipientId: currentChat.id,
-            messageText: imageUrl ? `${messageText} [Image]` : messageText
-          })
-        }).catch(err => console.error('Notification error:', err));
       }
 
       // Remove optimistic message once real one arrives (Firestore subscription will add it)

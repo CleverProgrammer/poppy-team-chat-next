@@ -1,13 +1,9 @@
 'use client';
 
-import NotificationBell from '../notifications/NotificationBell';
-
 export default function ChatHeader({
   currentChat,
   isSidebarOpen,
   setIsSidebarOpen,
-  onUnreadChatsChange,
-  onMarkChatRead,
   viewMode,
   onViewModeChange
 }) {
@@ -56,13 +52,6 @@ export default function ChatHeader({
           </button>
         </div>
       )}
-
-      <div style={{ marginLeft: 'auto' }}>
-        <NotificationBell
-          onUnreadChatsChange={onUnreadChatsChange}
-          onMarkChatRead={onMarkChatRead}
-        />
-      </div>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import "@knocklabs/react/dist/index.css";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const geistSans = Geist({

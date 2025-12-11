@@ -131,7 +131,6 @@ export default function ChatWindow() {
     openAiModal
   });
 
-  const markChatAsReadRef = useRef(null);
   const messageRefs = useRef({});
 
   const handleKeyDown = (e) => {
@@ -195,14 +194,6 @@ export default function ChatWindow() {
       console.log('📌 Saving chat to Firestore:', chat);
       saveCurrentChat(user.uid, chat);
     }
-  };
-
-  const handleUnreadChatsChange = (newUnreadChats) => {
-    setUnreadChats(newUnreadChats);
-  };
-
-  const handleMarkChatReadCallback = (markReadFn) => {
-    markChatAsReadRef.current = markReadFn;
   };
 
   // Reply handlers
@@ -424,8 +415,6 @@ export default function ChatWindow() {
             currentChat={currentChat}
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
-            onUnreadChatsChange={handleUnreadChatsChange}
-            onMarkChatRead={handleMarkChatReadCallback}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
           />
