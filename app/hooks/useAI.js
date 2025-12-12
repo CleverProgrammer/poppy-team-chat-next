@@ -23,7 +23,7 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     isTyping: true
   }), []);
 
-  // Call AI API with streaming support
+  // Call AI API with streaming support (Vercel AI SDK format)
   const callAI = useCallback(async (question, chatHistory, onStatus = null) => {
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
@@ -31,7 +31,6 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
       body: JSON.stringify({
         message: question,
         chatHistory,
-        stream: !!onStatus,  // Enable streaming if onStatus callback is provided
         user: user ? {
           id: user.uid,
           email: user.email,
@@ -44,40 +43,29 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
       throw new Error(`API error: ${response.status}`);
     }
 
-    // If streaming
-    if (onStatus && response.headers.get('content-type')?.includes('text/event-stream')) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let finalResponse = '';
+    // Vercel AI SDK returns text/plain; charset=utf-8 streaming
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let finalResponse = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-
-            if (data.status) {
-              onStatus(data.status);
-            } else if (data.response) {
-              finalResponse = data.response;
-            } else if (data.error) {
-              throw new Error(data.error);
-            }
-          }
-        }
-      }
-
-      return finalResponse;
+    if (onStatus) {
+      onStatus('Thinking...');
     }
 
-    // Non-streaming fallback
-    const data = await response.json();
-    return data.response;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      finalResponse += chunk;
+
+      // Update status with streaming content
+      if (onStatus && chunk.trim()) {
+        onStatus('Responding...');
+      }
+    }
+
+    return finalResponse.trim();
   }, [user]);
 
   // Ask Poppy in channel/DM (posts response as message)
