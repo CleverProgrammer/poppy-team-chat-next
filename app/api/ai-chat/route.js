@@ -113,11 +113,13 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       tools: tools,
       metadata: {
         keywordsai_params: {
-          customer_identifier: user?.id || 'anonymous',
           customer_params: user ? {
+            customer_identifier: user.id,
             name: user.name,
             email: user.email
-          } : undefined,
+          } : {
+            customer_identifier: 'anonymous'
+          },
           thread_identifier: threadId,
           custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
@@ -229,11 +231,13 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       tools: tools,
       metadata: {
         keywordsai_params: {
-          customer_identifier: user?.id || 'anonymous',
           customer_params: user ? {
+            customer_identifier: user.id,
             name: user.name,
             email: user.email
-          } : undefined,
+          } : {
+            customer_identifier: 'anonymous'
+          },
           thread_identifier: threadId,
           custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
