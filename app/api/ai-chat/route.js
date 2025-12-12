@@ -3,7 +3,7 @@ import mcpManager from '../../lib/mcp-client.js';
 import Anthropic from '@anthropic-ai/sdk';
 
 // Main AI processing function (extracted for both streaming and non-streaming)
-async function processAIRequest(message, chatHistory, apiKey, sendStatus = null, controller = null, encoder = null) {
+async function processAIRequest(message, chatHistory, apiKey, user = null, sendStatus = null, controller = null, encoder = null) {
   // Build system prompt
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
 
@@ -96,7 +96,13 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
   // Initialize Anthropic SDK with Keywords AI baseURL
   const anthropic = new Anthropic({
     apiKey: keywordsApiKey,
-    baseURL: 'https://api.keywordsai.co/api/anthropic/'
+    baseURL: 'https://api.keywordsai.co/api/anthropic/',
+    // Pass user metadata for Keywords AI tracking
+    defaultHeaders: user ? {
+      'X-Customer-Identifier': user.id,
+      'X-Customer-Email': user.email,
+      'X-Customer-Name': user.name
+    } : {}
   });
 
   let data;
@@ -106,7 +112,11 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       max_tokens: 4096,
       system: systemPrompt,
       messages: messages,
-      tools: tools
+      tools: tools,
+      // Also pass metadata at the request level
+      metadata: user ? {
+        user_id: user.id
+      } : undefined
     });
     console.log('🤖 Poppy AI: Response received');
   } catch (error) {
@@ -233,7 +243,7 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream } = await request.json();
+    const { message, chatHistory, stream, user } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -264,7 +274,7 @@ export async function POST(request) {
             sendStatus('Thinking...');
 
             // Continue with AI processing (code below will be wrapped)
-            await processAIRequest(message, chatHistory, apiKey, sendStatus, controller, encoder);
+            await processAIRequest(message, chatHistory, apiKey, user, sendStatus, controller, encoder);
 
             controller.close();
           } catch (error) {
@@ -284,7 +294,7 @@ export async function POST(request) {
     }
 
     // Non-streaming mode - use the extracted function
-    const aiResponse = await processAIRequest(message, chatHistory, apiKey);
+    const aiResponse = await processAIRequest(message, chatHistory, apiKey, user);
     return NextResponse.json({ response: aiResponse });
 
   } catch (error) {

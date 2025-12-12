@@ -31,7 +31,12 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
       body: JSON.stringify({
         message: question,
         chatHistory,
-        stream: !!onStatus  // Enable streaming if onStatus callback is provided
+        stream: !!onStatus,  // Enable streaming if onStatus callback is provided
+        user: user ? {
+          id: user.uid,
+          email: user.email,
+          name: user.displayName
+        } : null
       })
     });
 
@@ -73,7 +78,7 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     // Non-streaming fallback
     const data = await response.json();
     return data.response;
-  }, []);
+  }, [user]);
 
   // Ask Poppy in channel/DM (posts response as message)
   const askPoppy = useCallback(async (userQuestion) => {
