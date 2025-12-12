@@ -39,17 +39,23 @@ export function useMentionMenu({
     }
 
     if (slashPos !== -1) {
-      // Get text between / and cursor
-      const query = value.substring(slashPos + 1, cursorPos);
-      // Only show if no space in query
-      if (!query.includes(' ') && !query.includes('\n')) {
-        setMentionMenu({
-          type: 'command',
-          position: slashPos,
-          query: query.toLowerCase()
-        });
-        setMentionMenuIndex(0);
-        return;
+      // Only trigger if / is at start or after a space (not in middle of URL)
+      const charBeforeSlash = slashPos > 0 ? value[slashPos - 1] : ' ';
+      const isCommandContext = charBeforeSlash === ' ' || charBeforeSlash === '\n' || slashPos === 0;
+
+      if (isCommandContext) {
+        // Get text between / and cursor
+        const query = value.substring(slashPos + 1, cursorPos);
+        // Only show if no space in query
+        if (!query.includes(' ') && !query.includes('\n')) {
+          setMentionMenu({
+            type: 'command',
+            position: slashPos,
+            query: query.toLowerCase()
+          });
+          setMentionMenuIndex(0);
+          return;
+        }
       }
     }
 
