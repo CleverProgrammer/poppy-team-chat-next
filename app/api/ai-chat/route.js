@@ -87,14 +87,16 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
     input_schema: tool.inputSchema
   }));
 
-  console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5...');
+  console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...');
   if (sendStatus) sendStatus('Calling Claude AI...');
 
-  let response = await fetch('https://api.anthropic.com/v1/messages', {
+  const keywordsApiKey = process.env.KEYWORDS_AI_API_KEY;
+
+  let response = await fetch('https://api.keywordsai.co/api/chat/completions', {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${keywordsApiKey}`,
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
@@ -198,11 +200,11 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
     // Call Claude again with tool results
     if (sendStatus) sendStatus('Processing results...');
-    response = await fetch('https://api.anthropic.com/v1/messages', {
+    response = await fetch('https://api.keywordsai.co/api/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${keywordsApiKey}`,
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
