@@ -104,7 +104,7 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
   let data;
   try {
-    // Build request with Keywords AI parameters in metadata
+    // Build request with Keywords AI parameters
     const createParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
@@ -123,13 +123,15 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
           thread_identifier: threadId,
           custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
-          is_custom_prompt: true,
-          keywords_metadata: {
-            app: 'poppy_team_chat',
-            chat_type: 'ai_assistant',
-            has_tools: tools.length > 0,
-            tool_count: tools.length
-          }
+          is_custom_prompt: true
+        }
+      },
+      extra_body: {
+        metadata: {
+          app: 'poppy_team_chat',
+          chat_type: 'ai_assistant',
+          has_tools: tools.length > 0,
+          tool_count: tools.length
         }
       }
     };
@@ -241,14 +243,16 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
           thread_identifier: threadId,
           custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
-          is_custom_prompt: true,
-          keywords_metadata: {
-            app: 'poppy_team_chat',
-            chat_type: 'ai_assistant',
-            has_tools: tools.length > 0,
-            tool_count: tools.length,
-            is_tool_retry: true
-          }
+          is_custom_prompt: true
+        }
+      },
+      extra_body: {
+        metadata: {
+          app: 'poppy_team_chat',
+          chat_type: 'ai_assistant',
+          has_tools: tools.length > 0,
+          tool_count: tools.length,
+          is_tool_retry: true
         }
       }
     });
