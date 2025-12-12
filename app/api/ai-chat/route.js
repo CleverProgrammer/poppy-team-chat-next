@@ -125,8 +125,8 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
         // Prompt management
         prompt_id: 'poppy_ai_chat',
         is_custom_prompt: true,
-        // Metadata for additional context
-        metadata: {
+        // Keywords AI metadata (separate from Anthropic metadata)
+        keywords_metadata: {
           app: 'poppy_team_chat',
           chat_type: 'ai_assistant',
           has_tools: tools.length > 0,
@@ -239,7 +239,7 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
         custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
         prompt_id: 'poppy_ai_chat',
         is_custom_prompt: true,
-        metadata: {
+        keywords_metadata: {
           app: 'poppy_team_chat',
           chat_type: 'ai_assistant',
           has_tools: tools.length > 0,
