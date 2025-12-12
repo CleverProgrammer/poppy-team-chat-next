@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import mcpManager from '../../lib/mcp-client.js';
+import Anthropic from '@anthropic-ai/sdk';
 
 // Main AI processing function (extracted for both streaming and non-streaming)
 async function processAIRequest(message, chatHistory, apiKey, sendStatus = null, controller = null, encoder = null) {
@@ -92,31 +93,26 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
   const keywordsApiKey = process.env.KEYWORDS_AI_API_KEY;
 
-  let response = await fetch('https://api.keywordsai.co/api/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${keywordsApiKey}`,
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
+  // Initialize Anthropic SDK with Keywords AI baseURL
+  const anthropic = new Anthropic({
+    apiKey: keywordsApiKey,
+    baseURL: 'https://api.keywordsai.co/api/anthropic/'
+  });
+
+  let data;
+  try {
+    data = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
       system: systemPrompt,
       messages: messages,
       tools: tools
-    })
-  });
-
-  console.log('🤖 Poppy AI: Response status:', response.status);
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('🤖 Poppy AI: API Error Response:', error);
-    throw new Error(`API error: ${error}`);
+    });
+    console.log('🤖 Poppy AI: Response received');
+  } catch (error) {
+    console.error('🤖 Poppy AI: API Error:', error);
+    throw new Error(`API error: ${error.message}`);
   }
-
-  let data = await response.json();
   console.log('🤖 Poppy AI: Response received');
 
   // Log response structure for debugging
@@ -200,23 +196,13 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
     // Call Claude again with tool results
     if (sendStatus) sendStatus('Processing results...');
-    response = await fetch('https://api.keywordsai.co/api/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${keywordsApiKey}`,
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: messages,
-        tools: tools
-      })
+    data = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: messages,
+      tools: tools
     });
-
-    data = await response.json();
     console.log('🤖 Poppy AI: Got response after tool use');
   }
 
