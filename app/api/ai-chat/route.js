@@ -104,36 +104,35 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
   let data;
   try {
-    data = await anthropic.messages.create({
+    // Build request with Keywords AI parameters in metadata
+    const createParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
       system: systemPrompt,
       messages: messages,
       tools: tools,
-      // Keywords AI custom parameters via extra_body
-      extra_body: {
-        // Customer identification
-        customer_params: user ? {
-          customer_identifier: user.id,
-          email: user.email,
-          name: user.name
-        } : undefined,
-        // Thread tracking for conversations
-        thread_identifier: threadId,
-        // Custom identifier for fast querying
-        custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
-        // Prompt management
-        prompt_id: 'poppy_ai_chat',
-        is_custom_prompt: true,
-        // Keywords AI metadata (separate from Anthropic metadata)
-        keywords_metadata: {
-          app: 'poppy_team_chat',
-          chat_type: 'ai_assistant',
-          has_tools: tools.length > 0,
-          tool_count: tools.length
+      metadata: {
+        keywordsai_params: {
+          customer_identifier: user?.id || 'anonymous',
+          customer_params: user ? {
+            name: user.name,
+            email: user.email
+          } : undefined,
+          thread_identifier: threadId,
+          custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
+          prompt_id: 'poppy_ai_chat',
+          is_custom_prompt: true,
+          keywords_metadata: {
+            app: 'poppy_team_chat',
+            chat_type: 'ai_assistant',
+            has_tools: tools.length > 0,
+            tool_count: tools.length
+          }
         }
       }
-    });
+    };
+
+    data = await anthropic.messages.create(createParams);
     console.log('🤖 Poppy AI: Response received');
   } catch (error) {
     console.error('🤖 Poppy AI: API Error:', error);
@@ -228,23 +227,24 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       system: systemPrompt,
       messages: messages,
       tools: tools,
-      // Keywords AI custom parameters (same as initial call)
-      extra_body: {
-        customer_params: user ? {
-          customer_identifier: user.id,
-          email: user.email,
-          name: user.name
-        } : undefined,
-        thread_identifier: threadId,
-        custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
-        prompt_id: 'poppy_ai_chat',
-        is_custom_prompt: true,
-        keywords_metadata: {
-          app: 'poppy_team_chat',
-          chat_type: 'ai_assistant',
-          has_tools: tools.length > 0,
-          tool_count: tools.length,
-          is_tool_retry: true
+      metadata: {
+        keywordsai_params: {
+          customer_identifier: user?.id || 'anonymous',
+          customer_params: user ? {
+            name: user.name,
+            email: user.email
+          } : undefined,
+          thread_identifier: threadId,
+          custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
+          prompt_id: 'poppy_ai_chat',
+          is_custom_prompt: true,
+          keywords_metadata: {
+            app: 'poppy_team_chat',
+            chat_type: 'ai_assistant',
+            has_tools: tools.length > 0,
+            tool_count: tools.length,
+            is_tool_retry: true
+          }
         }
       }
     });
