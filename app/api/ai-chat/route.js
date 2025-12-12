@@ -96,14 +96,11 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
   // Initialize Anthropic SDK with Keywords AI baseURL
   const anthropic = new Anthropic({
     apiKey: keywordsApiKey,
-    baseURL: 'https://api.keywordsai.co/api/anthropic/',
-    // Pass user metadata for Keywords AI tracking
-    defaultHeaders: user ? {
-      'X-Customer-Identifier': user.id,
-      'X-Customer-Email': user.email,
-      'X-Customer-Name': user.name
-    } : {}
+    baseURL: 'https://api.keywordsai.co/api/anthropic/'
   });
+
+  // Generate thread_identifier for conversation tracking
+  const threadId = user ? `poppy_chat_${user.id}` : 'poppy_chat_anonymous';
 
   let data;
   try {
@@ -113,10 +110,29 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       system: systemPrompt,
       messages: messages,
       tools: tools,
-      // Also pass metadata at the request level
-      metadata: user ? {
-        user_id: user.id
-      } : undefined
+      // Keywords AI custom parameters via extra_body
+      extra_body: {
+        // Customer identification
+        customer_params: user ? {
+          customer_identifier: user.id,
+          email: user.email,
+          name: user.name
+        } : undefined,
+        // Thread tracking for conversations
+        thread_identifier: threadId,
+        // Custom identifier for fast querying
+        custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
+        // Prompt management
+        prompt_id: 'poppy_ai_chat',
+        is_custom_prompt: true,
+        // Metadata for additional context
+        metadata: {
+          app: 'poppy_team_chat',
+          chat_type: 'ai_assistant',
+          has_tools: tools.length > 0,
+          tool_count: tools.length
+        }
+      }
     });
     console.log('🤖 Poppy AI: Response received');
   } catch (error) {
@@ -211,7 +227,26 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       max_tokens: 4096,
       system: systemPrompt,
       messages: messages,
-      tools: tools
+      tools: tools,
+      // Keywords AI custom parameters (same as initial call)
+      extra_body: {
+        customer_params: user ? {
+          customer_identifier: user.id,
+          email: user.email,
+          name: user.name
+        } : undefined,
+        thread_identifier: threadId,
+        custom_identifier: user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat',
+        prompt_id: 'poppy_ai_chat',
+        is_custom_prompt: true,
+        metadata: {
+          app: 'poppy_team_chat',
+          chat_type: 'ai_assistant',
+          has_tools: tools.length > 0,
+          tool_count: tools.length,
+          is_tool_retry: true
+        }
+      }
     });
     console.log('🤖 Poppy AI: Got response after tool use');
   }
