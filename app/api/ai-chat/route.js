@@ -125,8 +125,12 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
           prompt_id: 'poppy_ai_chat',
           is_custom_prompt: true
         }
-      },
-      extra_body: {
+      }
+    };
+
+    // Pass custom metadata via options (second parameter)
+    const requestOptions = {
+      body: {
         metadata: {
           app: 'poppy_team_chat',
           chat_type: 'ai_assistant',
@@ -136,7 +140,7 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
       }
     };
 
-    data = await anthropic.messages.create(createParams);
+    data = await anthropic.messages.create(createParams, requestOptions);
     console.log('🤖 Poppy AI: Response received');
   } catch (error) {
     console.error('🤖 Poppy AI: API Error:', error);
@@ -225,7 +229,8 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
 
     // Call Claude again with tool results
     if (sendStatus) sendStatus('Processing results...');
-    data = await anthropic.messages.create({
+
+    const retryParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
       system: systemPrompt,
@@ -245,8 +250,11 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
           prompt_id: 'poppy_ai_chat',
           is_custom_prompt: true
         }
-      },
-      extra_body: {
+      }
+    };
+
+    const retryOptions = {
+      body: {
         metadata: {
           app: 'poppy_team_chat',
           chat_type: 'ai_assistant',
@@ -255,7 +263,9 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
           is_tool_retry: true
         }
       }
-    });
+    };
+
+    data = await anthropic.messages.create(retryParams, retryOptions);
     console.log('🤖 Poppy AI: Got response after tool use');
   }
 
