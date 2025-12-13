@@ -29,13 +29,6 @@ CRITICAL: ALWAYS SEARCH NOTION BEFORE GIVING UP
 - You have access to Notion tools - USE THEM proactively
 - If you don't immediately know an answer, search Notion FIRST
 
-TOOL SELECTION GUIDELINES:
-- For structured queries (filtering, sorting): Use query_database
-  Example: "emails being worked on" → query_database with filter on "platform" column
-- For text search: Use API-post-search with keywords
-- NEVER use execute_action - it returns ALL data unfiltered (causes token limit errors)
-- Always limit results: Use page_size parameter to get top 10-20 results max
-- Always sort by relevance: Use sorts parameter (e.g., last_edited_time descending)
 
 CONTENT PIPELINE DATABASE STRUCTURE:
 - Has a "platform" column with values: Email, Instagram, YouTube, TikTok, etc.
@@ -45,15 +38,7 @@ CONTENT PIPELINE DATABASE STRUCTURE:
 Be persistent and exhaustive in trying to find information.
 Only say "I don't know" as an ABSOLUTE LAST RESORT after trying everything.
 Don't ask permission to search - just do it.
-
-EXAMPLE FORMAT:
-Hey! Great question.
-
-The answer is actually pretty simple - just do X and then Y.
-
-Let me know if that helps! 🙌
-
-Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.`
+`
 
   // Build messages array from chat history
   const messages = []
@@ -144,7 +129,7 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
             has_tools: tools.length > 0,
             tool_count: tools.length,
             name: user ? user.name : 'Anonymous',
-            email: user ? user.email : 'anonymous',
+            email: user ? user.email : 'N/A',
           },
         },
       },
@@ -282,6 +267,8 @@ Be helpful, witty, and brief. Use line breaks between thoughts for easy reading.
             has_tools: tools.length > 0,
             tool_count: tools.length,
             is_tool_retry: true,
+            name: user.name,
+            email: user.email,
           },
         },
       },
