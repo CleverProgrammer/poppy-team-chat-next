@@ -179,14 +179,17 @@ class MCPClientManager {
 // Singleton instance
 const mcpManager = new MCPClientManager();
 
-// Configure Klavis Strata MCP Server (hosted Notion integration)
+// Configure Klavis Strata MCP Server (hosted Notion + Mem0 integration)
 // https://www.klavis.ai/
-// Using direct URL with strata_id for auth (fallback if headers don't work)
-mcpManager.addServer('notion', {
-  url: process.env.KLAVIS_DIRECT_URL || 'https://strata.klavis.ai/mcp/',
-  headers: process.env.KLAVIS_DIRECT_URL ? {} : {
-    'Authorization': `Bearer ${process.env.KLAVIS_BEARER_TOKEN || ''}`
-  }
+// Klavis provides a single endpoint that handles all tools (Notion, Mem0, etc)
+const klavisUrl = process.env.KLAVIS_DIRECT_URL || 'https://strata.klavis.ai/mcp/';
+const klavisHeaders = process.env.KLAVIS_DIRECT_URL ? {} : {
+  'Authorization': `Bearer ${process.env.KLAVIS_BEARER_TOKEN || ''}`
+};
+
+mcpManager.addServer('klavis', {
+  url: klavisUrl,
+  headers: klavisHeaders
 });
 
 export default mcpManager;

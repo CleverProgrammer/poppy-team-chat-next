@@ -25,8 +25,14 @@ async function processAIRequest(
   encoder = null,
   workflowId = null
 ) {
-  // Build system prompt
+  // Build system prompt with user context
+  const userContext = user
+    ? `You are chatting with ${user.name} (user_id: ${user.id}, email: ${user.email}).`
+    : `You are chatting with an anonymous user.`;
+
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
+
+${userContext}
 
 tldr bro. respond like SUPER fucking short unless I explicitly ask you to expand. Also keep shit very simple and easy to understand!
 
@@ -38,10 +44,18 @@ IMPORTANT FORMATTING RULES:
 - Be casual, friendly, and conversational
 - Use emojis sparingly if it fits the vibe
 
-CRITICAL: ALWAYS SEARCH NOTION BEFORE GIVING UP
-- You have access to Notion tools - USE THEM proactively
-- If you don't immediately know an answer, search Notion FIRST
+CRITICAL: USE YOUR TOOLS PROACTIVELY
+- You have access to Notion tools - USE THEM to search for information
+- You have access to Mem0 (memory) tools - USE THEM to remember and recall info about users
+- If you don't immediately know an answer, search Notion or check memories FIRST
+- Store important user preferences, facts, and context in memory for future conversations
 
+MEMORY USAGE:
+- When users share preferences, important facts, or personal info - store it in memory using their user_id
+- IMPORTANT: When calling mem0 tools, ALWAYS use user_id: "${user?.id || 'anonymous'}"
+- Before answering questions about the user, check if you have memories about them
+- Use memories to provide personalized responses
+- Each user's memories are isolated by their user_id
 
 CONTENT PIPELINE DATABASE STRUCTURE:
 - Has a "platform" column with values: Email, Instagram, YouTube, TikTok, etc.
@@ -50,7 +64,7 @@ CONTENT PIPELINE DATABASE STRUCTURE:
 
 Be persistent and exhaustive in trying to find information.
 Only say "I don't know" as an ABSOLUTE LAST RESORT after trying everything.
-Don't ask permission to search - just do it.
+Don't ask permission to search or remember things - just do it.
 `
 
   // Build messages array from chat history
@@ -75,16 +89,19 @@ Don't ask permission to search - just do it.
     content: message,
   })
 
-  // Get available MCP tools from Notion
-  console.log('🔧 MCP: Loading Notion tools...')
-  if (sendStatus) sendStatus('Loading Notion tools...')
+  // Get available MCP tools from Klavis (Notion + Mem0 all in one)
+  console.log('🔧 MCP: Loading tools from Klavis...')
+  if (sendStatus) sendStatus('Loading MCP tools...')
 
   let mcpTools = []
   try {
-    mcpTools = await mcpManager.listTools('notion')
-    console.log(`🔧 MCP: Loaded ${mcpTools.length} Notion tools`)
+    mcpTools = await mcpManager.listTools('klavis')
+    console.log(`🔧 MCP: Loaded ${mcpTools.length} tools from Klavis`)
+    mcpTools.forEach(tool => {
+      console.log(`  - ${tool.name}`)
+    })
   } catch (error) {
-    console.error('🔧 MCP: Failed to load Notion tools:', error)
+    console.error('🔧 MCP: Failed to load Klavis tools:', error)
   }
 
   // Convert MCP tools to Claude format
@@ -180,9 +197,11 @@ Don't ask permission to search - just do it.
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
       try {
-        // Call the MCP tool
+        console.log(`🔧 MCP: Executing tool "${toolUse.name}" via Klavis`);
+
+        // Call the MCP tool (Klavis handles routing internally)
         const mcpResponse = await mcpManager.callTool(
-          'notion',
+          'klavis',
           toolUse.name,
           toolUse.input
         )
