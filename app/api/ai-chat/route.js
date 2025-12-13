@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
 import Anthropic from '@anthropic-ai/sdk'
+import { KeywordsAITelemetry } from '@keywordsai/tracing'
+
+// Initialize Keywords AI Telemetry
+const keywordsAi = new KeywordsAITelemetry({
+  apiKey: process.env.KEYWORDS_AI_API_KEY || '',
+  appName: 'poppy-team-chat',
+  disableBatch: false
+})
 
 // Main AI processing function (extracted for both streaming and non-streaming)
 async function processAIRequest(
@@ -10,7 +18,8 @@ async function processAIRequest(
   user = null,
   sendStatus = null,
   controller = null,
-  encoder = null
+  encoder = null,
+  workflowId = null
 ) {
   // Build system prompt
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
@@ -68,8 +77,14 @@ Don't ask permission to search - just do it.
 
   let mcpTools = []
   try {
-    mcpTools = await mcpManager.listTools('notion')
-    console.log(`🔧 MCP: Loaded ${mcpTools.length} Notion tools`)
+    mcpTools = await keywordsAi.withTask(
+      { name: 'load_mcp_tools', metadata: { tool_count: 0 } },
+      async () => {
+        const tools = await mcpManager.listTools('notion')
+        console.log(`🔧 MCP: Loaded ${tools.length} Notion tools`)
+        return tools
+      }
+    )
   } catch (error) {
     console.error('🔧 MCP: Failed to load Notion tools:', error)
   }
@@ -118,7 +133,9 @@ Don't ask permission to search - just do it.
                 customer_identifier: 'anonymous',
               },
           thread_identifier: threadId,
-          custom_identifier: user
+          custom_identifier: workflowId
+            ? `${workflowId}_${user ? `user_${user.id}` : 'anonymous'}`
+            : user
             ? `user_${user.id}_ai_chat`
             : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
@@ -128,6 +145,7 @@ Don't ask permission to search - just do it.
             chat_type: 'ai_assistant',
             has_tools: tools.length > 0,
             tool_count: tools.length,
+            workflow_id: workflowId,
             name: user ? user.name : 'Anonymous',
             email: user ? user.email : 'N/A',
           },
@@ -135,13 +153,25 @@ Don't ask permission to search - just do it.
       },
     }
 
-    data = await anthropic.messages.create(createParams)
-    console.log('🤖 Poppy AI: Response received')
+    data = await keywordsAi.withTask(
+      {
+        name: 'claude_api_call',
+        metadata: {
+          model: 'claude-sonnet-4-5-20250929',
+          has_tools: tools.length > 0,
+          tool_count: tools.length
+        }
+      },
+      async () => {
+        const response = await anthropic.messages.create(createParams)
+        console.log('🤖 Poppy AI: Response received')
+        return response
+      }
+    )
   } catch (error) {
     console.error('🤖 Poppy AI: API Error:', error)
     throw new Error(`API error: ${error.message}`)
   }
-  console.log('🤖 Poppy AI: Response received')
 
   // Log response structure for debugging
   if (!data.content) {
@@ -167,11 +197,23 @@ Don't ask permission to search - just do it.
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
       try {
-        // Call the MCP tool
-        const mcpResponse = await mcpManager.callTool(
-          'notion',
-          toolUse.name,
-          toolUse.input
+        // Call the MCP tool with tracing
+        const mcpResponse = await keywordsAi.withTask(
+          {
+            name: `mcp_tool_${toolUse.name}`,
+            metadata: {
+              tool_name: toolUse.name,
+              server: 'notion',
+              input_keys: Object.keys(toolUse.input || {})
+            }
+          },
+          async () => {
+            return await mcpManager.callTool(
+              'notion',
+              toolUse.name,
+              toolUse.input
+            )
+          }
         )
 
         // Truncate response if too large (prevent token limit errors)
@@ -307,6 +349,16 @@ Don't ask permission to search - just do it.
   return aiResponse
 }
 
+// Fun memorable workflow ID generator
+function generateWorkflowId() {
+  const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'yellow', 'cyan']
+  const animals = ['panda', 'tiger', 'bear', 'lion', 'wolf', 'eagle', 'shark', 'dragon']
+  const color = colors[Math.floor(Math.random() * colors.length)]
+  const animal = animals[Math.floor(Math.random() * animals.length)]
+  const shortId = Math.random().toString(36).substring(2, 7)
+  return `${color}-${animal}-${shortId}`
+}
+
 export async function POST(request) {
   try {
     const { message, chatHistory, stream, user } = await request.json()
@@ -327,6 +379,10 @@ export async function POST(request) {
       )
     }
 
+    // Generate unique workflow ID for this request
+    const workflowId = generateWorkflowId()
+    console.log(`🔄 Workflow ID: ${workflowId}`)
+
     // If streaming is requested, use SSE
     if (stream) {
       const encoder = new TextEncoder()
@@ -341,15 +397,29 @@ export async function POST(request) {
           try {
             sendStatus('Thinking...')
 
-            // Continue with AI processing (code below will be wrapped)
-            await processAIRequest(
-              message,
-              chatHistory,
-              apiKey,
-              user,
-              sendStatus,
-              controller,
-              encoder
+            // Wrap in workflow for tracing
+            await keywordsAi.withWorkflow(
+              {
+                name: 'poppy_ai_chat',
+                metadata: {
+                  workflow_id: workflowId,
+                  user_id: user?.id || 'anonymous',
+                  user_name: user?.name || 'Anonymous',
+                  stream: true
+                }
+              },
+              async () => {
+                await processAIRequest(
+                  message,
+                  chatHistory,
+                  apiKey,
+                  user,
+                  sendStatus,
+                  controller,
+                  encoder,
+                  workflowId
+                )
+              }
             )
 
             controller.close()
@@ -373,12 +443,29 @@ export async function POST(request) {
       })
     }
 
-    // Non-streaming mode - use the extracted function
-    const aiResponse = await processAIRequest(
-      message,
-      chatHistory,
-      apiKey,
-      user
+    // Non-streaming mode - wrap in workflow for tracing
+    const aiResponse = await keywordsAi.withWorkflow(
+      {
+        name: 'poppy_ai_chat',
+        metadata: {
+          workflow_id: workflowId,
+          user_id: user?.id || 'anonymous',
+          user_name: user?.name || 'Anonymous',
+          stream: false
+        }
+      },
+      async () => {
+        return await processAIRequest(
+          message,
+          chatHistory,
+          apiKey,
+          user,
+          null,
+          null,
+          null,
+          workflowId
+        )
+      }
     )
     return NextResponse.json({ response: aiResponse })
   } catch (error) {
