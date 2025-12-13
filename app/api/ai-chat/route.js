@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
 import Anthropic from '@anthropic-ai/sdk'
 
+// Fun memorable workflow ID generator
+function generateWorkflowId() {
+  const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'yellow', 'cyan', 'white', 'black', 'silver', 'gold'];
+  const animals = ['panda', 'tiger', 'bear', 'lion', 'wolf', 'eagle', 'shark', 'dragon', 'fox', 'hawk', 'whale', 'phoenix'];
+
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const animal = animals[Math.floor(Math.random() * animals.length)];
+  const shortId = Math.random().toString(36).substr(2, 5);
+
+  return `${color}-${animal}-${shortId}`;
+}
+
 // Main AI processing function (extracted for both streaming and non-streaming)
 async function processAIRequest(
   message,
@@ -10,7 +22,8 @@ async function processAIRequest(
   user = null,
   sendStatus = null,
   controller = null,
-  encoder = null
+  encoder = null,
+  workflowId = null
 ) {
   // Build system prompt
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
@@ -118,9 +131,9 @@ Don't ask permission to search - just do it.
                 customer_identifier: 'anonymous',
               },
           thread_identifier: threadId,
-          custom_identifier: user
-            ? `user_${user.id}_ai_chat`
-            : 'anonymous_ai_chat',
+          custom_identifier: workflowId
+            ? (user ? `${workflowId}_user_${user.id}` : workflowId)
+            : (user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat'),
           prompt_id: 'poppy_ai_chat',
           is_custom_prompt: true,
           metadata: {
@@ -256,9 +269,9 @@ Don't ask permission to search - just do it.
                 customer_identifier: 'anonymous',
               },
           thread_identifier: threadId,
-          custom_identifier: user
-            ? `user_${user.id}_ai_chat`
-            : 'anonymous_ai_chat',
+          custom_identifier: workflowId
+            ? (user ? `${workflowId}_user_${user.id}` : workflowId)
+            : (user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat'),
           prompt_id: 'poppy_ai_chat',
           is_custom_prompt: true,
           metadata: {
@@ -327,6 +340,10 @@ export async function POST(request) {
       )
     }
 
+    // Generate unique workflow ID for this user question
+    const workflowId = generateWorkflowId()
+    console.log(`🔄 Workflow ID: ${workflowId}`)
+
     // If streaming is requested, use SSE
     if (stream) {
       const encoder = new TextEncoder()
@@ -349,7 +366,8 @@ export async function POST(request) {
               user,
               sendStatus,
               controller,
-              encoder
+              encoder,
+              workflowId
             )
 
             controller.close()
@@ -378,7 +396,11 @@ export async function POST(request) {
       message,
       chatHistory,
       apiKey,
-      user
+      user,
+      null,
+      null,
+      null,
+      workflowId
     )
     return NextResponse.json({ response: aiResponse })
   } catch (error) {
