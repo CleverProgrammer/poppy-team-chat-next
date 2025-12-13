@@ -182,7 +182,7 @@ export function useSubscriptions({
         setCurrentMessages(newMessages);
         // Mark as read whenever new messages arrive while viewing this chat
         markChatAsRead(user.uid, currentChat.type, currentChat.id);
-      });
+      }, 100); // Load 100 initial messages
     } else if (currentChat.type === 'dm') {
       const dmId = getDMId(user.uid, currentChat.id);
       unsubscribe = subscribeToMessagesDM(dmId, (newMessages) => {
@@ -191,7 +191,7 @@ export function useSubscriptions({
         setCurrentMessages(newMessages);
         // Mark as read whenever new messages arrive while viewing this chat
         markChatAsRead(user.uid, currentChat.type, currentChat.id);
-      });
+      }, 100); // Load 100 initial messages
     } else if (currentChat.type === 'ai') {
       unsubscribe = subscribeToAIMessages(user.uid, (newMessages) => {
         setMessages(newMessages);

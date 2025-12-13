@@ -373,9 +373,15 @@ export default function ChatWindow() {
 
   // Load older messages callback for Virtuoso
   const loadOlder = useCallback(async () => {
-    if (loadingOlder || !hasMoreMessages || !currentChat || !user) return;
+    console.log('📜 loadOlder called', { loadingOlder, hasMoreMessages, currentChat: currentChat?.id, messagesCount: messages.length });
+
+    if (loadingOlder || !hasMoreMessages || !currentChat || !user) {
+      console.log('📜 loadOlder skipped:', { loadingOlder, hasMoreMessages, hasCurrentChat: !!currentChat, hasUser: !!user });
+      return;
+    }
 
     setLoadingOlder(true);
+    console.log('📜 Loading older messages...');
 
     try {
       // Combine messages and posts to find the oldest item
@@ -387,7 +393,10 @@ export default function ChatWindow() {
         });
 
       const oldestItem = allItems[0];
+      console.log('📜 Oldest item timestamp:', oldestItem?.timestamp);
+
       if (!oldestItem || !oldestItem.timestamp) {
+        console.log('📜 No oldest item found');
         setLoadingOlder(false);
         return;
       }
@@ -400,15 +409,19 @@ export default function ChatWindow() {
         olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp);
       }
 
+      console.log(`📜 Loaded ${olderMessages.length} older messages`);
+
       if (olderMessages.length === 0) {
+        console.log('📜 No more messages, setting hasMoreMessages to false');
         setHasMoreMessages(false);
       } else {
         // Prepend older messages
+        console.log(`📜 Prepending ${olderMessages.length} messages, updating firstItemIndex`);
         setFirstItemIndex(prev => prev - olderMessages.length);
         setMessages(prev => [...olderMessages, ...prev]);
       }
     } catch (error) {
-      console.error('Error loading older messages:', error);
+      console.error('📜 Error loading older messages:', error);
     } finally {
       setLoadingOlder(false);
     }
