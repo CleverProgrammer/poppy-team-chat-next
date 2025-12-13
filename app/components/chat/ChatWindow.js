@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { Howl } from 'howler';
 import Sidebar from '../layout/Sidebar';
 import CommandPalette from './CommandPalette';
@@ -41,6 +42,8 @@ export default function ChatWindow() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const messageListRef = useRef(null);
+  const virtuosoRef = useRef(null);
+  const [firstItemIndex, setFirstItemIndex] = useState(10000); // Start from middle to allow scrolling up
 
   // Image upload hook
   const {
@@ -368,57 +371,48 @@ export default function ChatWindow() {
     }
   }, [viewMode]);
 
-  // Infinite scroll - load older messages when scrolling to top
-  useEffect(() => {
-    const messageList = messageListRef.current;
-    if (!messageList) return;
+  // Load older messages callback for Virtuoso
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder || !hasMoreMessages || !currentChat || !user) return;
 
-    const handleScroll = async () => {
-      if (loadingOlder || !hasMoreMessages || !currentChat || !user) return;
+    setLoadingOlder(true);
 
-      // Check if scrolled to top (within 100px)
-      if (messageList.scrollTop < 100) {
-        setLoadingOlder(true);
+    try {
+      // Combine messages and posts to find the oldest item
+      const allItems = [...messages, ...posts.map(post => ({ ...post, isPost: true }))]
+        .sort((a, b) => {
+          const aTime = a.timestamp?.seconds || 0;
+          const bTime = b.timestamp?.seconds || 0;
+          return aTime - bTime;
+        });
 
-        try {
-          const oldestMessage = messages[0];
-          if (!oldestMessage || !oldestMessage.timestamp) {
-            setLoadingOlder(false);
-            return;
-          }
-
-          let olderMessages = [];
-          if (currentChat.type === 'channel') {
-            olderMessages = await loadOlderMessages(currentChat.id, oldestMessage.timestamp);
-          } else if (currentChat.type === 'dm') {
-            const dmId = getDMId(user.uid, currentChat.id);
-            olderMessages = await loadOlderMessagesDM(dmId, oldestMessage.timestamp);
-          }
-
-          if (olderMessages.length === 0) {
-            setHasMoreMessages(false);
-          } else {
-            // Save scroll position
-            const scrollHeight = messageList.scrollHeight;
-            // Prepend older messages
-            setMessages(prev => [...olderMessages, ...prev]);
-            // Restore scroll position after render
-            requestAnimationFrame(() => {
-              const newScrollHeight = messageList.scrollHeight;
-              messageList.scrollTop = newScrollHeight - scrollHeight;
-            });
-          }
-        } catch (error) {
-          console.error('Error loading older messages:', error);
-        } finally {
-          setLoadingOlder(false);
-        }
+      const oldestItem = allItems[0];
+      if (!oldestItem || !oldestItem.timestamp) {
+        setLoadingOlder(false);
+        return;
       }
-    };
 
-    messageList.addEventListener('scroll', handleScroll);
-    return () => messageList.removeEventListener('scroll', handleScroll);
-  }, [messages, loadingOlder, hasMoreMessages, currentChat, user]);
+      let olderMessages = [];
+      if (currentChat.type === 'channel') {
+        olderMessages = await loadOlderMessages(currentChat.id, oldestItem.timestamp);
+      } else if (currentChat.type === 'dm') {
+        const dmId = getDMId(user.uid, currentChat.id);
+        olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp);
+      }
+
+      if (olderMessages.length === 0) {
+        setHasMoreMessages(false);
+      } else {
+        // Prepend older messages
+        setFirstItemIndex(prev => prev - olderMessages.length);
+        setMessages(prev => [...olderMessages, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error loading older messages:', error);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user]);
 
   // Reset hasMoreMessages when switching chats
   useEffect(() => {
@@ -518,72 +512,82 @@ export default function ChatWindow() {
           ) : (
             <>
               {/* Messages Area */}
-              <div ref={messageListRef} className={`messages ${replyingTo ? 'replying-active' : ''}`} {...getRootProps()} onClick={handleMessagesAreaClick}>
-            <input {...getInputProps()} />
-            {isDragActive && (
-              <div className="drag-overlay">
-                <div className="drag-overlay-content">
-                  📎 Drop image here
-                </div>
+              <div
+                ref={messageListRef}
+                className={`messages ${replyingTo ? 'replying-active' : ''}`}
+                {...getRootProps()}
+                onClick={handleMessagesAreaClick}
+                style={{ height: '100%', position: 'relative' }}
+              >
+                <input {...getInputProps()} />
+                {isDragActive && (
+                  <div className="drag-overlay">
+                    <div className="drag-overlay-content">
+                      📎 Drop image here
+                    </div>
+                  </div>
+                )}
+                {messages.length === 0 && posts.length === 0 ? (
+                  <div className="empty-state">
+                    <p>Welcome to the chat! Start a conversation.</p>
+                  </div>
+                ) : (
+                  <Virtuoso
+                    ref={virtuosoRef}
+                    style={{ height: '100%' }}
+                    data={[...messages, ...posts.map(post => ({ ...post, isPost: true }))]
+                      .sort((a, b) => {
+                        const aTime = a.timestamp?.seconds || 0;
+                        const bTime = b.timestamp?.seconds || 0;
+                        return aTime - bTime;
+                      })}
+                    firstItemIndex={firstItemIndex}
+                    initialTopMostItemIndex={999999}
+                    followOutput="smooth"
+                    startReached={loadOlder}
+                    itemContent={(index, item) => {
+                      if (item.isPost) {
+                        return (
+                          <PostPreview
+                            key={`post-${item.id}`}
+                            post={item}
+                            onClick={() => {
+                              setSelectedPost(item);
+                              setViewMode('posts');
+                            }}
+                            onContextMenu={handleContextMenu}
+                          />
+                        );
+                      } else {
+                        const msgIndex = messages.findIndex(m => m.id === item.id);
+                        return (
+                          <MessageItem
+                            key={item.id}
+                            msg={item}
+                            index={msgIndex}
+                            messages={messages}
+                            totalMessages={messages.length}
+                            user={user}
+                            currentChat={currentChat}
+                            allUsers={allUsers}
+                            replyingTo={replyingTo}
+                            topReactions={topReactions}
+                            openEmojiPanel={openEmojiPanel}
+                            onReply={startReply}
+                            onEdit={startEdit}
+                            onAddReaction={handleAddReaction}
+                            onToggleEmojiPanel={toggleEmojiPanel}
+                            onImageClick={setPreviewModalImage}
+                            onScrollToMessage={scrollToMessage}
+                            onContextMenu={handleContextMenu}
+                            messageRef={el => messageRefs.current[item.id] = el}
+                          />
+                        );
+                      }
+                    }}
+                  />
+                )}
               </div>
-            )}
-            {messages.length === 0 && posts.length === 0 ? (
-              <div className="empty-state">
-                <p>Welcome to the chat! Start a conversation.</p>
-              </div>
-            ) : (
-              <>
-                {/* Render messages and posts in chronological order */}
-                {[...messages, ...posts.map(post => ({ ...post, isPost: true }))]
-                  .sort((a, b) => {
-                    const aTime = a.timestamp?.seconds || 0;
-                    const bTime = b.timestamp?.seconds || 0;
-                    return aTime - bTime;
-                  })
-                  .map((item) => {
-                    if (item.isPost) {
-                      return (
-                        <PostPreview
-                          key={`post-${item.id}`}
-                          post={item}
-                          onClick={() => {
-                            setSelectedPost(item);
-                            setViewMode('posts');
-                          }}
-                          onContextMenu={handleContextMenu}
-                        />
-                      );
-                    } else {
-                      const index = messages.findIndex(m => m.id === item.id);
-                      return (
-                        <MessageItem
-                          key={item.id}
-                          msg={item}
-                          index={index}
-                          messages={messages}
-                          totalMessages={messages.length}
-                          user={user}
-                          currentChat={currentChat}
-                          allUsers={allUsers}
-                          replyingTo={replyingTo}
-                          topReactions={topReactions}
-                          openEmojiPanel={openEmojiPanel}
-                          onReply={startReply}
-                          onEdit={startEdit}
-                          onAddReaction={handleAddReaction}
-                          onToggleEmojiPanel={toggleEmojiPanel}
-                          onImageClick={setPreviewModalImage}
-                          onScrollToMessage={scrollToMessage}
-                          onContextMenu={handleContextMenu}
-                          messageRef={el => messageRefs.current[item.id] = el}
-                        />
-                      );
-                    }
-                  })}
-              </>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
 
           {/* Typing indicator */}
           {otherUserTyping && currentChat?.type === 'dm' && (

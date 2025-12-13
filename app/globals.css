@@ -177,6 +177,19 @@ body {
   background: var(--bg-messages);
 }
 
+/* Virtuoso container - ensure it inherits flex layout */
+.messages [data-test-id] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Virtuoso item wrapper - make it a flex container so align-self works */
+.messages [data-item-index] {
+  display: flex;
+  flex-direction: column;
+}
+
 .message-wrapper {
   display: flex;
   flex-direction: column;
