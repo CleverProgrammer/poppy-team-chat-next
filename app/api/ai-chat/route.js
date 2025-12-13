@@ -89,19 +89,20 @@ Don't ask permission to search or remember things - just do it.
     content: message,
   })
 
-  // Get available MCP tools from Klavis (Notion + Mem0 all in one)
-  console.log('🔧 MCP: Loading tools from Klavis...')
+  // Get available MCP tools for this specific user (per-user strata)
+  const userId = user?.id || 'anonymous'
+  console.log(`🔧 MCP: Loading tools for user: ${userId}`)
   if (sendStatus) sendStatus('Loading MCP tools...')
 
   let mcpTools = []
   try {
-    mcpTools = await mcpManager.listTools('klavis')
-    console.log(`🔧 MCP: Loaded ${mcpTools.length} tools from Klavis`)
+    mcpTools = await mcpManager.listTools(userId)
+    console.log(`🔧 MCP: Loaded ${mcpTools.length} tools for user ${userId}`)
     mcpTools.forEach(tool => {
       console.log(`  - ${tool.name}`)
     })
   } catch (error) {
-    console.error('🔧 MCP: Failed to load Klavis tools:', error)
+    console.error(`🔧 MCP: Failed to load tools for user ${userId}:`, error)
   }
 
   // Convert MCP tools to Claude format
@@ -197,11 +198,11 @@ Don't ask permission to search or remember things - just do it.
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
       try {
-        console.log(`🔧 MCP: Executing tool "${toolUse.name}" via Klavis`);
+        console.log(`🔧 MCP: Executing tool "${toolUse.name}" for user ${userId}`);
 
-        // Call the MCP tool (Klavis handles routing internally)
+        // Call the MCP tool for this specific user
         const mcpResponse = await mcpManager.callTool(
-          'klavis',
+          userId,
           toolUse.name,
           toolUse.input
         )
