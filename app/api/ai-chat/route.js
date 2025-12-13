@@ -3,12 +3,19 @@ import mcpManager from '../../lib/mcp-client.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 
-// Initialize Keywords AI Telemetry
+// Initialize Keywords AI Telemetry with manual instrumentation
 const keywordsAi = new KeywordsAITelemetry({
   apiKey: process.env.KEYWORDS_AI_API_KEY || '',
+  baseURL: process.env.KEYWORDSAI_BASE_URL || 'https://api.keywordsai.co/api',
   appName: 'poppy-team-chat',
-  disableBatch: false
+  disableBatch: false,
+  instrumentModules: {
+    anthropic: Anthropic
+  }
 })
+
+// Initialize telemetry (recommended for Next.js)
+await keywordsAi.initialize()
 
 // Main AI processing function (extracted for both streaming and non-streaming)
 async function processAIRequest(
