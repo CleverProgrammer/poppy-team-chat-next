@@ -249,20 +249,6 @@ export default function ChatWindow() {
     }
   };
 
-  // Test sound button
-  const testSound = () => {
-    console.log('🔊 TEST: Playing knock sound manually...');
-    const testKnock = new Howl({
-      src: ['/sounds/knock_sound.mp3'],
-      volume: 0.5,
-      onload: () => console.log('✅ TEST: Sound loaded'),
-      onloaderror: (id, err) => console.error('❌ TEST: Load error:', err),
-      onplay: () => console.log('✅ TEST: Sound playing'),
-      onplayerror: (id, err) => console.error('❌ TEST: Play error:', err)
-    });
-    testKnock.play();
-  };
-
   // Global keyboard shortcuts (must be after startReply, startEdit, cancelReply are defined)
   useKeyboardShortcuts({
     user,
@@ -427,9 +413,12 @@ export default function ChatWindow() {
     }
   }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user]);
 
-  // Reset hasMoreMessages when switching chats
+  // Reset hasMoreMessages and firstItemIndex when switching chats
   useEffect(() => {
+    console.log('📜 Chat changed, resetting pagination state');
     setHasMoreMessages(true);
+    setFirstItemIndex(10000); // Reset to starting position
+    setLoadingOlder(false);
   }, [currentChat]);
 
   // Close context menu on click outside
@@ -501,25 +490,6 @@ export default function ChatWindow() {
             onViewModeChange={setViewMode}
           />
 
-          {/* Test Sound Button */}
-          <div style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 9999 }}>
-            <button
-              onClick={testSound}
-              style={{
-                background: '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
-            >
-              🔊 Test Sound
-            </button>
-          </div>
-
           {viewMode === 'posts' ? (
             <PostsView user={user} currentChat={currentChat} />
           ) : (
@@ -558,6 +528,12 @@ export default function ChatWindow() {
                     initialTopMostItemIndex={999999}
                     followOutput="smooth"
                     startReached={loadOlder}
+                    atTopStateChange={(atTop) => {
+                      console.log('📜 atTopStateChange:', atTop);
+                      if (atTop) {
+                        loadOlder();
+                      }
+                    }}
                     itemContent={(index, item) => {
                       if (item.isPost) {
                         return (
