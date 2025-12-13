@@ -234,9 +234,10 @@ export function useSubscriptions({
   }, []);
 
   // Auto scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  }, [messagesRef.current, messagesEndRef]);
+  // DISABLED: Virtuoso handles scrolling with followOutput
+  // useEffect(() => {
+  //   messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  // }, [messagesRef.current, messagesEndRef]);
 
   // Auto-focus input when switching chats
   useEffect(() => {

@@ -351,11 +351,12 @@ export default function ChatWindow() {
   }, [currentChat, user]);
 
   // Scroll to bottom when switching from posts to messages
-  useEffect(() => {
-    if (viewMode === 'messages' && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
-    }
-  }, [viewMode]);
+  // DISABLED: Virtuoso handles scrolling with followOutput
+  // useEffect(() => {
+  //   if (viewMode === 'messages' && messagesEndRef.current) {
+  //     messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+  //   }
+  // }, [viewMode]);
 
   // Load older messages callback for Virtuoso
   const loadOlder = useCallback(async () => {
@@ -526,7 +527,7 @@ export default function ChatWindow() {
                       })}
                     firstItemIndex={firstItemIndex}
                     initialTopMostItemIndex={999999}
-                    followOutput="smooth"
+                    followOutput={true}
                     startReached={loadOlder}
                     atTopStateChange={(atTop) => {
                       console.log('📜 atTopStateChange:', atTop);
