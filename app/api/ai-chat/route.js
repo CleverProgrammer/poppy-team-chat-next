@@ -10,8 +10,8 @@ const keywordsAi = new KeywordsAITelemetry({
   appName: 'poppy-team-chat',
   disableBatch: false,
   instrumentModules: {
-    anthropic: Anthropic
-  }
+    anthropic: Anthropic,
+  },
 })
 
 // Initialize telemetry (recommended for Next.js)
@@ -19,14 +19,40 @@ await keywordsAi.initialize()
 
 // Fun memorable workflow ID generator
 function generateWorkflowId() {
-  const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'yellow', 'cyan', 'white', 'black', 'silver', 'gold'];
-  const animals = ['panda', 'tiger', 'bear', 'lion', 'wolf', 'eagle', 'shark', 'dragon', 'fox', 'hawk', 'whale', 'phoenix'];
+  const colors = [
+    'red',
+    'blue',
+    'green',
+    'purple',
+    'orange',
+    'pink',
+    'yellow',
+    'cyan',
+    'white',
+    'black',
+    'silver',
+    'gold',
+  ]
+  const animals = [
+    'panda',
+    'tiger',
+    'bear',
+    'lion',
+    'wolf',
+    'eagle',
+    'shark',
+    'dragon',
+    'fox',
+    'hawk',
+    'whale',
+    'phoenix',
+  ]
 
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  const animal = animals[Math.floor(Math.random() * animals.length)];
-  const shortId = Math.random().toString(36).substring(2, 7);
+  const color = colors[Math.floor(Math.random() * colors.length)]
+  const animal = animals[Math.floor(Math.random() * animals.length)]
+  const shortId = Math.random().toString(36).substring(2, 7)
 
-  return `${color}-${animal}-${shortId}`;
+  return `${color}-${animal}-${shortId}`
 }
 
 // Main AI processing function (extracted for both streaming and non-streaming)
@@ -43,7 +69,7 @@ async function processAIRequest(
   // Build system prompt with user context
   const userContext = user
     ? `You are chatting with ${user.name} (user_id: ${user.id}, email: ${user.email}).`
-    : `You are chatting with an anonymous user.`;
+    : `You are chatting with an anonymous user.`
 
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
 
@@ -67,7 +93,10 @@ CRITICAL: USE YOUR TOOLS PROACTIVELY
 
 MEMORY USAGE:
 - When users share preferences, important facts, or personal info - store it in memory using their user_id
-- IMPORTANT: When calling mem0 tools, ALWAYS use user_id: "${user?.id || 'anonymous'}"
+- IMPORTANT: When calling mem0 tools, ALWAYS use user_id: "${
+    user?.id || 'anonymous'
+  }"
+- Always add their name & email as well
 - Before answering questions about the user, check if you have memories about them
 - Use memories to provide personalized responses
 - Each user's memories are isolated by their user_id
@@ -171,8 +200,12 @@ Don't ask permission to search or remember things - just do it.
               },
           thread_identifier: threadId,
           custom_identifier: workflowId
-            ? (user ? `${workflowId}_user_${user.id}` : workflowId)
-            : (user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat'),
+            ? user
+              ? `${workflowId}_user_${user.id}`
+              : workflowId
+            : user
+            ? `user_${user.id}_ai_chat`
+            : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
           is_custom_prompt: true,
           metadata: {
@@ -194,8 +227,8 @@ Don't ask permission to search or remember things - just do it.
         metadata: {
           model: 'claude-sonnet-4-5-20250929',
           has_tools: tools.length > 0,
-          tool_count: tools.length
-        }
+          tool_count: tools.length,
+        },
       },
       async () => {
         const response = await anthropic.messages.create(createParams)
@@ -232,7 +265,9 @@ Don't ask permission to search or remember things - just do it.
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
       try {
-        console.log(`🔧 MCP: Executing tool "${toolUse.name}" for user ${userId}`);
+        console.log(
+          `🔧 MCP: Executing tool "${toolUse.name}" for user ${userId}`
+        )
 
         // Call the MCP tool with tracing for this specific user
         const mcpResponse = await keywordsAi.withTask(
@@ -241,8 +276,8 @@ Don't ask permission to search or remember things - just do it.
             metadata: {
               tool_name: toolUse.name,
               server: userId,
-              input_keys: Object.keys(toolUse.input || {})
-            }
+              input_keys: Object.keys(toolUse.input || {}),
+            },
           },
           async () => {
             return await mcpManager.callTool(
@@ -336,8 +371,12 @@ Don't ask permission to search or remember things - just do it.
               },
           thread_identifier: threadId,
           custom_identifier: workflowId
-            ? (user ? `${workflowId}_user_${user.id}` : workflowId)
-            : (user ? `user_${user.id}_ai_chat` : 'anonymous_ai_chat'),
+            ? user
+              ? `${workflowId}_user_${user.id}`
+              : workflowId
+            : user
+            ? `user_${user.id}_ai_chat`
+            : 'anonymous_ai_chat',
           prompt_id: 'poppy_ai_chat',
           is_custom_prompt: true,
           metadata: {
@@ -432,8 +471,8 @@ export async function POST(request) {
                   workflow_id: workflowId,
                   user_id: user?.id || 'anonymous',
                   user_name: user?.name || 'Anonymous',
-                  stream: true
-                }
+                  stream: true,
+                },
               },
               async () => {
                 await processAIRequest(
@@ -478,8 +517,8 @@ export async function POST(request) {
           workflow_id: workflowId,
           user_id: user?.id || 'anonymous',
           user_name: user?.name || 'Anonymous',
-          stream: false
-        }
+          stream: false,
+        },
       },
       async () => {
         return await processAIRequest(
