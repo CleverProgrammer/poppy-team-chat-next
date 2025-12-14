@@ -31,7 +31,7 @@ export default function MessageItem({
   const handleCopy = async () => {
     if (msg.text) {
       try {
-        await navigator.clipboard.writeText(msg.text);
+        await navigator.clipboard.writeText(msg.text.trim());
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (err) {
