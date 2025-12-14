@@ -102,7 +102,7 @@ export default function ChatWindow() {
     user,
     currentChat,
     inputRef,
-    messagesEndRef,
+    virtuosoRef,
     imageFile,
     imagePreview,
     clearImage,
@@ -527,7 +527,7 @@ export default function ChatWindow() {
                       })}
                     firstItemIndex={firstItemIndex}
                     initialTopMostItemIndex={999999}
-                    followOutput={true}
+                    followOutput="smooth"
                     startReached={loadOlder}
                     atTopStateChange={(atTop) => {
                       console.log('📜 atTopStateChange:', atTop);

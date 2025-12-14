@@ -20,7 +20,7 @@ export function useMessageSending({
   user,
   currentChat,
   inputRef,
-  messagesEndRef,
+  virtuosoRef,
   imageFile,
   imagePreview,
   clearImage,
@@ -138,8 +138,14 @@ export function useMessageSending({
     // Clear typing indicator for DMs
     clearTypingIndicator();
 
-    // Scroll to bottom
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+    // Scroll to bottom using Virtuoso
+    setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: 'LAST',
+        align: 'end',
+        behavior: 'auto'
+      });
+    }, 0);
 
     setSending(true);
     try {
@@ -232,7 +238,7 @@ export function useMessageSending({
     user,
     currentChat,
     inputRef,
-    messagesEndRef,
+    virtuosoRef,
     imageFile,
     imagePreview,
     clearImage,

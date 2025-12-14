@@ -4,6 +4,8 @@
 
 **Poppy Team Chat** is a Slack-inspired team communication app with AI integration. Think Slack meets ChatGPT - users can chat in channels, send DMs, and interact with an AI assistant named Poppy directly in the conversation flow.
 
+NEVER push or commit until you confirm with me.
+
 ### Core Concept
 - **Team collaboration tool** with real-time messaging
 - **Posts feature** inspired by ClickUp - important messages that don't get lost in chat scroll
