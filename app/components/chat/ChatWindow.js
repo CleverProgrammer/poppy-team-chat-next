@@ -420,6 +420,15 @@ export default function ChatWindow() {
     setHasMoreMessages(true);
     setFirstItemIndex(10000); // Reset to starting position
     setLoadingOlder(false);
+
+    // Scroll to bottom when switching chats
+    setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: 'LAST',
+        align: 'end',
+        behavior: 'auto'
+      });
+    }, 100);
   }, [currentChat]);
 
   // Close context menu on click outside
