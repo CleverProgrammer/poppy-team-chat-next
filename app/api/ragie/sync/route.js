@@ -13,7 +13,11 @@ export async function POST(request) {
       senderEmail,
       senderId,
       timestamp,
-      participants
+      participants,
+      // Recipient info for DMs
+      recipientId,
+      recipientName,
+      recipientEmail
     } = await request.json();
 
     if (!messageId || !text || !chatId || !chatType) {
@@ -37,6 +41,13 @@ export async function POST(request) {
     // Add participants for DMs (for permission filtering)
     if (chatType === 'dm' && participants) {
       metadata.participants = participants;
+    }
+
+    // Add recipient info for DMs (for search like "messages I sent to Athena")
+    if (chatType === 'dm') {
+      if (recipientId) metadata.recipientId = recipientId;
+      if (recipientName) metadata.recipientName = recipientName;
+      if (recipientEmail) metadata.recipientEmail = recipientEmail;
     }
 
     console.log(`📚 Ragie: Indexing message ${messageId} to ${chatType}:${chatId}`);

@@ -2,7 +2,7 @@ import ragie from './ragie-client.js';
 
 // Helper to generate DM ID (same as firestore.js)
 function getDMId(uid1, uid2) {
-  return `dm_${[uid1, uid2].sort().join('_')}`;
+  return [uid1, uid2].sort().join('_');
 }
 
 /**
@@ -15,14 +15,24 @@ function getDMId(uid1, uid2) {
  * @returns {Array} Matching results
  */
 export async function searchChatHistory(userId, query, currentChat) {
-  // For now, search everything without filters to debug
-  // TODO: Add permission filtering back once we verify retrieval works
   console.log('🔍 Ragie: Searching for:', query);
   console.log('🔍 Ragie: User:', userId, 'Chat:', currentChat);
 
+  // DEBUG: Log what currentChat.id actually is for DMs
+  if (currentChat?.type === 'dm') {
+    const dmId = getDMId(userId, currentChat.id);
+    console.log('🔍 DEBUG DM:', {
+      'currentChat.id (other user)': currentChat.id,
+      'userId (me)': userId,
+      'constructed dmId': dmId
+    });
+  }
+
   const response = await ragie.retrievals.retrieve({
     query,
-    topK: 10
+    topK: 8,
+    rerank: true,
+    recencyBias: true
   });
 
   return (response.scoredChunks || []).map(chunk => ({

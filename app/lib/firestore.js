@@ -137,7 +137,7 @@ export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 
   return messages.reverse();
 }
 
-export async function sendMessageDM(dmId, user, text, recipientId) {
+export async function sendMessageDM(dmId, user, text, recipientId, recipient = null) {
   if (!user || !text.trim()) return;
 
   try {
@@ -163,7 +163,11 @@ export async function sendMessageDM(dmId, user, text, recipientId) {
         senderEmail: user.email,
         senderId: user.uid,
         timestamp: new Date().toISOString(),
-        participants: dmId.split('_').slice(1) // Extract user IDs from dmId
+        participants: dmId.split('_').slice(1), // Extract user IDs from dmId
+        // Recipient info for DMs
+        recipientId: recipientId,
+        recipientName: recipient?.displayName || recipient?.email || null,
+        recipientEmail: recipient?.email || null
       })
     }).catch(err => console.error('Ragie sync failed:', err));
 
@@ -330,7 +334,7 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '')
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       imageUrl: imageUrl,
       sender: user.displayName || user.email,
@@ -338,6 +342,24 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '')
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp()
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    if (text) {
+      fetch('/api/ragie/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: channelId,
+          chatType: 'channel',
+          text: text + (imageUrl ? ' [image attached]' : ''),
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(err => console.error('Ragie sync failed:', err));
+    }
   } catch (error) {
     console.error('Error sending message with image:', error);
     throw error;
@@ -345,12 +367,12 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '')
 }
 
 // Send DM with image
-export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, text = '') {
+export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, text = '', recipient = null) {
   if (!user || !imageUrl) return;
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       imageUrl: imageUrl,
       sender: user.displayName || user.email,
@@ -358,6 +380,28 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp()
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    if (text) {
+      fetch('/api/ragie/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: dmId,
+          chatType: 'dm',
+          text: text + (imageUrl ? ' [image attached]' : ''),
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+          participants: dmId.split('_').slice(1),
+          recipientId: recipientId,
+          recipientName: recipient?.displayName || recipient?.email || null,
+          recipientEmail: recipient?.email || null
+        })
+      }).catch(err => console.error('Ragie sync failed:', err));
+    }
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId);
@@ -430,7 +474,7 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
@@ -442,6 +486,22 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
         text: replyTo.text
       }
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: channelId,
+        chatType: 'channel',
+        text: `[replying to ${replyTo.sender}] ${text}`,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(err => console.error('Ragie sync failed:', err));
   } catch (error) {
     console.error('Error sending message with reply:', error);
     throw error;
@@ -449,12 +509,12 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
 }
 
 // Send DM with reply
-export async function sendMessageDMWithReply(dmId, user, text, recipientId, replyTo) {
+export async function sendMessageDMWithReply(dmId, user, text, recipientId, replyTo, recipient = null) {
   if (!user || !text.trim()) return;
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
@@ -466,6 +526,26 @@ export async function sendMessageDMWithReply(dmId, user, text, recipientId, repl
         text: replyTo.text
       }
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: dmId,
+        chatType: 'dm',
+        text: `[replying to ${replyTo.sender}] ${text}`,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+        participants: dmId.split('_').slice(1),
+        recipientId: recipientId,
+        recipientName: recipient?.displayName || recipient?.email || null,
+        recipientEmail: recipient?.email || null
+      })
+    }).catch(err => console.error('Ragie sync failed:', err));
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId);
@@ -536,17 +616,33 @@ export async function markDMMessagesAsRead(dmId, userId, messageIds) {
 }
 
 // AI Chat functions
-export async function sendAIMessage(userId, text, isAI = false) {
+export async function sendAIMessage(userId, text, isAI = false, user = null) {
   if (!userId || !text.trim()) return;
 
   try {
     const messagesRef = collection(db, 'aiChats', userId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       sender: isAI ? '🤖 Poppy AI' : null,
       senderId: isAI ? 'ai' : userId,
       timestamp: serverTimestamp()
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: `ai_${userId}`,
+        chatType: 'ai',
+        text,
+        sender: isAI ? '🤖 Poppy AI' : (user?.displayName || user?.email || 'User'),
+        senderEmail: isAI ? 'ai@poppy.chat' : (user?.email || null),
+        senderId: isAI ? 'ai' : userId,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(err => console.error('Ragie sync failed:', err));
   } catch (error) {
     console.error('Error sending AI message:', error);
     throw error;

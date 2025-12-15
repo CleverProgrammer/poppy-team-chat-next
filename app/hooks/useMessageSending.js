@@ -160,7 +160,7 @@ export function useMessageSending({
 
       if (currentChat.type === 'ai') {
         // Send user message to Firestore
-        await sendAIMessage(user.uid, messageText, false);
+        await sendAIMessage(user.uid, messageText, false, user);
 
         // Get AI response
         await askPoppyDirectly(messageText);
@@ -193,20 +193,22 @@ export function useMessageSending({
         }, 0);
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
+        // Find recipient from allUsers for Ragie metadata
+        const recipient = allUsers.find(u => u.uid === currentChat.id) || null;
 
         // Check if replying
         if (currentReplyingTo) {
           if (imageUrl) {
             // TODO: Add support for reply with image
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
+            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient);
           } else {
-            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo);
+            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
           }
         } else {
           if (imageUrl) {
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText);
+            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient);
           } else {
-            await sendMessageDM(dmId, user, messageText, currentChat.id);
+            await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
           }
         }
 
