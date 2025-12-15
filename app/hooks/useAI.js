@@ -19,7 +19,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
     sender: '🤖 Poppy',
     senderId: 'ai',
     text: status,
-    timestamp: new Date(),
+    timestamp: { seconds: Date.now() / 1000 }, // Match Firestore timestamp format
     isTyping: true
   }), []);
 

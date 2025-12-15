@@ -589,6 +589,10 @@ export default function ChatWindow() {
               </div>
 
           {/* Typing indicator */}
+          {(() => {
+            console.log('🔍 Typing indicator check:', { otherUserTyping, chatType: currentChat?.type, shouldShow: otherUserTyping && currentChat?.type === 'dm' });
+            return null;
+          })()}
           {otherUserTyping && currentChat?.type === 'dm' && (
             <div className="typing-indicator">
               <img
