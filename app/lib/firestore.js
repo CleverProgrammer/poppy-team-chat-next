@@ -344,6 +344,7 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '')
     });
 
     // Index to Ragie (fire and forget, don't block send)
+    // 1. Sync accompanying text (if any)
     if (text) {
       fetch('/api/ragie/sync', {
         method: 'POST',
@@ -352,14 +353,31 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '')
           messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
-          text: text + (imageUrl ? ' [image attached]' : ''),
+          text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
           timestamp: new Date().toISOString()
         })
-      }).catch(err => console.error('Ragie sync failed:', err));
+      }).catch(err => console.error('Ragie text sync failed:', err));
     }
+
+    // 2. Sync image content - Ragie will extract captions/OCR from the image
+    fetch('/api/ragie/sync-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id + '_img',
+        chatId: channelId,
+        chatType: 'channel',
+        imageUrl,
+        text,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(err => console.error('Ragie image sync failed:', err));
   } catch (error) {
     console.error('Error sending message with image:', error);
     throw error;
@@ -382,6 +400,7 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
     });
 
     // Index to Ragie (fire and forget, don't block send)
+    // 1. Sync accompanying text (if any)
     if (text) {
       fetch('/api/ragie/sync', {
         method: 'POST',
@@ -390,7 +409,7 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
           messageId: docRef.id,
           chatId: dmId,
           chatType: 'dm',
-          text: text + (imageUrl ? ' [image attached]' : ''),
+          text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
@@ -400,8 +419,29 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
           recipientName: recipient?.displayName || recipient?.email || null,
           recipientEmail: recipient?.email || null
         })
-      }).catch(err => console.error('Ragie sync failed:', err));
+      }).catch(err => console.error('Ragie text sync failed:', err));
     }
+
+    // 2. Sync image content - Ragie will extract captions/OCR from the image
+    fetch('/api/ragie/sync-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id + '_img',
+        chatId: dmId,
+        chatType: 'dm',
+        imageUrl,
+        text,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+        participants: dmId.split('_').slice(1),
+        recipientId: recipientId,
+        recipientName: recipient?.displayName || recipient?.email || null,
+        recipientEmail: recipient?.email || null
+      })
+    }).catch(err => console.error('Ragie image sync failed:', err));
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId);
