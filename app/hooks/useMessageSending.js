@@ -60,7 +60,6 @@ export function useMessageSending({
       }
 
       // Set typing to true
-      console.log('🔍 Setting typing status:', { dmId, userId: user.uid, isTyping: true });
       setUserTyping(dmId, user.uid, true);
 
       // Set timeout to stop typing after 2 seconds of inactivity

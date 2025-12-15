@@ -331,16 +331,19 @@ export default function MessageItem({
       )}
 
       {/* Read Receipt - Only show on messages I sent that were read by the other person */}
-      {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && isLastMessageFromSender && (
-        <div className="read-receipt">
-          <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
-          <img
-            src={currentChat.user?.photoURL || ''}
-            alt={currentChat.user?.displayName || 'User'}
-            className="read-receipt-avatar"
-          />
-        </div>
-      )}
+      {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && isLastMessageFromSender && (() => {
+        const otherUser = allUsers.find(u => u.uid === currentChat.id);
+        return (
+          <div className="read-receipt">
+            <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+            <img
+              src={otherUser?.photoURL || ''}
+              alt={otherUser?.displayName || 'User'}
+              className="read-receipt-avatar"
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

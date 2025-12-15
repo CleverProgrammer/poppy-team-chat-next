@@ -586,27 +586,26 @@ export default function ChatWindow() {
                     }}
                   />
                 )}
-              </div>
 
-          {/* Typing indicator */}
-          {(() => {
-            console.log('🔍 Typing indicator check:', { otherUserTyping, chatType: currentChat?.type, shouldShow: otherUserTyping && currentChat?.type === 'dm' });
-            return null;
-          })()}
-          {otherUserTyping && currentChat?.type === 'dm' && (
-            <div className="typing-indicator">
-              <img
-                src={currentChat.user?.photoURL || ''}
-                alt={currentChat.user?.displayName || 'User'}
-                className="typing-avatar"
-              />
-              <div className="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
+                {/* DM Typing Indicator - Inside messages div so it's visible */}
+                {otherUserTyping && currentChat?.type === 'dm' && (() => {
+                  const otherUser = allUsers.find(u => u.uid === currentChat.id);
+                  return (
+                    <div className="typing-indicator">
+                      <img
+                        src={otherUser?.photoURL || ''}
+                        alt={otherUser?.displayName || 'User'}
+                        className="typing-avatar"
+                      />
+                      <div className="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            </div>
-          )}
 
           {/* AI Chat Modal */}
           <AIModal

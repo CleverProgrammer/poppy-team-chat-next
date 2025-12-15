@@ -212,7 +212,6 @@ export function useSubscriptions({
 
     const dmId = getDMId(user.uid, currentChat.id);
     const unsubscribe = subscribeToTypingStatus(dmId, currentChat.id, (isTyping) => {
-      console.log('🔍 Typing status update:', { dmId, otherUserId: currentChat.id, isTyping });
       setOtherUserTyping(isTyping);
     });
 
