@@ -83,12 +83,12 @@ export default function ChatWindow() {
     inputRef
   });
 
-  // AI hook (must be after messagesEndRef is defined)
+  // AI hook (must be after virtuosoRef is defined)
   const {
     aiProcessing,
     askPoppy,
     askPoppyDirectly
-  } = useAI(user, currentChat, messages, setMessages, messagesEndRef);
+  } = useAI(user, currentChat, messages, setMessages, virtuosoRef);
 
   // Message sending hook
   const {

@@ -10,7 +10,7 @@ const AI_USER = {
   photoURL: ''
 };
 
-export function useAI(user, currentChat, messages, setMessages, messagesEndRef) {
+export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   const [aiProcessing, setAiProcessing] = useState(false);
 
   // Create typing indicator message
@@ -92,7 +92,13 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     initialTypingMessage.id = typingMessageId;
 
     setMessages(prev => [...prev, initialTypingMessage]);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+    setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: 'LAST',
+        align: 'end',
+        behavior: 'smooth'
+      });
+    }, 0);
 
     try {
       console.log('🤖 Poppy AI: Calling API...');
@@ -141,13 +147,27 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     } finally {
       setAiProcessing(false);
     }
-  }, [aiProcessing, currentChat, user, messages, setMessages, messagesEndRef, createTypingMessage, callAI]);
+  }, [aiProcessing, currentChat, user, messages, setMessages, virtuosoRef, createTypingMessage, callAI]);
 
   // Direct chat with Poppy (for AI chat type - saves to Firestore)
   const askPoppyDirectly = useCallback(async (userQuestion) => {
     if (aiProcessing || !user) return;
 
     setAiProcessing(true);
+
+    // Show typing indicator
+    const typingMessageId = `ai-typing-${Date.now()}`;
+    const initialTypingMessage = createTypingMessage('Thinking...');
+    initialTypingMessage.id = typingMessageId;
+
+    setMessages(prev => [...prev, initialTypingMessage]);
+    setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: 'LAST',
+        align: 'end',
+        behavior: 'smooth'
+      });
+    }, 0);
 
     try {
       console.log('🤖 Poppy AI: Calling API for direct chat...');
@@ -156,7 +176,23 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
         text: m.text
       }));
 
-      const aiResponse = await callAI(userQuestion, chatHistory);
+      // Update typing indicator with status updates
+      const onStatus = (status) => {
+        console.log('🔄 Poppy Status Update:', status);
+        setMessages(prev => {
+          const updated = prev.map(msg =>
+            msg.id === typingMessageId
+              ? { ...msg, text: status, isTyping: true }
+              : msg
+          );
+          return updated;
+        });
+      };
+
+      const aiResponse = await callAI(userQuestion, chatHistory, onStatus);
+
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== typingMessageId));
 
       // Save AI response to Firestore
       await sendAIMessage(user.uid, aiResponse, true);
@@ -168,6 +204,9 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     } catch (error) {
       console.error('🤖 Poppy AI: Error:', error);
 
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== typingMessageId));
+
       // Save error message to Firestore
       await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, true);
 
@@ -176,7 +215,7 @@ export function useAI(user, currentChat, messages, setMessages, messagesEndRef) 
     } finally {
       setAiProcessing(false);
     }
-  }, [aiProcessing, user, messages, callAI]);
+  }, [aiProcessing, user, messages, setMessages, virtuosoRef, createTypingMessage, callAI]);
 
   return {
     aiProcessing,
