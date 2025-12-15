@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
+import { searchDocumentsForContext } from '../rag/search/route.js'
 
 // Initialize Keywords AI Telemetry with manual instrumentation
 const keywordsAi = new KeywordsAITelemetry({
@@ -66,14 +67,54 @@ async function processAIRequest(
   encoder = null,
   workflowId = null
 ) {
+  // RAG-FIRST: Search documents before anything else
+  if (sendStatus) sendStatus('Searching knowledge base...')
+  console.log('📚 RAG: Searching documents for context...')
+  
+  let ragContext = ''
+  let ragSources = []
+  
+  try {
+    const ragResults = await searchDocumentsForContext(message, 5, 0.7)
+    
+    if (ragResults.hasResults) {
+      ragContext = ragResults.context
+      ragSources = ragResults.sources
+      console.log(`📚 RAG: Found ${ragSources.length} relevant document chunks`)
+    } else {
+      console.log('📚 RAG: No relevant documents found')
+    }
+  } catch (ragError) {
+    console.warn('📚 RAG: Search failed, continuing without document context:', ragError.message)
+  }
+
   // Build system prompt with user context
   const userContext = user
     ? `You are chatting with ${user.name} (user_id: ${user.id}, email: ${user.email}).`
     : `You are chatting with an anonymous user.`
 
+  // Build RAG context section for system prompt
+  const ragSection = ragContext
+    ? `
+KNOWLEDGE BASE CONTEXT:
+The following excerpts are from the team's document knowledge base. Use this information to answer questions when relevant:
+
+${ragContext}
+
+CITATION RULES:
+- When using information from the knowledge base, cite the source
+- Format citations as: [Source: filename, page X] or [Source: filename]
+- Be specific about where you found the information
+`
+    : `
+KNOWLEDGE BASE:
+No relevant documents were found for this query. You can still use your other tools (Notion, Mem0) to find information.
+`
+
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
 
 ${userContext}
+${ragSection}
 
 tldr bro. respond like SUPER fucking short unless I explicitly ask you to expand. Also keep shit very simple and easy to understand!
 
@@ -86,9 +127,9 @@ IMPORTANT FORMATTING RULES:
 - Use emojis sparingly if it fits the vibe
 
 CRITICAL: USE YOUR TOOLS PROACTIVELY
-- You have access to Notion tools - USE THEM to search for information
+- FIRST check if the knowledge base context above answers the question
+- If not, you have access to Notion tools - USE THEM to search for more information
 - You have access to Mem0 (memory) tools - USE THEM to remember and recall info about users
-- If you don't immediately know an answer, search Notion or check memories FIRST
 - Store important user preferences, facts, and context in memory for future conversations
 
 MEMORY USAGE:

@@ -57,6 +57,17 @@ dms/{dmId}/posts/{postId}
 - Users @mention Poppy in chat: `@poppy what's the weather?`
 - AI responses stream back and render in real-time
 - Poppy has access to Notion via MCP server for knowledge retrieval
+- **RAG-first architecture**: Searches documents before answering questions
+
+#### 5a. **Documents & RAG System**
+- Team-wide knowledge base with PDF, DOCX, TXT, Markdown support
+- Documents stored in Firebase Storage, metadata in Firestore
+- Text extraction: pdf-parse for PDFs, mammoth for DOCX
+- Chunking with overlap for better context retrieval
+- Embeddings via OpenAI text-embedding-ada-002
+- Vector storage in Pinecone for semantic search
+- RAG search runs BEFORE every AI response
+- Source citations included in AI responses
 
 #### 6. **Unread Tracking**
 - Firestore stores unread state per user in `users/{uid}/readStatus/{chatId}`
@@ -100,8 +111,11 @@ app/
 │   │   ├── ContextMenu.js      # Right-click menu for messages/posts
 │   │   ├── CommandPalette.js   # Quick switcher (Cmd+K)
 │   │   └── AIModal.js          # Poppy AI chat modal
+│   ├── documents/
+│   │   ├── DocumentList.js     # Document management list with upload/delete
+│   │   └── DocumentUpload.js   # Drag-and-drop upload modal
 │   ├── layout/
-│   │   └── Sidebar.js          # Navigation with channels, DMs, unread indicators
+│   │   └── Sidebar.js          # Navigation with channels, DMs, documents, unread indicators
 │   └── providers/
 │       └── OneSignalProvider.js # OneSignal initialization and user ID management
 ├── contexts/
@@ -110,14 +124,25 @@ app/
 │   ├── useSubscriptions.js     # Firestore real-time subscriptions (messages, typing, users, notifications)
 │   ├── useMessageSending.js    # Send messages, handle uploads, @mentions
 │   ├── useAI.js                # Poppy AI integration via MCP
+│   ├── useDocuments.js         # Document upload, list, delete operations
 │   ├── useReactions.js         # Emoji reactions on messages
 │   ├── useMentionMenu.js       # @mention autocomplete
 │   └── useImageUpload.js       # Drag-n-drop image handling
 ├── lib/
 │   ├── firebase.js             # Firebase app initialization
 │   ├── firestore.js            # All Firestore CRUD operations
-│   └── mcp-client.js           # Model Context Protocol client for AI
+│   ├── mcp-client.js           # Model Context Protocol client for AI
+│   ├── pinecone.js             # Pinecone vector database client
+│   ├── embeddings.js           # OpenAI embeddings generation
+│   ├── document-parser.js      # PDF, DOCX, TXT, Markdown text extraction
+│   └── text-chunker.js         # Text chunking with overlap for RAG
 └── api/
+    ├── ai-chat/                # AI chat with RAG-first search
+    ├── documents/              # Document upload and management
+    │   └── [id]/               # Individual document operations
+    ├── rag/
+    │   ├── search/             # RAG semantic search endpoint
+    │   └── process/            # Document processing pipeline
     ├── mcp/                    # MCP server endpoints
     └── notifications/
         └── send/               # OneSignal notification dispatch endpoint
