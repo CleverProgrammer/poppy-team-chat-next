@@ -106,6 +106,11 @@ export function useSubscriptions({
               if (isMentioned) {
                 console.log(`🔔 Global notification - Mentioned in ${channelId} channel by ${lastMessage.sender}`);
                 playKnockSound();
+                sendBrowserNotification(
+                  `Mentioned in #${channelId}`,
+                  lastMessage.text,
+                  lastMessage.sender
+                );
               }
             }
           }
@@ -131,6 +136,11 @@ export function useSubscriptions({
             if (lastMessage.senderId !== user.uid && !lastMessage.optimistic && isTabHiddenRef.current) {
               console.log(`🔔 Global notification - New DM from ${lastMessage.sender}`);
               playKnockSound();
+              sendBrowserNotification(
+                'New Direct Message',
+                lastMessage.text,
+                lastMessage.sender
+              );
             }
           }
 
@@ -160,6 +170,30 @@ export function useSubscriptions({
     }
     const playId = soundRef.current.play();
     console.log('🎬 Playing knock sound, ID:', playId);
+  };
+
+  // Helper function to send browser notification via OneSignal
+  const sendBrowserNotification = async (title, message, senderName) => {
+    if (!user?.uid) return;
+
+    try {
+      await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientUserId: user.uid,
+          title: title,
+          message: `${senderName}: ${message}`,
+          data: {
+            url: window.location.href,
+            timestamp: Date.now()
+          }
+        })
+      });
+      console.log('🔔 Browser notification sent');
+    } catch (error) {
+      console.error('Failed to send browser notification:', error);
+    }
   };
 
   // Subscribe to messages based on current chat
