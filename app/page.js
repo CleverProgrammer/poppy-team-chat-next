@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from './contexts/AuthContext';
-import SignInButton from './components/auth/SignInButton';
+import AuthForm from './components/auth/AuthForm';
 import ChatWindow from './components/chat/ChatWindow';
 
 export default function Home() {
@@ -21,7 +21,7 @@ export default function Home() {
         <div className="login-section">
           <h2>Welcome to Poppy Chat</h2>
           <p>Sign in to start chatting with your team</p>
-          <SignInButton />
+          <AuthForm />
         </div>
       </div>
     );
