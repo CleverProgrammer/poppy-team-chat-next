@@ -24,32 +24,44 @@ export async function searchChatHistory(userId, query, currentChat) {
   let filter;
   let permissionScope;
 
+  // Team memory is ALWAYS included in every search (globally accessible)
+  const teamMemoryFilter = { chatType: { $eq: 'team_memory' } };
+
   if (currentChat?.type === 'ai') {
-    // AI assistant: full access to everything user sent OR received
-    permissionScope = 'FULL ACCESS (AI chat) - own messages + received DMs + all channels';
+    // AI assistant: full access to everything user sent OR received + team memory
+    permissionScope = 'FULL ACCESS (AI chat) - own messages + received DMs + all channels + team memory';
     filter = {
       $or: [
         { senderId: { $eq: userId } },      // Messages I sent
         { recipientId: { $eq: userId } },   // DMs sent TO me
-        { chatType: { $eq: 'channel' } }    // All channel messages (public)
+        { chatType: { $eq: 'channel' } },   // All channel messages (public)
+        teamMemoryFilter                     // Team AI Memory (always accessible)
       ]
     };
   } else if (currentChat?.type === 'dm') {
-    // DM: this specific DM + all channels
+    // DM: this specific DM + all channels + team memory
     const dmId = getDMId(userId, currentChat.id);
-    permissionScope = `DM SCOPE - this DM (${dmId}) + all channels`;
+    permissionScope = `DM SCOPE - this DM (${dmId}) + all channels + team memory`;
     filter = {
       $or: [
         { chatId: { $eq: dmId } },          // This specific DM
-        { chatType: { $eq: 'channel' } }    // All channel messages (public)
+        { chatType: { $eq: 'channel' } },   // All channel messages (public)
+        teamMemoryFilter                     // Team AI Memory (always accessible)
       ]
     };
   } else if (currentChat?.type === 'channel') {
-    // Channel: all channels only (no DMs)
-    permissionScope = 'CHANNEL SCOPE - all channels only (no DMs accessible)';
-    filter = { chatType: { $eq: 'channel' } };
+    // Channel: all channels + team memory (no DMs)
+    permissionScope = 'CHANNEL SCOPE - all channels + team memory (no DMs accessible)';
+    filter = {
+      $or: [
+        { chatType: { $eq: 'channel' } },   // All channel messages
+        teamMemoryFilter                     // Team AI Memory (always accessible)
+      ]
+    };
   } else {
-    permissionScope = 'NO CONTEXT - search may be unrestricted';
+    // No context - still include team memory
+    permissionScope = 'NO CONTEXT - team memory only';
+    filter = teamMemoryFilter;
   }
 
   console.log('🔐 Permission scope:', permissionScope);

@@ -8,7 +8,8 @@ export default function ContextMenu({
   onEdit,
   onDelete,
   onPromote,
-  onDemote
+  onDemote,
+  onAddToTeamMemory
 }) {
   if (!contextMenu) return null;
 
@@ -41,6 +42,11 @@ export default function ContextMenu({
     setContextMenu(null);
   };
 
+  const handleAddToTeamMemory = () => {
+    onAddToTeamMemory(message);
+    setContextMenu(null);
+  };
+
   return (
     <div
       className="context-menu"
@@ -57,6 +63,10 @@ export default function ContextMenu({
       {/* Promote/Demote options */}
       {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
       {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
+      {/* Team AI Memory - only for own messages */}
+      {isOwnMessage && (
+        <button onClick={handleAddToTeamMemory}>🧠 Add to Team AI Memory</button>
+      )}
     </div>
   );
 }

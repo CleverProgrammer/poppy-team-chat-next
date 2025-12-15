@@ -307,6 +307,33 @@ export default function ChatWindow() {
     }
   };
 
+  // Add message to Team AI Memory (globally accessible)
+  const handleAddToTeamMemory = async (message) => {
+    try {
+      const response = await fetch('/api/ragie/team-memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: message.id,
+          text: message.text || message.content,
+          sender: message.sender,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: message.timestamp?.toDate?.()?.toISOString() || new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        alert('✅ Added to Team AI Memory! Everyone can now ask Poppy about this.');
+      } else {
+        throw new Error('Failed to add to team memory');
+      }
+    } catch (error) {
+      console.error('Error adding to team memory:', error);
+      alert('Failed to add to Team AI Memory. Please try again.');
+    }
+  };
+
   // Context menu handler
   const handleContextMenu = (e, message) => {
     e.preventDefault();
@@ -685,6 +712,7 @@ export default function ChatWindow() {
         onDelete={handleDeleteMessage}
         onPromote={handlePromoteMessage}
         onDemote={handleDemotePost}
+        onAddToTeamMemory={handleAddToTeamMemory}
       />
     </>
   );
