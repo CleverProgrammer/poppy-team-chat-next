@@ -167,7 +167,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
                         className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
                         onClick={() => handleSelect(item)}
                       >
-                        <img src={item.user.photoURL || ''} alt={item.user.displayName} />
+                        {item.user.photoURL && <img src={item.user.photoURL} alt={item.user.displayName} />}
                         <div className="cmd-palette-item-info">
                           <div className="cmd-palette-item-name">{item.user.displayName || item.user.email}</div>
                           <div className="cmd-palette-item-hint">{item.user.email}</div>

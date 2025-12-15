@@ -78,7 +78,7 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
                 className={`dm-item ${isActive ? 'active' : ''}`}
                 onClick={() => handleDMClick(dmUser)}
               >
-                <img src={dmUser.photoURL || ''} alt={dmUser.displayName} />
+                {dmUser.photoURL && <img src={dmUser.photoURL} alt={dmUser.displayName} />}
                 <span>{dmUser.displayName || dmUser.email}</span>
                 {unreadChats.includes(`dm:${dmUserId}`) && <div className="unread-badge" />}
               </div>
@@ -89,7 +89,7 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
 
       {/* User Panel */}
       <div className="user-panel">
-        <img src={user?.photoURL || ''} alt="Profile" />
+        {user?.photoURL && <img src={user.photoURL} alt="Profile" />}
         <div className="user-panel-info">
           <div className="user-panel-name">{user?.displayName || user?.email}</div>
           <div className="user-panel-status">Online</div>
