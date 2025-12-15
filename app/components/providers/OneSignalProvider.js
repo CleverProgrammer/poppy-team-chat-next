@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import OneSignal from 'react-onesignal';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function OneSignalProvider({ children }) {
   const { user } = useAuth();
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
     // Only initialize OneSignal on the client side
@@ -39,6 +40,7 @@ export default function OneSignalProvider({ children }) {
         });
 
         console.log('OneSignal initialized successfully');
+        isInitializedRef.current = true;
 
         // Set external user ID after initialization
         if (user?.uid) {
@@ -59,6 +61,9 @@ export default function OneSignalProvider({ children }) {
 
     const isProduction = window.location.hostname === 'poppyteamchat.com';
     if (!isProduction) return;
+
+    // Only call login if OneSignal is already initialized
+    if (!isInitializedRef.current) return;
 
     const updateUserId = async () => {
       try {
