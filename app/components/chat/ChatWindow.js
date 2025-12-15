@@ -86,6 +86,8 @@ export default function ChatWindow() {
   // AI hook (must be after virtuosoRef is defined)
   const {
     aiProcessing,
+    aiTyping,
+    aiTypingStatus,
     askPoppy,
     askPoppyDirectly
   } = useAI(user, currentChat, messages, setMessages, virtuosoRef);
@@ -605,6 +607,42 @@ export default function ChatWindow() {
                     </div>
                   );
                 })()}
+
+                {/* AI Typing Indicator - Same approach as DM typing */}
+                {aiTyping && (
+                  <div className="typing-indicator">
+                    <div className="typing-avatar" style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '14px',
+                      border: '2px solid var(--border-input)'
+                    }}>
+                      🤖
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div className="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                      {aiTypingStatus && (
+                        <div style={{
+                          color: 'var(--text-secondary)',
+                          fontSize: '12px',
+                          fontStyle: 'italic',
+                          marginLeft: '4px'
+                        }}>
+                          {aiTypingStatus}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
           {/* AI Chat Modal */}

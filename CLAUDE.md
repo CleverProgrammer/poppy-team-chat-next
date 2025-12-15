@@ -1,5 +1,7 @@
 # Poppy Team Chat - Claude Instructions
 
+NEVER WORK IN THE MAIN BRANCH. that branch is just for merging and / or pushing/pulling code!!
+
 ## What This App Is
 
 **Poppy Team Chat** is a Slack-inspired team communication app with AI integration. Think Slack meets ChatGPT - users can chat in channels, send DMs, and interact with an AI assistant named Poppy directly in the conversation flow.
