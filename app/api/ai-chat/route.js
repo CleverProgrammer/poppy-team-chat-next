@@ -10,6 +10,7 @@ const keywordsAi = new KeywordsAITelemetry({
   baseURL: process.env.KEYWORDSAI_BASE_URL || 'https://api.keywordsai.co/api',
   appName: 'poppy-team-chat',
   disableBatch: false,
+  debug: false, // Disable verbose console logging
   instrumentModules: {
     anthropic: Anthropic,
   },
@@ -90,23 +91,17 @@ IMPORTANT FORMATTING RULES:
 - Use emojis sparingly if it fits the vibe
 
 CRITICAL: USE YOUR TOOLS PROACTIVELY
-- You have access to search_chat_history - USE IT to find past conversations when users ask about things discussed before
-- You have access to Notion tools - USE THEM to search for information
-- use RAGIE.ai tool for memory first (this remembers all the chat messages)
-- You have access to Mem0 (memory) tools - USE THEM to remember and recall info about users
-- If you don't immediately know an answer, search chat history, Notion, or check memories FIRST
-- Store important user preferences, facts, and context in memory for future conversations
+- You have access to RAGIE.ai tool search_chat_history is the specific tool. this is your MEMORY system
+- You have access to Notion tools - USE THEM to search for documents and information
+- If you don't immediately know an answer, search chat history or Notion FIRST
+- Don't ask permission to search - just do it
 
-MEMORY USAGE:
-- I've given you access to RAGIE so use that TOOL first for ANY memory retrieval
-- When users share preferences, important facts, or personal info - store it in memory using their user_id
-- IMPORTANT: When calling mem0 tools, ALWAYS use user_id: "${
-    user?.id || 'anonymous'
-  }"
-- Always add their name & email as well
-- Before answering questions about the user, check if you have memories about them
-- Use memories to provide personalized responses
-- Each user's memories are isolated by their user_id
+MEMORY (Ragie.ai):
+- search_chat_history is powered by Ragie.ai and contains ALL past chat messages
+- Use it whenever users ask about past conversations, things they've told you before, or any historical context
+- It remembers everything: preferences, facts, discussions, decisions - everything ever said in chat
+- Always search Ragie first when users ask "do you remember...", "what did I say about...", "we talked about..."
+or just straight up if you don't know something LOOK inside of RAGIE!
 
 CONTENT PIPELINE DATABASE STRUCTURE:
 - Has a "platform" column with values: Email, Instagram, YouTube, TikTok, etc.
@@ -285,7 +280,27 @@ Don't ask permission to search or remember things - just do it.
     let executeActionFailed = false // Track if execute_action caused truncation
 
     for (const toolUse of toolUses) {
-      console.log(`🔧 Executing tool: ${toolUse.name}`)
+      // Categorize tool for clearer logging
+      let toolCategory = '🔧 MCP'
+      if (toolUse.name === 'search_chat_history') {
+        toolCategory = '🔍 RAGIE'
+      } else if (
+        toolUse.name.includes('notion') ||
+        toolUse.name.includes('search_notion') ||
+        toolUse.name.includes('query_database') ||
+        toolUse.name.includes('execute_action')
+      ) {
+        toolCategory = '📝 NOTION'
+      }
+
+      console.log(`\n${'='.repeat(50)}`)
+      console.log(`${toolCategory}: Using tool "${toolUse.name}"`)
+      console.log(
+        `${toolCategory}: Input:`,
+        JSON.stringify(toolUse.input, null, 2)
+      )
+      console.log(`${'='.repeat(50)}`)
+
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
       try {
@@ -294,20 +309,22 @@ Don't ask permission to search or remember things - just do it.
         // Handle Ragie search tool separately
         if (toolUse.name === 'search_chat_history') {
           console.log(
-            `🔍 Ragie: Searching chat history for: "${toolUse.input.query}"`
+            `🔍 RAGIE: Searching chat history for: "${toolUse.input.query}"`
           )
+          console.log(`🔍 RAGIE: Current chat context:`, currentChat)
           const results = await searchChatHistory(
             userId,
             toolUse.input.query,
             currentChat
           )
           toolResponse = { content: results }
-          console.log(`🔍 Ragie: Found ${results.length} results`)
+          console.log(`🔍 RAGIE: Found ${results.length} results`)
+          if (results.length > 0) {
+            console.log(`🔍 RAGIE: Sample result:`, results[0])
+          }
         } else {
           // Call MCP tools with tracing
-          console.log(
-            `🔧 MCP: Executing tool "${toolUse.name}" for user ${userId}`
-          )
+          console.log(`${toolCategory}: Executing for user ${userId}`)
           toolResponse = await keywordsAi.withTask(
             {
               name: `mcp_tool_${toolUse.name}`,
