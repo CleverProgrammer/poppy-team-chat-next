@@ -11,6 +11,8 @@ export function useKeyboardShortcuts({
   editingMessage,
   isPaletteOpen,
   setIsPaletteOpen,
+  isHelpOpen,
+  setIsHelpOpen,
   startReply,
   startEdit,
   cancelReply
@@ -24,6 +26,12 @@ export function useKeyboardShortcuts({
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsPaletteOpen(true);
+      }
+
+      // Cmd+? or Cmd+Shift+/: Open help modal
+      if ((e.metaKey || e.ctrlKey) && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+        e.preventDefault();
+        setIsHelpOpen(true);
       }
 
       // Escape: Close modals/states
@@ -67,6 +75,8 @@ export function useKeyboardShortcuts({
     editingMessage,
     isPaletteOpen,
     setIsPaletteOpen,
+    isHelpOpen,
+    setIsHelpOpen,
     startReply,
     startEdit,
     cancelReply

@@ -13,6 +13,7 @@ import ChatHeader from './ChatHeader';
 import ContextMenu from './ContextMenu';
 import PostsView from './PostsView';
 import PostPreview from './PostPreview';
+import HelpModal from '../help/HelpModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { useReactions } from '../../hooks/useReactions';
@@ -35,6 +36,7 @@ export default function ChatWindow() {
   const [editingMessage, setEditingMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [insertPosition, setInsertPosition] = useState(null);
   const [viewMode, setViewMode] = useState('messages');
   const [posts, setPosts] = useState([]);
@@ -261,6 +263,8 @@ export default function ChatWindow() {
     editingMessage,
     isPaletteOpen,
     setIsPaletteOpen,
+    isHelpOpen,
+    setIsHelpOpen,
     startReply,
     startEdit,
     cancelReply
@@ -467,6 +471,12 @@ export default function ChatWindow() {
         onSelectChat={handleSelectChat}
       />
 
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+      />
+
       {/* Image Preview Modal */}
       <ImagePreviewModal
         imageUrl={previewModalImage}
@@ -490,6 +500,7 @@ export default function ChatWindow() {
           allUsers={allUsers}
           unreadChats={unreadChats}
           isOpen={isSidebarOpen}
+          onOpenHelp={() => setIsHelpOpen(true)}
         />
 
         {/* Chat Container */}

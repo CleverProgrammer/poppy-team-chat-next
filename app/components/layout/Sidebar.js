@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import SignOutButton from '../auth/SignOutButton';
 
-export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], allUsers = [], unreadChats = [], isOpen = false }) {
+export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], allUsers = [], unreadChats = [], isOpen = false, onOpenHelp }) {
   const { user } = useAuth();
 
   const handleChannelClick = (channelId) => {
@@ -94,6 +94,9 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
           <div className="user-panel-name">{user?.displayName || user?.email}</div>
           <div className="user-panel-status">Online</div>
         </div>
+        <button className="help-btn" onClick={onOpenHelp} title="Help & Shortcuts (Cmd+?)">
+          ?
+        </button>
         <SignOutButton />
       </div>
     </div>
