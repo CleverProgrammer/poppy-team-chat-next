@@ -23,13 +23,29 @@ export async function sendMessage(channelId, user, text) {
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp()
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: channelId,
+        chatType: 'channel',
+        text,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(err => console.error('Ragie sync failed:', err));
   } catch (error) {
     console.error('Error sending message:', error);
     throw error;
@@ -126,13 +142,30 @@ export async function sendMessageDM(dmId, user, text, recipientId) {
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages');
-    await addDoc(messagesRef, {
+    const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp()
     });
+
+    // Index to Ragie (fire and forget, don't block send)
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: dmId,
+        chatType: 'dm',
+        text,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+        participants: dmId.split('_').slice(1) // Extract user IDs from dmId
+      })
+    }).catch(err => console.error('Ragie sync failed:', err));
 
     // Add both users to each other's active DMs
     if (recipientId) {

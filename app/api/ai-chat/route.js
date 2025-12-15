@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
+import { searchChatHistory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 
@@ -61,6 +62,7 @@ async function processAIRequest(
   chatHistory,
   apiKey,
   user = null,
+  currentChat = null,
   sendStatus = null,
   controller = null,
   encoder = null,
@@ -86,12 +88,15 @@ IMPORTANT FORMATTING RULES:
 - Use emojis sparingly if it fits the vibe
 
 CRITICAL: USE YOUR TOOLS PROACTIVELY
+- You have access to search_chat_history - USE IT to find past conversations when users ask about things discussed before
 - You have access to Notion tools - USE THEM to search for information
+- use RAGIE.ai tool for memory first (this remembers all the chat messages)
 - You have access to Mem0 (memory) tools - USE THEM to remember and recall info about users
-- If you don't immediately know an answer, search Notion or check memories FIRST
+- If you don't immediately know an answer, search chat history, Notion, or check memories FIRST
 - Store important user preferences, facts, and context in memory for future conversations
 
 MEMORY USAGE:
+- I've given you access to RAGIE so use that TOOL first for ANY memory retrieval
 - When users share preferences, important facts, or personal info - store it in memory using their user_id
 - IMPORTANT: When calling mem0 tools, ALWAYS use user_id: "${
     user?.id || 'anonymous'
@@ -161,6 +166,23 @@ Don't ask permission to search or remember things - just do it.
     description: tool.description,
     input_schema: tool.inputSchema,
   }))
+
+  // Add Ragie chat history search tool
+  tools.push({
+    name: 'search_chat_history',
+    description:
+      'Search through past chat messages to find relevant conversations. Use this when users ask about things discussed before, personal info shared in past chats, or any historical context from previous conversations.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The search query to find relevant past messages',
+        },
+      },
+      required: ['query'],
+    },
+  })
 
   console.log(
     '🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...'
@@ -261,35 +283,50 @@ Don't ask permission to search or remember things - just do it.
     let executeActionFailed = false // Track if execute_action caused truncation
 
     for (const toolUse of toolUses) {
-      console.log(`🔧 MCP: Executing tool: ${toolUse.name}`)
+      console.log(`🔧 Executing tool: ${toolUse.name}`)
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
       try {
-        console.log(
-          `🔧 MCP: Executing tool "${toolUse.name}" for user ${userId}`
-        )
+        let toolResponse
 
-        // Call the MCP tool with tracing for this specific user
-        const mcpResponse = await keywordsAi.withTask(
-          {
-            name: `mcp_tool_${toolUse.name}`,
-            metadata: {
-              tool_name: toolUse.name,
-              server: userId,
-              input_keys: Object.keys(toolUse.input || {}),
+        // Handle Ragie search tool separately
+        if (toolUse.name === 'search_chat_history') {
+          console.log(
+            `🔍 Ragie: Searching chat history for: "${toolUse.input.query}"`
+          )
+          const results = await searchChatHistory(
+            userId,
+            toolUse.input.query,
+            currentChat
+          )
+          toolResponse = { content: results }
+          console.log(`🔍 Ragie: Found ${results.length} results`)
+        } else {
+          // Call MCP tools with tracing
+          console.log(
+            `🔧 MCP: Executing tool "${toolUse.name}" for user ${userId}`
+          )
+          toolResponse = await keywordsAi.withTask(
+            {
+              name: `mcp_tool_${toolUse.name}`,
+              metadata: {
+                tool_name: toolUse.name,
+                server: userId,
+                input_keys: Object.keys(toolUse.input || {}),
+              },
             },
-          },
-          async () => {
-            return await mcpManager.callTool(
-              userId,
-              toolUse.name,
-              toolUse.input
-            )
-          }
-        )
+            async () => {
+              return await mcpManager.callTool(
+                userId,
+                toolUse.name,
+                toolUse.input
+              )
+            }
+          )
+        }
 
         // Truncate response if too large (prevent token limit errors)
-        let responseContent = JSON.stringify(mcpResponse.content)
+        let responseContent = JSON.stringify(toolResponse.content)
         const MAX_TOOL_RESPONSE_CHARS = 100000 // ~25K tokens (4 chars per token avg)
         let wasTruncated = false
 
@@ -427,7 +464,8 @@ Don't ask permission to search or remember things - just do it.
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user } = await request.json()
+    const { message, chatHistory, stream, user, currentChat } =
+      await request.json()
 
     if (!message) {
       return NextResponse.json(
@@ -480,6 +518,7 @@ export async function POST(request) {
                   chatHistory,
                   apiKey,
                   user,
+                  currentChat,
                   sendStatus,
                   controller,
                   encoder,
@@ -526,6 +565,7 @@ export async function POST(request) {
           chatHistory,
           apiKey,
           user,
+          currentChat,
           null,
           null,
           null,

@@ -18,6 +18,7 @@
     "howler": "^2.2.4",
     "klavis": "^2.15.0",
     "next": "16.0.7",
+    "ragie": "^1.15.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-dropzone": "^14.3.8",

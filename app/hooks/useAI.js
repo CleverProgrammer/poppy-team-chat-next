@@ -28,6 +28,10 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           id: user.uid,
           email: user.email,
           name: user.displayName
+        } : null,
+        currentChat: currentChat ? {
+          type: currentChat.type,
+          id: currentChat.id
         } : null
       })
     });
@@ -70,7 +74,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
     // Non-streaming fallback
     const data = await response.json();
     return data.response;
-  }, [user]);
+  }, [user, currentChat]);
 
   // Ask Poppy in channel/DM (posts response as message)
   const askPoppy = useCallback(async (userQuestion) => {
