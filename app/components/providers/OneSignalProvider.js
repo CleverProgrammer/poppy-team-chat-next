@@ -33,7 +33,7 @@ export default function OneSignalProvider({ children }) {
         await OneSignal.init({
           appId: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID,
           safari_web_id: 'web.onesignal.auto.2c5a7aa8-83b4-45ba-8e8f-e5cd6a2881a0',
-          serviceWorkerPath: '/OneSignalSDKWorker.js',
+          serviceWorkerPath: '/OneSignalSDK.sw.js',
           notifyButton: {
             enable: true,
           },
