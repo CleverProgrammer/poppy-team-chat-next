@@ -62,15 +62,18 @@
     align-items: center;
     padding: calc(env(safe-area-inset-top, 20px) + 5px) 16px 8px !important;
     background: transparent !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border-bottom: none !important;
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 100;
-    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
     width: 100%;
+    pointer-events: none; /* Allow clicks to pass through to messages behind */
+  }
+
+  .chat-header-mobile > * {
+    pointer-events: auto; /* Re-enable clicks for header content */
   }
 
   /* Fade gradient at bottom of header */
@@ -220,10 +223,11 @@
     border: none;
     background: transparent;
     border-radius: 20px;
-    padding: 8px 40px 8px 14px;
-    min-height: 36px;
+    padding: 12px 40px 12px 14px;
+    min-height: 44px;
     max-height: 300px;
     font-size: 17px;
+    line-height: 20px;
     color: var(--text-primary);
     resize: none;
   }
@@ -278,7 +282,7 @@
 
   /* Better message spacing on mobile - extra padding at bottom for floating input */
   .messages {
-    padding: 12px 12px 70px;
+    padding: 120px 12px 70px;
     -webkit-overflow-scrolling: touch;
   }
 

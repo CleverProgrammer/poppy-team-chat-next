@@ -221,7 +221,7 @@ export default function ChatInput({
               placeholder={
                 editingMessage
                   ? 'Edit your message...'
-                  : "Message, press @ for AI, '/' for commands"
+                  : 'Message, press @ for AI'
               }
               rows='1'
               onInput={handleInput}
