@@ -48,6 +48,19 @@ body {
   justify-content: center;
   align-items: center;
   padding: 0;
+  overflow-x: hidden;
+  width: 100%;
+  overscroll-behavior-x: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+html {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  width: 100%;
+  height: 100%;
 }
 
 .login-container {
@@ -238,7 +251,8 @@ body {
 
 /* Chat Window */
 .app-container {
-  width: 100vw;
+  width: 100%;
+  max-width: 100vw;
   height: 100vh;
   background: var(--bg-app);
   display: flex;
@@ -284,12 +298,14 @@ body {
 .messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   padding-bottom: 140px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   background: var(--bg-messages);
+  width: 100%;
 }
 
 /* Virtuoso container - ensure it inherits flex layout */
@@ -2322,307 +2338,4 @@ iframe[src*="vercel"] {
 /* =====================================================
    iOS Native Mobile Styles - iMessage-inspired
    ===================================================== */
-
-/* Safe area support for iOS notch/dynamic island */
-@supports (padding-top: env(safe-area-inset-top)) {
-  .sidebar {
-    padding-top: env(safe-area-inset-top);
-  }
-}
-
-/* iMessage-style DM Header */
-.chat-header-mobile {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .chat-header {
-    display: none;
-  }
-
-  .chat-header-mobile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: calc(env(safe-area-inset-top, 20px) + 15px) 16px 12px;
-    background: rgba(30, 30, 47, 0.4);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: none;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-  }
-
-  /* Fade gradient at bottom of header */
-  .chat-header-mobile::after {
-    display: none;
-  }
-
-  .back-button {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    background: none;
-    border: none;
-    color: #007AFF;
-    font-size: 17px;
-    font-weight: 400;
-    cursor: pointer;
-    padding: 8px 0;
-    position: absolute;
-    left: 16px;
-    top: calc(env(safe-area-inset-top, 20px) + 15px);
-    z-index: 101;
-  }
-
-  .back-button svg {
-    width: 12px;
-    height: 20px;
-  }
-
-  .chat-header-avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 4px;
-  }
-
-  .chat-header-avatar-placeholder,
-  .chat-header-avatar-initials {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    font-weight: 600;
-    color: white;
-    margin-bottom: 4px;
-  }
-
-  .chat-header-avatar-ai {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 26px;
-    margin-bottom: 4px;
-  }
-
-  .chat-header-avatar-channel {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--bg-hover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-  }
-
-  .chat-header-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-align: center;
-  }
-
-  .chat-header-status {
-    font-size: 11px;
-    color: var(--text-tertiary);
-  }
-}
-
-/* Input row styles */
-.input-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  width: 100%;
-}
-
-.input-row textarea {
-  flex: 1;
-}
-
-.input-field-wrapper {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-field-wrapper textarea {
-  flex: 1;
-  padding-right: 40px;
-}
-
-/* Hide mobile-only buttons on desktop */
-.input-plus-btn,
-.input-mic-btn {
-  display: none;
-}
-
-.input-send-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-  transition: transform 0.15s, opacity 0.15s;
-}
-
-.input-send-btn:hover:not(:disabled) {
-  transform: scale(1.05);
-}
-
-.input-send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* iMessage-style Input Section */
-@media (max-width: 768px) {
-  .input-section {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 12px 12px calc(25px + env(safe-area-inset-bottom, 0px));
-    background: rgba(30, 30, 47, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: none;
-  }
-
-  .input-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-  }
-
-  /* Subtle gray plus button - no background, no border */
-  .input-section .input-plus-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    color: #8E8E93;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: opacity 0.2s;
-  }
-
-  .input-section .input-plus-btn:active {
-    opacity: 0.5;
-  }
-
-  /* Input field wrapper with mic inside */
-  .input-field-wrapper {
-    flex: 1;
-    position: relative;
-    display: flex;
-    align-items: center;
-    background: #1c1c1e;
-    border-radius: 20px;
-    border: 1px solid #3a3a3c;
-  }
-
-  .input-field-wrapper textarea {
-    flex: 1;
-    border: none;
-    background: transparent;
-    border-radius: 20px;
-    padding: 8px 40px 8px 14px;
-    min-height: 36px;
-    max-height: 120px;
-    font-size: 17px;
-    color: var(--text-primary);
-    resize: none;
-  }
-
-  .input-field-wrapper textarea::placeholder {
-    color: #636366;
-  }
-
-  /* Mic icon inside the input field - no background/border */
-  .input-section .input-mic-btn {
-    display: flex;
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    margin-top: -13px; /* Half of height (26px) */
-    transform: none !important; /* Override generic button transform */
-    background: none;
-    border: none;
-    color: #8E8E93;
-    cursor: pointer;
-    padding: 4px;
-    transition: opacity 0.2s;
-    width: auto;
-    height: auto;
-  }
-
-  .input-section .input-mic-btn:hover {
-    transform: none !important;
-  }
-
-  .input-section .input-mic-btn:active {
-    opacity: 0.5;
-  }
-
-  /* Hide send button on mobile - iMessage uses mic/send toggle */
-  .input-send-btn {
-    display: none;
-  }
-}
-
-/* Hide desktop elements on mobile */
-@media (max-width: 768px) {
-  .view-mode-toggle {
-    display: none;
-  }
-
-  .chat-header-subtitle {
-    display: none;
-  }
-
-  /* Chat container needs relative positioning for floating input */
-  .chat-container {
-    position: relative;
-  }
-
-  /* Better message spacing on mobile - extra padding at bottom for floating input */
-  .messages {
-    padding: 12px 12px 70px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .message-wrapper {
-    max-width: 85%;
-  }
-}
+/* Moved to app/mobile.css */
