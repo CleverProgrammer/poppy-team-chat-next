@@ -218,12 +218,16 @@ export default function ChatInput({
           <div className='input-field-wrapper'>
             <textarea
               ref={inputRef}
-              placeholder={editingMessage ? 'Edit your message...' : 'iMessage'}
+              placeholder={
+                editingMessage
+                  ? 'Edit your message...'
+                  : "Message, press @ for AI, '/' for commands"
+              }
               rows='1'
               onInput={handleInput}
               onKeyDown={handleKeyDown}
               autoComplete='off'
-              autoCorrect='off'
+              autoCorrect='on'
               autoCapitalize='sentences'
               spellCheck='true'
               name='chat-message-input'

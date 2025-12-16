@@ -222,7 +222,7 @@
     border-radius: 20px;
     padding: 8px 40px 8px 14px;
     min-height: 36px;
-    max-height: 120px;
+    max-height: 300px;
     font-size: 17px;
     color: var(--text-primary);
     resize: none;
