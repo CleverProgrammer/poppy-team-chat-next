@@ -235,35 +235,49 @@ export default function ChatInput({
             {/* Mic icon or Send icon inside input (mobile) */}
             {hasContent ? (
               <button
-                className='input-mic-btn'
                 onClick={onSend}
                 aria-label='Send message'
                 style={{
-                  background: '#007AFF',
-                  borderRadius: '50%',
+                  position: 'absolute',
+                  right: '10px',
+                  bottom: '6px',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  zIndex: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   width: '28px',
                   height: '28px',
-                  padding: '6px',
-                  right: '4px',
-                  color: 'white',
+                  minHeight: '28px', // Override global CSS
                 }}
               >
-                <svg width='100%' height='100%' viewBox='0 0 24 24' fill='none'>
-                  <path
-                    d='M12 19V5'
-                    stroke='currentColor'
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#007AFF',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg
+                    width='14'
+                    height='14'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='white'
                     strokeWidth='3'
                     strokeLinecap='round'
                     strokeLinejoin='round'
-                  />
-                  <path
-                    d='M5 12l7-7 7 7'
-                    stroke='currentColor'
-                    strokeWidth='3'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                </svg>
+                  >
+                    <path d='m5 12 7-7 7 7' />
+                    <path d='M12 19V5' />
+                  </svg>
+                </div>
               </button>
             ) : (
               <button
