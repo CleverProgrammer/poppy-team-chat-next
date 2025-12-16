@@ -531,6 +531,8 @@ export default function ChatWindow() {
             setIsSidebarOpen={setIsSidebarOpen}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            onBack={() => setIsSidebarOpen(true)}
+            allUsers={allUsers}
           />
 
           {viewMode === 'posts' ? (
