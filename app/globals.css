@@ -295,6 +295,11 @@ html {
   margin-left: auto;
 }
 
+/* Hide mobile header on desktop */
+.chat-header-mobile {
+  display: none;
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -487,6 +492,20 @@ html {
   align-items: flex-end;
 }
 
+/* Wrappers for structure compatibility with mobile */
+.input-row {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.input-field-wrapper {
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
 .input-section textarea {
   flex: 1;
   padding: 12px 16px;
@@ -499,7 +518,7 @@ html {
   font-family: inherit;
   line-height: 1.5;
   min-height: 44px;
-  max-height: 300px;
+  max-height: 200px;
   overflow-y: auto;
   background: var(--bg-input);
   color: var(--text-primary);
@@ -533,6 +552,13 @@ html {
 .input-section button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* Hide mobile-only buttons on desktop */
+.input-section .input-plus-btn,
+.input-section .mobile-send-btn,
+.input-section .input-mic-btn {
+  display: none;
 }
 
 /* Sidebar */

@@ -241,33 +241,9 @@ export default function ChatInput({
               <button
                 onClick={onSend}
                 aria-label='Send message'
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  bottom: '6px',
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  zIndex: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '28px',
-                  height: '28px',
-                  minHeight: '28px', // Override global CSS
-                }}
+                className='mobile-send-btn'
               >
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: '#007AFF',
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
+                <div className='mobile-send-btn-inner'>
                   <svg
                     width='14'
                     height='14'
