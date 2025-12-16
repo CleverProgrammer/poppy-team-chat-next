@@ -92,6 +92,11 @@ export default function AIModal({ isOpen, onClose, onInsert, insertPosition }) {
             }}
             placeholder="What do you need help with?"
             disabled={aiModalProcessing}
+            autoComplete="off"
+            name="ai-modal-input"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
           />
 
           {aiModalProcessing && (

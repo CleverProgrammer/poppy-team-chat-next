@@ -106,6 +106,11 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          autoComplete="off"
+          name="cmd-palette-search"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore="true"
         />
         <div className="cmd-palette-results">
           {filteredItems.length === 0 ? (

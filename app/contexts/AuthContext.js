@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -11,6 +13,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { saveUser } from '../lib/firestore';
+import { Capacitor } from '@capacitor/core';
 
 const AuthContext = createContext({});
 
@@ -19,6 +22,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for redirect result (for Capacitor/mobile)
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          console.log('🔵 User logged in via redirect:', result.user.email);
+          await saveUser(result.user);
+        }
+      })
+      .catch((error) => {
+        console.error('Redirect result error:', error);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         console.log('🔵 User logged in, saving to Firestore:', user.email);
@@ -33,7 +48,12 @@ export function AuthProvider({ children }) {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      // Use redirect for native apps (Capacitor), popup for web
+      if (Capacitor.isNativePlatform()) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;

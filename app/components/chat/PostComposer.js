@@ -21,6 +21,11 @@ export default function PostComposer({ onSubmit, onCancel }) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="post-title-input"
+          autoComplete="off"
+          name="post-title-input"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore="true"
         />
         <textarea
           placeholder="What's on your mind?"
@@ -29,6 +34,11 @@ export default function PostComposer({ onSubmit, onCancel }) {
           className="post-content-input"
           rows={6}
           autoFocus
+          autoComplete="off"
+          name="post-content-input"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore="true"
         />
         <div className="post-composer-actions">
           <button type="button" onClick={onCancel} className="cancel-btn">

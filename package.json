@@ -6,10 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ios:init": "npx cap add ios && npx cap sync ios",
+    "ios:sync": "npx cap sync ios",
+    "ios:open": "npx cap open ios"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/keyboard": "^8.0.0",
     "@keywordsai/tracing": "^1.0.44",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@notionhq/notion-mcp-server": "^1.9.1",

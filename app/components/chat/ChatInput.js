@@ -105,8 +105,12 @@ export default function ChatInput({
           onKeyDown={handleKeyDown}
           autoComplete="off"
           autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
+          autoCapitalize="sentences"
+          spellCheck="true"
+          name="chat-message-input"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore="true"
         />
         <button
           onClick={handleSend}
