@@ -308,6 +308,7 @@ export default function ChatWindow() {
   };
 
   // Add message to Team AI Memory (globally accessible)
+  // Supports both text and image messages
   const handleAddToTeamMemory = async (message) => {
     try {
       const response = await fetch('/api/ragie/team-memory', {
@@ -315,7 +316,8 @@ export default function ChatWindow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messageId: message.id,
-          text: message.text || message.content,
+          text: message.text || message.content || '',
+          imageUrl: message.imageUrl || null,
           sender: message.sender,
           senderEmail: user.email,
           senderId: user.uid,
@@ -324,7 +326,9 @@ export default function ChatWindow() {
       });
 
       if (response.ok) {
-        alert('✅ Added to Team AI Memory! Everyone can now ask Poppy about this.');
+        const data = await response.json();
+        const typeMsg = data.type === 'image' ? 'image' : 'message';
+        alert(`✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`);
       } else {
         throw new Error('Failed to add to team memory');
       }
