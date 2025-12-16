@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 export default function ChatHeader({
   currentChat,
@@ -7,74 +7,91 @@ export default function ChatHeader({
   viewMode,
   onViewModeChange,
   onBack,
-  allUsers
+  allUsers,
 }) {
   const getIcon = () => {
-    if (currentChat.type === 'channel') return '#';
-    if (currentChat.type === 'ai') return '🤖';
-    return '💬';
-  };
+    if (currentChat.type === 'channel') return '#'
+    if (currentChat.type === 'ai') return '🤖'
+    return '💬'
+  }
 
   const getSubtitle = () => {
-    if (currentChat.type === 'channel') return 'Team chat';
-    if (currentChat.type === 'ai') return 'AI Assistant';
-    return 'Direct message';
-  };
+    if (currentChat.type === 'channel') return 'Team chat'
+    if (currentChat.type === 'ai') return 'AI Assistant'
+    return ''
+  }
 
   // Get user photo for DMs
   const getUserPhoto = () => {
     if (currentChat.type === 'dm' && currentChat.id && allUsers) {
-      const dmUser = allUsers.find(u => u.uid === currentChat.id);
-      return dmUser?.photoURL || null;
+      const dmUser = allUsers.find(u => u.uid === currentChat.id)
+      return dmUser?.photoURL || null
     }
-    return null;
-  };
+    return null
+  }
 
   // Get avatar/icon for mobile header
   const getMobileAvatar = () => {
     if (currentChat.type === 'ai') {
-      return (
-        <div className="chat-header-avatar chat-header-avatar-ai">
-          🤖
-        </div>
-      );
+      return <div className='chat-header-avatar chat-header-avatar-ai'>🤖</div>
     }
     if (currentChat.type === 'dm') {
-      const photo = getUserPhoto();
+      const photo = getUserPhoto()
       if (photo) {
-        return <img src={photo} alt={currentChat.name} className="chat-header-avatar" />;
+        return (
+          <img
+            src={photo}
+            alt={currentChat.name}
+            className='chat-header-avatar'
+          />
+        )
       }
       // Fallback to initials
-      const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??';
-      return <div className="chat-header-avatar chat-header-avatar-initials">{initials}</div>;
+      const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
+      return (
+        <div className='chat-header-avatar chat-header-avatar-initials'>
+          {initials}
+        </div>
+      )
     }
     // Channel
-    return <div className="chat-header-avatar chat-header-avatar-channel">#</div>;
-  };
+    return (
+      <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
+    )
+  }
 
   return (
     <>
       {/* Desktop Header */}
-      <div className="chat-header">
+      <div className='chat-header'>
         <button
-          className="mobile-menu-button"
+          className='mobile-menu-button'
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          aria-label="Toggle menu"
+          aria-label='Toggle menu'
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
+          <svg
+            width='24'
+            height='24'
+            viewBox='0 0 24 24'
+            fill='none'
+            stroke='currentColor'
+            strokeWidth='2'
+          >
+            <line x1='3' y1='12' x2='21' y2='12'></line>
+            <line x1='3' y1='6' x2='21' y2='6'></line>
+            <line x1='3' y1='18' x2='21' y2='18'></line>
           </svg>
         </button>
-        <span className="chat-header-icon">{getIcon()}</span>
+        <span className='chat-header-icon'>{getIcon()}</span>
         <h1>{currentChat.name}</h1>
-        <span className="chat-header-subtitle">{getSubtitle()}</span>
+        <span className='chat-header-subtitle'>{getSubtitle()}</span>
 
         {viewMode && onViewModeChange && (
-          <div className="view-mode-toggle">
+          <div className='view-mode-toggle'>
             <button
-              className={`toggle-btn ${viewMode === 'messages' ? 'active' : ''}`}
+              className={`toggle-btn ${
+                viewMode === 'messages' ? 'active' : ''
+              }`}
               onClick={() => onViewModeChange('messages')}
             >
               Messages
@@ -90,17 +107,23 @@ export default function ChatHeader({
       </div>
 
       {/* Mobile iMessage-style Header */}
-      <div className="chat-header-mobile">
-        <button className="back-button" onClick={onBack}>
-          <svg width="12" height="20" viewBox="0 0 12 20" fill="none">
-            <path d="M10 2L2 10L10 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <div className='chat-header-mobile'>
+        <button className='back-button' onClick={onBack}>
+          <svg width='12' height='20' viewBox='0 0 12 20' fill='none'>
+            <path
+              d='M10 2L2 10L10 18'
+              stroke='currentColor'
+              strokeWidth='2.5'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+            />
           </svg>
           <span>Back</span>
         </button>
         {getMobileAvatar()}
-        <div className="chat-header-name">{currentChat.name}</div>
-        <div className="chat-header-status">{getSubtitle()}</div>
+        <div className='chat-header-name'>{currentChat.name}</div>
+        <div className='chat-header-status'>{getSubtitle()}</div>
       </div>
     </>
-  );
+  )
 }
