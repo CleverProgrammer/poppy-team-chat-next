@@ -9,6 +9,7 @@
     "lint": "eslint",
     "ios:init": "npx cap add ios && npx cap sync ios && node scripts/restore-firebase-spm.js",
     "ios:sync": "npx cap sync ios && node scripts/restore-firebase-spm.js",
+    "ios:sync:prod": "CAPACITOR_BUILD=production npx cap sync ios && node scripts/restore-firebase-spm.js",
     "ios:open": "npx cap open ios"
   },
   "dependencies": {
