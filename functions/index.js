@@ -1,11 +1,15 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { initializeApp } = require('firebase-admin/app');
+const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
-// Initialize Firebase Admin SDK (uses default credentials in Cloud Functions)
-const app = initializeApp();
-console.log('Firebase Admin initialized with project:', app.options.projectId);
+// NUCLEAR OPTION: Use explicit service account credentials with explicit project ID
+const serviceAccount = require('./service-account.json');
+const app = initializeApp({
+  credential: cert(serviceAccount),
+  projectId: serviceAccount.project_id
+});
+console.log('Firebase Admin initialized with explicit credentials for project:', serviceAccount.project_id);
 
 const db = getFirestore();
 

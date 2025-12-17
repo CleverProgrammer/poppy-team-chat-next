@@ -53,3 +53,4 @@ design_inspo_components
 # firebase functions
 functions/node_modules
 functions/.env
+functions/service-account.json
