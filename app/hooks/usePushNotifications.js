@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -89,8 +90,52 @@ export function usePushNotifications(user) {
           console.error(`${LOG_PREFIX} ❌ Registration ERROR:`, JSON.stringify(error));
         });
 
-        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
           console.log(`${LOG_PREFIX} 📬 Notification RECEIVED (foreground):`, JSON.stringify(notification));
+
+          // Check if this notification is for the chat the user is currently viewing
+          const activeChat = typeof window !== 'undefined' ? window.__poppyActiveChat : null;
+          const notifData = notification.data || {};
+
+          let shouldSuppress = false;
+
+          if (activeChat) {
+            if (notifData.type === 'dm' && activeChat.type === 'dm') {
+              // For DMs, compare the dmId
+              shouldSuppress = activeChat.dmId === notifData.dmId;
+            } else if (notifData.type === 'channel' && activeChat.type === 'channel') {
+              // For channels, compare the channelId
+              shouldSuppress = activeChat.id === notifData.channelId;
+            }
+          }
+
+          console.log(`${LOG_PREFIX} Active chat:`, activeChat);
+          console.log(`${LOG_PREFIX} Notification for:`, notifData.type, notifData.dmId || notifData.channelId);
+          console.log(`${LOG_PREFIX} Should suppress:`, shouldSuppress);
+
+          if (shouldSuppress) {
+            console.log(`${LOG_PREFIX} ⏭️ Suppressing notification - user is viewing this chat`);
+            return;
+          }
+
+          // Show local notification since we disabled auto-alert in capacitor config
+          try {
+            await LocalNotifications.schedule({
+              notifications: [
+                {
+                  title: notification.title || 'New Message',
+                  body: notification.body || '',
+                  id: Date.now(),
+                  schedule: { at: new Date(Date.now() + 100) }, // Show immediately
+                  sound: 'default',
+                  extra: notifData,
+                },
+              ],
+            });
+            console.log(`${LOG_PREFIX} ✅ Local notification scheduled`);
+          } catch (error) {
+            console.error(`${LOG_PREFIX} ❌ Error scheduling local notification:`, error);
+          }
         });
 
         await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {

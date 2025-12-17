@@ -214,6 +214,23 @@ export default function ChatWindow() {
     }
   }
 
+  // Expose current chat globally for push notification suppression
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentChat) {
+      window.__poppyActiveChat = {
+        type: currentChat.type,
+        id: currentChat.id,
+        // For DMs, also store the dmId format
+        dmId: currentChat.type === 'dm' && user ? getDMId(user.uid, currentChat.id) : null,
+      };
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.__poppyActiveChat = null;
+      }
+    };
+  }, [currentChat, user]);
+
   // Reply handlers
   const startReply = (messageId, sender, text) => {
     setReplyingTo({ msgId: messageId, sender, text })
