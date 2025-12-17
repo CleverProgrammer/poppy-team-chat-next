@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 // Set to true for local development, false for production
-const useLocalDev = true;
+const useLocalDev = false;
 
 const config: CapacitorConfig = {
   appId: 'com.poppyteamchat.app',
