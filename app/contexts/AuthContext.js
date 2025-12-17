@@ -9,7 +9,9 @@ import {
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  EmailAuthProvider,
+  linkWithCredential
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { saveUser } from '../lib/firestore';
@@ -88,8 +90,27 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Add email/password provider to existing Google account
+  const setPasswordForAccount = async (password) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser || !currentUser.email) {
+        throw new Error('No user logged in or no email associated');
+      }
+
+      // Create email/password credential and link it to the current user
+      const credential = EmailAuthProvider.credential(currentUser.email, password);
+      await linkWithCredential(currentUser, credential);
+
+      console.log('🔵 Password added to account:', currentUser.email);
+    } catch (error) {
+      console.error('Set password error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, setPasswordForAccount }}>
       {children}
     </AuthContext.Provider>
   );
