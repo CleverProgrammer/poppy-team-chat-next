@@ -234,14 +234,18 @@ export default function ChatWindow() {
   // Expose navigation function globally for push notification tap handling
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.__poppyNavigateToChat = (chatType, chatId, senderId) => {
-        console.log('🔔 [NAV] Navigating to chat:', chatType, chatId, senderId);
+      window.__poppyNavigateToChat = (chatType, chatId, senderId, senderName) => {
+        console.log('🔔 [NAV] Navigating to chat:', chatType, chatId, senderId, senderName);
         let chat;
         if (chatType === 'channel') {
-          chat = { type: 'channel', id: chatId };
+          chat = { type: 'channel', id: chatId, name: chatId };
         } else if (chatType === 'dm') {
           // For DMs, we need the sender's user ID (who sent the message)
-          chat = { type: 'dm', id: senderId || chatId };
+          const dmUserId = senderId || chatId;
+          // Look up user name from allUsers, fallback to senderName from notification
+          const dmUser = allUsers.find(u => u.uid === dmUserId);
+          const userName = dmUser?.displayName || dmUser?.email || senderName || 'Unknown';
+          chat = { type: 'dm', id: dmUserId, name: userName };
         }
 
         if (chat) {
@@ -262,7 +266,7 @@ export default function ChatWindow() {
         window.__poppyNavigateToChat = null;
       }
     };
-  }, [user]);
+  }, [user, allUsers]);
 
   // Reply handlers
   const startReply = (messageId, sender, text) => {

@@ -64,15 +64,15 @@ export function usePushNotifications(user) {
         return;
       }
 
-      const { type, channelId, dmId, senderId } = data;
+      const { type, channelId, dmId, senderId, sender } = data;
 
       if (type === 'channel' && channelId) {
         console.log(`${LOG_PREFIX} 🧭 Navigating to channel:`, channelId);
-        window.__poppyNavigateToChat('channel', channelId);
+        window.__poppyNavigateToChat('channel', channelId, null, null);
       } else if (type === 'dm' && dmId) {
-        console.log(`${LOG_PREFIX} 🧭 Navigating to DM:`, dmId, 'sender:', senderId);
-        // For DMs, pass the senderId so we can navigate to the correct user
-        window.__poppyNavigateToChat('dm', dmId, senderId);
+        console.log(`${LOG_PREFIX} 🧭 Navigating to DM:`, dmId, 'sender:', senderId, sender);
+        // For DMs, pass the senderId and sender name so we can navigate to the correct user
+        window.__poppyNavigateToChat('dm', dmId, senderId, sender);
       } else {
         console.warn(`${LOG_PREFIX} ⚠️ Unknown notification type or missing ID:`, data);
       }
