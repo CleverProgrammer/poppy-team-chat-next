@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ios:init": "npx cap add ios && npx cap sync ios",
-    "ios:sync": "npx cap sync ios",
+    "ios:init": "npx cap add ios && npx cap sync ios && node scripts/restore-firebase-spm.js",
+    "ios:sync": "npx cap sync ios && node scripts/restore-firebase-spm.js",
     "ios:open": "npx cap open ios"
   },
   "dependencies": {

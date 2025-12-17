@@ -26,9 +26,10 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true
     },
     PushNotifications: {
-      // Don't auto-show alert in foreground - we control it manually to suppress
-      // notifications when user is already viewing that chat
-      presentationOptions: ['badge', 'sound']
+      // Don't auto-show anything in foreground - we control it manually to suppress
+      // notifications (including sound) when user is already viewing that chat
+      // Sound is handled by local notifications when we decide to show them
+      presentationOptions: []
     }
   }
 };
