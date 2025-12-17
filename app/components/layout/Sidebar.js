@@ -75,9 +75,34 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-      {/* Sidebar Header */}
-      <div className="sidebar-header">
-        <h2>Poppy Chat</h2>
+      {/* Sidebar Header - User Profile */}
+      <div className="sidebar-header" ref={menuRef}>
+        <div
+          className="user-panel-clickable"
+          onClick={() => setShowUserMenu(!showUserMenu)}
+        >
+          {user?.photoURL && <img src={user.photoURL} alt="Profile" className="header-avatar" />}
+          <div className="user-panel-info">
+            <div className="user-panel-name">{user?.displayName || user?.email}</div>
+            <div className="user-panel-status">Online</div>
+          </div>
+        </div>
+
+        {/* User Menu Dropdown */}
+        {showUserMenu && (
+          <div className="user-menu user-menu-header">
+            <button
+              className="user-menu-item"
+              onClick={() => {
+                setShowPasswordModal(true);
+                setShowUserMenu(false);
+              }}
+            >
+              Set Password
+            </button>
+            <SignOutButton />
+          </div>
+        )}
       </div>
 
       {/* Channels Section */}
@@ -139,38 +164,6 @@ export default function Sidebar({ currentChat, onSelectChat, activeDMs = [], all
           })}
         </div>
       )}
-
-      {/* User Panel */}
-      <div className="user-panel" ref={menuRef}>
-        <div
-          className="user-panel-clickable"
-          onClick={() => setShowUserMenu(!showUserMenu)}
-        >
-          {user?.photoURL && <img src={user.photoURL} alt="Profile" />}
-          <div className="user-panel-info">
-            <div className="user-panel-name">{user?.displayName || user?.email}</div>
-            <div className="user-panel-status">Online</div>
-          </div>
-        </div>
-
-        {/* User Menu Dropdown */}
-        {showUserMenu && (
-          <div className="user-menu">
-            <button
-              className="user-menu-item"
-              onClick={() => {
-                setShowPasswordModal(true);
-                setShowUserMenu(false);
-              }}
-            >
-              Set Password
-            </button>
-            <SignOutButton />
-          </div>
-        )}
-
-        {!showUserMenu && <SignOutButton />}
-      </div>
 
       {/* Password Modal */}
       {showPasswordModal && (

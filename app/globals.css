@@ -568,14 +568,51 @@ html {
   color: white;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-header {
-  padding: 20px;
+  padding: 15px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+}
+
+.sidebar-header .header-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.sidebar-header .user-panel-clickable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 5px;
+  margin: -5px;
+  border-radius: 6px;
+  transition: background 0.2s;
+  flex: 1;
+}
+
+.sidebar-header .user-panel-clickable:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+/* User Menu in Header - drops down instead of up */
+.user-menu-header {
+  position: absolute;
+  top: 100%;
+  left: 10px;
+  right: 10px;
+  bottom: auto;
+  margin-top: 8px;
+  margin-bottom: 0;
+  z-index: 100;
 }
 
 .sidebar-header h2 {
@@ -673,15 +710,10 @@ html {
 
 /* User Menu Dropdown */
 .user-menu {
-  position: absolute;
-  bottom: 100%;
-  left: 10px;
-  right: 10px;
   background: #2a2a40;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   padding: 8px;
-  margin-bottom: 8px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
@@ -708,6 +740,17 @@ html {
   padding: 10px 12px;
   text-align: left;
   justify-content: flex-start;
+  background: none;
+  border: none;
+  color: #e0e0e0;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: block;
+}
+
+.user-menu .sign-out-btn:hover {
+  background: rgba(255,255,255,0.1);
 }
 
 .sidebar .sign-out-btn {
