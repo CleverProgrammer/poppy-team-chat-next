@@ -86,19 +86,20 @@ exports.sendDMNotification = onDocumentCreated(
     console.log(`New DM in ${dmId}:`, message.text?.substring(0, 50));
 
     try {
-      // Get the DM document to find participants
-      const dmDoc = await db.collection('dms').doc(dmId).get();
-      if (!dmDoc.exists) {
-        console.log('DM document not found');
+      // DM ID format is "{userId1}_{userId2}" (sorted alphabetically)
+      // Extract participants from the dmId itself
+      const participants = dmId.split('_');
+
+      if (participants.length !== 2) {
+        console.log('Invalid DM ID format:', dmId);
         return;
       }
 
-      const dmData = dmDoc.data();
       // Find the recipient (the other participant)
-      const recipientId = dmData.participants?.find((id) => id !== message.senderId);
+      const recipientId = participants.find((id) => id !== message.senderId);
 
       if (!recipientId) {
-        console.log('No recipient found');
+        console.log('No recipient found - sender may not be in participants');
         return;
       }
 

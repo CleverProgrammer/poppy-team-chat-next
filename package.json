@@ -23,7 +23,7 @@
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@notionhq/notion-mcp-server": "^1.9.1",
     "date-fns": "^4.1.0",
-    "firebase": "^12.6.0",
+    "firebase": "^12.7.0",
     "howler": "^2.2.4",
     "klavis": "^2.15.0",
     "next": "16.0.7",
