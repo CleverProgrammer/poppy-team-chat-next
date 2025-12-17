@@ -41,11 +41,12 @@ yarn-error.log*
 next-env.d.ts
 
 # capacitor
-/ios/
 /android/
 
-# claude code
-.claude/
+# iOS sensitive files (keep out of git)
+ios/AuthKey*.p8
+ios/GoogleService-Info.plist
+ios/*.xcconfig
 
 design_inspo_components/*
 design_inspo_components
