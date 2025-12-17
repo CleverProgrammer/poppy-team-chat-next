@@ -49,3 +49,7 @@ next-env.d.ts
 
 design_inspo_components/*
 design_inspo_components
+
+# firebase functions
+functions/node_modules
+functions/.env
