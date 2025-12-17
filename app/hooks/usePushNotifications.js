@@ -55,6 +55,29 @@ export function usePushNotifications(user) {
 
     let cleanup = false;
 
+    // Helper function to navigate to chat from notification data
+    function navigateToChat(data) {
+      console.log(`${LOG_PREFIX} 🧭 navigateToChat called with:`, data);
+
+      if (typeof window === 'undefined' || !window.__poppyNavigateToChat) {
+        console.warn(`${LOG_PREFIX} ⚠️ Navigation function not available yet`);
+        return;
+      }
+
+      const { type, channelId, dmId, senderId } = data;
+
+      if (type === 'channel' && channelId) {
+        console.log(`${LOG_PREFIX} 🧭 Navigating to channel:`, channelId);
+        window.__poppyNavigateToChat('channel', channelId);
+      } else if (type === 'dm' && dmId) {
+        console.log(`${LOG_PREFIX} 🧭 Navigating to DM:`, dmId, 'sender:', senderId);
+        // For DMs, pass the senderId so we can navigate to the correct user
+        window.__poppyNavigateToChat('dm', dmId, senderId);
+      } else {
+        console.warn(`${LOG_PREFIX} ⚠️ Unknown notification type or missing ID:`, data);
+      }
+    }
+
     async function initializePushNotifications() {
       try {
         console.log(`${LOG_PREFIX} Step 1: Checking permissions...`);
@@ -139,7 +162,20 @@ export function usePushNotifications(user) {
         });
 
         await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          console.log(`${LOG_PREFIX} 👆 Notification TAPPED:`, JSON.stringify(notification));
+          console.log(`${LOG_PREFIX} 👆 Push Notification TAPPED:`, JSON.stringify(notification));
+
+          // Navigate to the chat when notification is tapped
+          const data = notification.notification?.data || {};
+          navigateToChat(data);
+        });
+
+        // Also listen for local notification taps (for foreground notifications we manually showed)
+        await LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+          console.log(`${LOG_PREFIX} 👆 Local Notification TAPPED:`, JSON.stringify(notification));
+
+          // Navigate to the chat when notification is tapped
+          const data = notification.notification?.extra || {};
+          navigateToChat(data);
         });
 
         console.log(`${LOG_PREFIX} Step 4: Calling register()...`);
@@ -157,6 +193,7 @@ export function usePushNotifications(user) {
       console.log(`${LOG_PREFIX} 🧹 Cleanup - removing listeners`);
       cleanup = true;
       PushNotifications.removeAllListeners();
+      LocalNotifications.removeAllListeners();
     };
   }, [user?.uid, savePushToken]);
 

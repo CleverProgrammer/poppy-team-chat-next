@@ -231,6 +231,39 @@ export default function ChatWindow() {
     };
   }, [currentChat, user]);
 
+  // Expose navigation function globally for push notification tap handling
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__poppyNavigateToChat = (chatType, chatId, senderId) => {
+        console.log('🔔 [NAV] Navigating to chat:', chatType, chatId, senderId);
+        let chat;
+        if (chatType === 'channel') {
+          chat = { type: 'channel', id: chatId };
+        } else if (chatType === 'dm') {
+          // For DMs, we need the sender's user ID (who sent the message)
+          chat = { type: 'dm', id: senderId || chatId };
+        }
+
+        if (chat) {
+          setCurrentChat(chat);
+          setIsSidebarOpen(false);
+          if (user) {
+            markChatAsRead(user.uid, chat.type, chat.id);
+            if (chat.type === 'dm') {
+              addActiveDM(user.uid, chat.id);
+            }
+            saveCurrentChat(user.uid, chat);
+          }
+        }
+      };
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.__poppyNavigateToChat = null;
+      }
+    };
+  }, [user]);
+
   // Reply handlers
   const startReply = (messageId, sender, text) => {
     setReplyingTo({ msgId: messageId, sender, text })
