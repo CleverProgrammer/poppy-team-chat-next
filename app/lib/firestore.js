@@ -140,8 +140,19 @@ export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 
 export async function sendMessageDM(dmId, user, text, recipientId, recipient = null) {
   if (!user || !text.trim()) return;
 
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('📤 [SEND DM] SENDING MESSAGE');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log(`📨 DM ID: ${dmId}`);
+  console.log(`👤 Sender: ${user.displayName || user.email} (${user.uid})`);
+  console.log(`🎯 Recipient ID: ${recipientId}`);
+  console.log(`💬 Text: "${text.substring(0, 50)}..."`);
+  console.log('───────────────────────────────────────────────────────────');
+
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages');
+    console.log('📝 Writing to Firestore: dms/' + dmId + '/messages');
+
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
@@ -149,6 +160,11 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp()
     });
+
+    console.log('✅ [SEND DM] Message written to Firestore!');
+    console.log(`📝 Document ID: ${docRef.id}`);
+    console.log('🔔 Firebase Cloud Function should trigger now...');
+    console.log('═══════════════════════════════════════════════════════════');
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {

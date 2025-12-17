@@ -596,7 +596,7 @@ export default function ChatWindow() {
                 )}
                 {messages.length === 0 && posts.length === 0 ? (
                   <div className='empty-state'>
-                    <p>Welcome to the chat! Start a conversation.</p>
+                    <p>Welcome to the chat! Start a conversation. 😱</p>
                   </div>
                 ) : (
                   <Virtuoso

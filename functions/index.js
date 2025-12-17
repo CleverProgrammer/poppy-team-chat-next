@@ -3,7 +3,9 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
-initializeApp();
+// Initialize Firebase Admin SDK (uses default credentials in Cloud Functions)
+const app = initializeApp();
+console.log('Firebase Admin initialized with project:', app.options.projectId);
 
 const db = getFirestore();
 
@@ -81,40 +83,56 @@ exports.sendDMNotification = onDocumentCreated(
   'dms/{dmId}/messages/{messageId}',
   async (event) => {
     const message = event.data.data();
-    const { dmId } = event.params;
+    const { dmId, messageId } = event.params;
 
-    console.log(`New DM in ${dmId}:`, message.text?.substring(0, 50));
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔔 [DM NOTIFICATION] NEW MESSAGE DETECTED');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`📨 DM ID: ${dmId}`);
+    console.log(`📝 Message ID: ${messageId}`);
+    console.log(`👤 Sender: ${message.sender} (${message.senderId})`);
+    console.log(`💬 Text: "${message.text?.substring(0, 50)}..."`);
+    console.log('───────────────────────────────────────────────────────────');
 
     try {
       // DM ID format is "{userId1}_{userId2}" (sorted alphabetically)
-      // Extract participants from the dmId itself
       const participants = dmId.split('_');
+      console.log(`👥 Participants extracted: [${participants.join(', ')}]`);
 
       if (participants.length !== 2) {
-        console.log('Invalid DM ID format:', dmId);
+        console.log('❌ FAILED: Invalid DM ID format (expected 2 participants)');
         return;
       }
 
       // Find the recipient (the other participant)
       const recipientId = participants.find((id) => id !== message.senderId);
+      console.log(`🎯 Recipient ID: ${recipientId}`);
 
       if (!recipientId) {
-        console.log('No recipient found - sender may not be in participants');
+        console.log('❌ FAILED: No recipient found - sender may not be in participants');
         return;
       }
 
       // Get recipient's push token
+      console.log(`📖 Looking up recipient in Firestore: users/${recipientId}`);
       const recipientDoc = await db.collection('users').doc(recipientId).get();
+
       if (!recipientDoc.exists) {
-        console.log('Recipient user not found');
+        console.log('❌ FAILED: Recipient user document not found in Firestore');
         return;
       }
 
       const recipientData = recipientDoc.data();
+      console.log(`✅ Recipient found: ${recipientData.name || recipientData.email || 'Unknown'}`);
+
       if (!recipientData.pushToken) {
-        console.log('Recipient has no push token');
+        console.log('❌ FAILED: Recipient has no pushToken in their user document');
         return;
       }
+
+      console.log(`🔑 Push token found: ${recipientData.pushToken.substring(0, 30)}...`);
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('📤 SENDING PUSH NOTIFICATION TO FCM...');
 
       // Send notification
       const notification = {
@@ -125,7 +143,7 @@ exports.sendDMNotification = onDocumentCreated(
         data: {
           type: 'dm',
           dmId: dmId,
-          messageId: event.params.messageId,
+          messageId: messageId,
           sender: message.sender || '',
           senderId: message.senderId || '',
         },
@@ -141,10 +159,21 @@ exports.sendDMNotification = onDocumentCreated(
         token: recipientData.pushToken,
       };
 
+      console.log('📦 Notification payload:', JSON.stringify(notification, null, 2));
+
       const response = await getMessaging().send(notification);
-      console.log('DM notification sent:', response);
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ SUCCESS! NOTIFICATION SENT!');
+      console.log(`📬 FCM Response: ${response}`);
+      console.log('═══════════════════════════════════════════════════════════');
     } catch (error) {
-      console.error('Error sending DM notification:', error);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('❌ ERROR SENDING NOTIFICATION');
+      console.log(`🚨 Error Code: ${error.code || 'unknown'}`);
+      console.log(`🚨 Error Message: ${error.message}`);
+      console.log('🚨 Full Error:', JSON.stringify(error, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
     }
   }
 );
