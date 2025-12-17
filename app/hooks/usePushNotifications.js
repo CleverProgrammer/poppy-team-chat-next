@@ -91,10 +91,6 @@ export function usePushNotifications(user) {
 
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log(`${LOG_PREFIX} 📬 Notification RECEIVED (foreground):`, JSON.stringify(notification));
-          // AGGRESSIVE MODE: Show alert even when app is in foreground
-          if (typeof window !== 'undefined' && notification.title) {
-            alert(`🔔 ${notification.title}\n${notification.body || ''}`);
-          }
         });
 
         await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
