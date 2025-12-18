@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useLayoutEffect } from 'react';
+import { hapticLight, hapticSelection } from '../../utils/haptics';
 
 export default function ContextMenu({
   contextMenu,
@@ -13,7 +14,8 @@ export default function ContextMenu({
   onDemote,
   onAddToTeamMemory,
   topReactions = [],
-  onAddReaction
+  onAddReaction,
+  reactionsOnly = false  // When true, only show reactions (for double-tap)
 }) {
   const menuRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0, isVisible: false });
@@ -25,34 +27,20 @@ export default function ContextMenu({
       return;
     }
     
-    const rafId = requestAnimationFrame(() => {
-      if (!menuRef.current) return;
-      
-      const menuRect = menuRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const viewportWidth = window.innerWidth;
-      const padding = 20;
-      
-      // Center horizontally
-      let left = (viewportWidth - menuRect.width) / 2;
-      
-      // Center vertically (slightly above center looks better)
-      let top = (viewportHeight - menuRect.height) / 2 - 40;
-      
-      // Ensure bounds
-      if (left < padding) left = padding;
-      if (left + menuRect.width > viewportWidth - padding) {
-        left = viewportWidth - menuRect.width - padding;
-      }
-      if (top < padding) top = padding;
-      if (top + menuRect.height > viewportHeight - padding) {
-        top = viewportHeight - menuRect.height - padding;
-      }
-      
-      setPosition({ top, left, isVisible: true });
-    });
+    // Set visible immediately for reactions-only (simpler positioning)
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const padding = 20;
     
-    return () => cancelAnimationFrame(rafId);
+    // Center horizontally and vertically
+    let left = viewportWidth / 2 - 150; // Approximate menu width
+    let top = viewportHeight / 2 - 50;
+    
+    // Ensure bounds
+    if (left < padding) left = padding;
+    if (top < padding) top = padding;
+    
+    setPosition({ top, left, isVisible: true });
   }, [contextMenu]);
   
   if (!contextMenu) return null;
@@ -92,6 +80,7 @@ export default function ContextMenu({
   };
 
   const handleReaction = (emoji) => {
+    hapticLight();
     if (onAddReaction) {
       onAddReaction(message.id, emoji);
     }
@@ -135,28 +124,30 @@ export default function ContextMenu({
             </div>
           )}
           
-          {/* Divider between reactions and actions */}
-          {!isPost && topReactions.length > 0 && (
+          {/* Divider between reactions and actions - only if not reactions-only mode */}
+          {!reactionsOnly && !isPost && topReactions.length > 0 && (
             <div className="context-menu-divider" />
           )}
           
-          {/* Action buttons */}
-          <div className="context-menu-actions">
-            {!isPost && <button onClick={handleReply}>↩ Reply</button>}
-            {isOwnMessage && !isPost && (
-              <>
-                <button onClick={handleEdit}>✏️ Edit</button>
-                <button onClick={handleDelete}>💀 Undo Send</button>
-              </>
-            )}
-            {/* Promote/Demote options */}
-            {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
-            {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
-            {/* Team AI Memory - only for own messages */}
-            {isOwnMessage && (
-              <button onClick={handleAddToTeamMemory}>🧠 Add to Team AI Memory</button>
-            )}
-          </div>
+          {/* Action buttons - hidden in reactions-only mode */}
+          {!reactionsOnly && (
+            <div className="context-menu-actions">
+              {!isPost && <button onClick={handleReply}>↩ Reply</button>}
+              {isOwnMessage && !isPost && (
+                <>
+                  <button onClick={handleEdit}>✏️ Edit</button>
+                  <button onClick={handleDelete}>💀 Undo Send</button>
+                </>
+              )}
+              {/* Promote/Demote options */}
+              {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
+              {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
+              {/* Team AI Memory - only for own messages */}
+              {isOwnMessage && (
+                <button onClick={handleAddToTeamMemory}>🧠 Add to Team AI Memory</button>
+              )}
+            </div>
+          )}
         </div>
     </>
   );

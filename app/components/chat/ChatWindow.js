@@ -423,11 +423,13 @@ export default function ChatWindow() {
     e.preventDefault()
     // Get the message wrapper element - for right-click, find from target
     const messageElement = e.messageElement || e.target.closest('.message-wrapper')
+    contextMenuOpenTime.current = Date.now()  // Track when menu opens to prevent immediate close
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       message,
       messageElement,
+      reactionsOnly: e.reactionsOnly || false,  // Double-tap passes this flag
     })
   }
 
@@ -566,8 +568,15 @@ export default function ChatWindow() {
   }, [currentChat])
 
   // Close context menu on click outside
+  const contextMenuOpenTime = useRef(0)
+  
   useEffect(() => {
     const handleClick = () => {
+      // Don't close if menu was just opened (prevents gestures from immediately closing)
+      const timeSinceOpen = Date.now() - contextMenuOpenTime.current
+      if (timeSinceOpen < 300) {
+        return
+      }
       setContextMenu(null)
     }
     const handleEscape = e => {
@@ -844,6 +853,7 @@ export default function ChatWindow() {
         onAddToTeamMemory={handleAddToTeamMemory}
         topReactions={topReactions}
         onAddReaction={handleAddReaction}
+        reactionsOnly={contextMenu?.reactionsOnly || false}
       />
     </>
   )

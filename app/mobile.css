@@ -380,6 +380,11 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .context-menu * {
+    -webkit-tap-highlight-color: transparent;
   }
 
   .context-menu-reactions {
@@ -394,6 +399,10 @@
     height: 42px;
     font-size: 22px;
     flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .context-menu-actions {
@@ -407,6 +416,10 @@
     width: 100%;
     text-align: left;
     white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 

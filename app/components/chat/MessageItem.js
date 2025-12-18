@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import MessageTimestamp from './MessageTimestamp';
 import { linkifyText, isSingleEmoji, isLoomUrl, getLoomEmbedUrl } from '../../utils/messageFormatting';
 import { ALL_EMOJIS } from '../../constants/emojis';
+import { hapticHeavy, hapticLight } from '../../utils/haptics';
 
 export default function MessageItem({
   msg,
@@ -26,52 +27,76 @@ export default function MessageItem({
   messageRef
 }) {
   const [copied, setCopied] = useState(false);
-  
-  // Long press detection for mobile
+  const lastTapTime = useRef(0);
+  const elementRef = useRef(null);
   const longPressTimer = useRef(null);
-  const touchStartPos = useRef({ x: 0, y: 0 });
-  const isLongPress = useRef(false);
+  const isLongPressTriggered = useRef(false);
 
+  // Touch start - start long press timer
   const handleTouchStart = useCallback((e) => {
+    isLongPressTriggered.current = false;
     const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    isLongPress.current = false;
-    
-    // Get the message wrapper element
-    const messageWrapper = e.currentTarget;
     
     longPressTimer.current = setTimeout(() => {
-      isLongPress.current = true;
-      // Trigger haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-      // Create a synthetic event with touch coordinates and message element for context menu
+      isLongPressTriggered.current = true;
+      hapticHeavy();
+      
+      const rect = elementRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
       const syntheticEvent = {
         preventDefault: () => {},
         clientX: touch.clientX,
         clientY: touch.clientY,
-        messageElement: messageWrapper, // Pass the element for iMessage-style positioning
+        messageElement: elementRef.current,
+        reactionsOnly: false,
       };
       onContextMenu(syntheticEvent, msg);
-    }, 300); // 300ms - fire before iOS
+    }, 400);
   }, [msg, onContextMenu]);
 
-  const handleTouchMove = useCallback((e) => {
-    // Cancel long press if user moves finger
-    const touch = e.touches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
-    
-    if (deltaX > 10 || deltaY > 10) {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
+  // Touch end - check for double tap
+  const handleTouchEnd = useCallback((e) => {
+    // Clear long press timer
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
-  }, []);
+    
+    // Skip if long press was triggered
+    if (isLongPressTriggered.current) {
+      return;
+    }
+    
+    // Double tap detection
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapTime.current;
+    
+    if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
+      // Double tap! Open reactions-only menu
+      e.preventDefault();
+      e.stopPropagation();
+      hapticLight();
+      
+      const rect = elementRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      const syntheticEvent = {
+        preventDefault: () => {},
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+        messageElement: elementRef.current,
+        reactionsOnly: true,
+      };
+      onContextMenu(syntheticEvent, msg);
+      lastTapTime.current = 0;
+    } else {
+      lastTapTime.current = now;
+    }
+  }, [msg, onContextMenu]);
 
-  const handleTouchEnd = useCallback(() => {
+  // Touch move - cancel long press
+  const handleTouchMove = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -143,14 +168,14 @@ export default function MessageItem({
   if (isJumboEmoji) {
     return (
       <div
-        ref={messageRef}
+        ref={(el) => { messageRef(el); elementRef.current = el; }}
         data-msg-id={msg.id}
         className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper`}
         onContextMenu={(e) => onContextMenu(e, msg)}
         onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onTouchCancel={handleTouchMove}
       >
         <div className="jumbo-emoji">
           {msg.text}
@@ -230,14 +255,14 @@ export default function MessageItem({
 
   return (
     <div
-      ref={messageRef}
+      ref={(el) => { messageRef(el); elementRef.current = el; }}
       data-msg-id={msg.id}
       className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''}`}
       onContextMenu={(e) => onContextMenu(e, msg)}
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchCancel={handleTouchMove}
     >
       {!isSent && (
         <div className="message-sender">
