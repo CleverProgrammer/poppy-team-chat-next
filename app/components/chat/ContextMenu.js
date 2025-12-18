@@ -79,6 +79,18 @@ export default function ContextMenu({
     setContextMenu(null);
   };
 
+  const handleCopy = async () => {
+    const text = message?.text || message?.content;
+    if (text) {
+      try {
+        await navigator.clipboard.writeText(text.trim());
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+    setContextMenu(null);
+  };
+
   const handleReaction = (emoji) => {
     hapticLight();
     if (onAddReaction) {
@@ -132,19 +144,26 @@ export default function ContextMenu({
           {/* Action buttons - hidden in reactions-only mode */}
           {!reactionsOnly && (
             <div className="context-menu-actions">
+              {/* 1. Reply */}
               {!isPost && <button onClick={handleReply}>↩ Reply</button>}
-              {isOwnMessage && !isPost && (
-                <>
-                  <button onClick={handleEdit}>✏️ Edit</button>
-                  <button onClick={handleDelete}>💀 Undo Send</button>
-                </>
-              )}
-              {/* Promote/Demote options */}
-              {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
-              {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
-              {/* Team AI Memory - only for own messages */}
+              {/* 2. Add to Team Memory */}
               {isOwnMessage && (
                 <button onClick={handleAddToTeamMemory}>🧠 Add to Team AI Memory</button>
+              )}
+              {/* 3. Copy */}
+              {(message?.text || message?.content) && (
+                <button onClick={handleCopy}>📋 Copy</button>
+              )}
+              {/* 4. Edit */}
+              {isOwnMessage && !isPost && (
+                <button onClick={handleEdit}>✏️ Edit</button>
+              )}
+              {/* 4. Make it a post / Make it a message */}
+              {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
+              {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
+              {/* 5. Undo Send (last) */}
+              {isOwnMessage && !isPost && (
+                <button onClick={handleDelete}>💀 Undo Send</button>
               )}
             </div>
           )}

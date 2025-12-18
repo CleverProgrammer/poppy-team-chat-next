@@ -720,14 +720,14 @@ export default function ChatWindow() {
                             allUsers={allUsers}
                             replyingTo={replyingTo}
                             topReactions={topReactions}
-                            openEmojiPanel={openEmojiPanel}
                             onReply={startReply}
                             onEdit={startEdit}
+                            onDelete={handleDeleteMessage}
+                            onPromote={handlePromoteMessage}
+                            onAddToTeamMemory={handleAddToTeamMemory}
                             onAddReaction={handleAddReaction}
-                            onToggleEmojiPanel={toggleEmojiPanel}
                             onImageClick={setPreviewModalImage}
                             onScrollToMessage={scrollToMessage}
-                            onContextMenu={handleContextMenu}
                             messageRef={el =>
                               (messageRefs.current[item.id] = el)
                             }

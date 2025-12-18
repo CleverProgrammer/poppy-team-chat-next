@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react';
 import MessageTimestamp from './MessageTimestamp';
+import MessageActionSheet from './MessageActionSheet';
 import { linkifyText, isSingleEmoji, isLoomUrl, getLoomEmbedUrl } from '../../utils/messageFormatting';
-import { ALL_EMOJIS } from '../../constants/emojis';
 import { hapticHeavy, hapticLight } from '../../utils/haptics';
 
 export default function MessageItem({
@@ -16,44 +16,58 @@ export default function MessageItem({
   allUsers,
   replyingTo,
   topReactions,
-  openEmojiPanel,
   onReply,
   onEdit,
+  onDelete,
+  onPromote,
+  onAddToTeamMemory,
   onAddReaction,
-  onToggleEmojiPanel,
   onImageClick,
   onScrollToMessage,
-  onContextMenu,
   messageRef
 }) {
-  const [copied, setCopied] = useState(false);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
+  const [actionSheetReactionsOnly, setActionSheetReactionsOnly] = useState(false);
+  const [actionSheetPosition, setActionSheetPosition] = useState(null);
   const lastTapTime = useRef(0);
   const elementRef = useRef(null);
   const longPressTimer = useRef(null);
   const isLongPressTriggered = useRef(false);
 
+  const isOwnMessage = msg.senderId === user?.uid;
+
+  // Handle double-tap/double-click: show reactions
+  const handleDoubleTap = useCallback(() => {
+    hapticLight();
+    // Get message position for contextual placement
+    const rect = elementRef.current?.getBoundingClientRect();
+    if (rect) {
+      setActionSheetPosition({
+        top: rect.top,
+        left: rect.left + rect.width / 2,
+      });
+    }
+    setActionSheetReactionsOnly(true);
+    setActionSheetOpen(true);
+  }, []);
+
+  // Handle long-press/right-click: show full actions (centered)
+  const handleLongPress = useCallback(() => {
+    hapticHeavy();
+    setActionSheetPosition(null); // Center for full menu
+    setActionSheetReactionsOnly(false);
+    setActionSheetOpen(true);
+  }, []);
+
   // Touch start - start long press timer
   const handleTouchStart = useCallback((e) => {
     isLongPressTriggered.current = false;
-    const touch = e.touches[0];
     
     longPressTimer.current = setTimeout(() => {
       isLongPressTriggered.current = true;
-      hapticHeavy();
-      
-      const rect = elementRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      
-      const syntheticEvent = {
-        preventDefault: () => {},
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        messageElement: elementRef.current,
-        reactionsOnly: false,
-      };
-      onContextMenu(syntheticEvent, msg);
+      handleLongPress();
     }, 400);
-  }, [msg, onContextMenu]);
+  }, [handleLongPress]);
 
   // Touch end - check for double tap
   const handleTouchEnd = useCallback((e) => {
@@ -73,27 +87,15 @@ export default function MessageItem({
     const timeSinceLastTap = now - lastTapTime.current;
     
     if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
-      // Double tap! Open reactions-only menu
+      // Double tap! 
       e.preventDefault();
       e.stopPropagation();
-      hapticLight();
-      
-      const rect = elementRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      
-      const syntheticEvent = {
-        preventDefault: () => {},
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-        messageElement: elementRef.current,
-        reactionsOnly: true,
-      };
-      onContextMenu(syntheticEvent, msg);
+      handleDoubleTap();
       lastTapTime.current = 0;
     } else {
       lastTapTime.current = now;
     }
-  }, [msg, onContextMenu]);
+  }, [handleDoubleTap]);
 
   // Touch move - cancel long press
   const handleTouchMove = useCallback(() => {
@@ -103,18 +105,38 @@ export default function MessageItem({
     }
   }, []);
 
-  // Copy message text to clipboard
-  const handleCopy = async () => {
-    if (msg.text) {
-      try {
-        await navigator.clipboard.writeText(msg.text.trim());
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy:', err);
-      }
+  // Right-click handler - show full action sheet
+  const handleContextMenuWrapper = useCallback((e) => {
+    e.preventDefault();
+    handleLongPress(); // Full menu
+  }, [handleLongPress]);
+
+  // Mouse long-press for desktop (quick reactions)
+  const handleMouseDown = useCallback((e) => {
+    // Only handle left mouse button
+    if (e.button !== 0) return;
+    
+    isLongPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPressTriggered.current = true;
+      handleDoubleTap(); // Show quick reactions on long-click
+    }, 500);
+  }, [handleDoubleTap]);
+
+  const handleMouseUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
-  };
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   // Handle AI typing indicator
   if (msg.isTyping) {
     return (
@@ -170,8 +192,11 @@ export default function MessageItem({
       <div
         ref={(el) => { messageRef(el); elementRef.current = el; }}
         data-msg-id={msg.id}
-        className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper`}
-        onContextMenu={(e) => onContextMenu(e, msg)}
+        className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper ${actionSheetOpen ? 'message-selected' : ''}`}
+        onContextMenu={handleContextMenuWrapper}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
@@ -191,49 +216,6 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* Quick Reactions for jumbo emoji */}
-        <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
-          <div className="quick-reactions-row">
-            <button className="reply-btn" onClick={() => onReply(msg.id, msg.sender, msg.text)} title="Reply">
-              ↩
-            </button>
-            {isSent && (
-              <button className="edit-btn" onClick={() => onEdit(msg.id, msg.text)} title="Edit">
-                ✎
-              </button>
-            )}
-            {topReactions.slice(0, isSent ? 4 : 5).map(emoji => (
-              <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
-                {emoji}
-              </span>
-            ))}
-          </div>
-          <div className="quick-reactions-row">
-            {topReactions.slice(isSent ? 4 : 5, 10).map(emoji => (
-              <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
-                {emoji}
-              </span>
-            ))}
-            <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); onToggleEmojiPanel(msg.id); }}>
-              +
-            </button>
-          </div>
-        </div>
-
-        {/* Emoji Panel */}
-        {openEmojiPanel === msg.id && (
-          <div className="emoji-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="emoji-panel-title">Reactions</div>
-            <div className="emoji-grid">
-              {ALL_EMOJIS.map(emoji => (
-                <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
-                  {emoji}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Reaction Badges */}
         {Object.keys(reactionCounts).length > 0 && (
           <div className="reactions-display">
@@ -249,6 +231,24 @@ export default function MessageItem({
             ))}
           </div>
         )}
+
+        {/* Mobile Action Sheet (vaul) */}
+        <MessageActionSheet
+          isOpen={actionSheetOpen}
+          onClose={() => setActionSheetOpen(false)}
+          message={msg}
+          isOwnMessage={isOwnMessage}
+          isPost={false}
+          topReactions={topReactions}
+          position={actionSheetPosition}
+          onReaction={(emoji) => onAddReaction(msg.id, emoji)}
+          onReply={() => onReply(msg.id, msg.sender, msg.text)}
+          onEdit={() => onEdit(msg.id, msg.text)}
+          onDelete={() => onDelete?.(msg.id)}
+          onPromote={() => onPromote?.(msg.id)}
+          onAddToTeamMemory={() => onAddToTeamMemory?.(msg)}
+          reactionsOnly={actionSheetReactionsOnly}
+        />
       </div>
     );
   }
@@ -257,8 +257,11 @@ export default function MessageItem({
     <div
       ref={(el) => { messageRef(el); elementRef.current = el; }}
       data-msg-id={msg.id}
-      className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''}`}
-      onContextMenu={(e) => onContextMenu(e, msg)}
+      className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''} ${actionSheetOpen ? 'message-selected' : ''}`}
+      onContextMenu={handleContextMenuWrapper}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
@@ -304,75 +307,10 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* Copy button - only show if there's text */}
-        {msg.text && (
-          <button
-            className="copy-message-btn"
-            onClick={handleCopy}
-            title={copied ? "Copied!" : "Copy message"}
-          >
-            {copied ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            )}
-          </button>
-        )}
       </div>
       {isSent && (
         <div className="message-timestamp-sent">
           <MessageTimestamp timestamp={msg.timestamp} />
-        </div>
-      )}
-
-      {/* Quick Reactions */}
-      <div className={`quick-reactions ${isSent ? 'sent' : 'received'}`}>
-        {/* First Row: Reply + Edit (if own message) + emojis */}
-        <div className="quick-reactions-row">
-          <button className="reply-btn" onClick={() => onReply(msg.id, msg.sender, msg.text)} title="Reply">
-            ↩
-          </button>
-          {isSent && (
-            <button className="edit-btn" onClick={() => onEdit(msg.id, msg.text)} title="Edit">
-              ✎
-            </button>
-          )}
-          {topReactions.slice(0, isSent ? 4 : 5).map(emoji => (
-            <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
-              {emoji}
-            </span>
-          ))}
-        </div>
-
-        {/* Second Row: emojis + More button */}
-        <div className="quick-reactions-row">
-          {topReactions.slice(isSent ? 4 : 5, 10).map(emoji => (
-            <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
-              {emoji}
-            </span>
-          ))}
-          <button className="more-reactions-btn" onClick={(e) => { e.stopPropagation(); onToggleEmojiPanel(msg.id); }}>
-            +
-          </button>
-        </div>
-      </div>
-
-      {/* Emoji Panel */}
-      {openEmojiPanel === msg.id && (
-        <div className="emoji-panel" onClick={(e) => e.stopPropagation()}>
-          <div className="emoji-panel-title">Reactions</div>
-          <div className="emoji-grid">
-            {ALL_EMOJIS.map(emoji => (
-              <span key={emoji} onClick={() => onAddReaction(msg.id, emoji)}>
-                {emoji}
-              </span>
-            ))}
-          </div>
         </div>
       )}
 
@@ -428,6 +366,24 @@ export default function MessageItem({
           </div>
         );
       })()}
+
+      {/* Mobile Action Sheet (vaul) */}
+      <MessageActionSheet
+        isOpen={actionSheetOpen}
+        onClose={() => setActionSheetOpen(false)}
+        message={msg}
+        isOwnMessage={isOwnMessage}
+        isPost={false}
+        topReactions={topReactions}
+        position={actionSheetPosition}
+        onReaction={(emoji) => onAddReaction(msg.id, emoji)}
+        onReply={() => onReply(msg.id, msg.sender, msg.text)}
+        onEdit={() => onEdit(msg.id, msg.text)}
+        onDelete={() => onDelete?.(msg.id)}
+        onPromote={() => onPromote?.(msg.id)}
+        onAddToTeamMemory={() => onAddToTeamMemory?.(msg)}
+        reactionsOnly={actionSheetReactionsOnly}
+      />
     </div>
   );
 }

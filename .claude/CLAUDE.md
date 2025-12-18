@@ -298,5 +298,14 @@ When running `npx cap sync ios`, Capacitor overwrites `Package.swift` and remove
 - Merge strategy: Fast-forward when possible
 - Always wait for user approval before pushing
 
+## resourceful
+Always prefer libraries that are modern over custom code. If you're unsure, do proper research and find the best library to do the job that I give you with.
+
+Your red flag should always be whenever we're writing code that looks too custom. That should be your trigger to check if there is a better way to do it, a resource that exists online, a tool that exists online, or a library that exists online that can handle this with fewer lines of code, cleaner, and it's going to be easier to maintain.
+
+## for mobile dev
+yarn ios:sync - syncs web build to iOS + restores Firebase SDK
+yarn ios:open - opens Xcode
+
 ---
 Last updated: 2025-12-15
