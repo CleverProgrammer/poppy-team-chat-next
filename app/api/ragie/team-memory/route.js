@@ -35,36 +35,54 @@ export async function POST(request) {
       isTeamMemory: true        // Flag for easy filtering
     };
 
-    let document;
+    const documents = [];
 
+    // If there's an image, create an image document
     if (imageUrl) {
-      // Handle image - Ragie will extract/OCR content from the image
-      metadata.contentType = 'image';
-      metadata.accompanyingText = text || '';
+      const imageMetadata = {
+        ...metadata,
+        contentType: 'image',
+        hasAccompanyingText: !!text
+      };
 
       console.log(`🧠 Team Memory: Adding image from ${sender}`);
 
-      document = await ragie.documents.createDocumentFromUrl({
+      const imageDoc = await ragie.documents.createDocumentFromUrl({
         url: imageUrl,
-        metadata
+        metadata: imageMetadata
       });
-    } else {
-      // Handle text-only message
-      console.log(`🧠 Team Memory: Adding "${text.substring(0, 50)}..." by ${sender}`);
-
-      document = await ragie.documents.createRaw({
-        data: `[Team Memory from ${sender}]: ${text}`,
-        metadata
-      });
+      documents.push({ id: imageDoc.id, type: 'image' });
     }
 
-    console.log(`✅ Team Memory: Added successfully, doc ID: ${document.id}`);
+    // If there's text, create a text document (even if there's also an image)
+    if (text) {
+      const textMetadata = {
+        ...metadata,
+        contentType: 'text',
+        hasAccompanyingImage: !!imageUrl,
+        imageUrl: imageUrl || null
+      };
+
+      const textContent = imageUrl
+        ? `[Team Memory from ${sender}] (with image): ${text}`
+        : `[Team Memory from ${sender}]: ${text}`;
+
+      console.log(`🧠 Team Memory: Adding text "${text.substring(0, 50)}..." by ${sender}`);
+
+      const textDoc = await ragie.documents.createRaw({
+        data: textContent,
+        metadata: textMetadata
+      });
+      documents.push({ id: textDoc.id, type: 'text' });
+    }
+
+    console.log(`✅ Team Memory: Added ${documents.length} document(s), IDs: ${documents.map(d => d.id).join(', ')}`);
 
     return NextResponse.json({
       success: true,
-      documentId: document.id,
+      documents,
       messageId,
-      type: imageUrl ? 'image' : 'text'
+      type: imageUrl && text ? 'image+text' : (imageUrl ? 'image' : 'text')
     });
   } catch (error) {
     console.error('❌ Team Memory error:', error);

@@ -400,7 +400,12 @@ export default function ChatWindow() {
 
       if (response.ok) {
         const data = await response.json()
-        const typeMsg = data.type === 'image' ? 'image' : 'message'
+        let typeMsg = 'message'
+        if (data.type === 'image+text') {
+          typeMsg = 'image and text'
+        } else if (data.type === 'image') {
+          typeMsg = 'image'
+        }
         alert(
           `✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`
         )
