@@ -90,8 +90,8 @@ export default function ChatInput({
               Replying to {replyingTo.sender}
             </div>
             <div className='reply-bar-text'>
-              {replyingTo.text.length > 50
-                ? replyingTo.text.substring(0, 50) + '...'
+              {replyingTo.text.length > 500
+                ? replyingTo.text.substring(0, 500) + '...'
                 : replyingTo.text}
             </div>
           </div>
@@ -113,8 +113,8 @@ export default function ChatInput({
           <div className='reply-bar-content'>
             <div className='reply-bar-sender'>Editing message</div>
             <div className='reply-bar-text'>
-              {editingMessage.text.length > 50
-                ? editingMessage.text.substring(0, 50) + '...'
+              {editingMessage.text.length > 500
+                ? editingMessage.text.substring(0, 500) + '...'
                 : editingMessage.text}
             </div>
           </div>

@@ -1640,46 +1640,67 @@ iframe[src*="vercel"] {
   line-height: 1.3;
 }
 
-/* Reply Styling */
-.reply-preview {
-  background: rgba(0,0,0,0.05);
-  border-left: 3px solid #667eea;
-  padding: 6px 10px;
-  margin-bottom: 6px;
-  border-radius: 0 8px 8px 0;
-  font-size: 12px;
+/* Reply Quote - iMessage style mini bubble above the message */
+.reply-quote-container {
+  display: flex;
+  width: 100%;
+  margin-bottom: 2px;
   cursor: pointer;
 }
 
-.reply-preview:hover {
-  background: rgba(0,0,0,0.08);
+.message-wrapper.sent .reply-quote-container {
+  justify-content: flex-end;
 }
 
-.message-wrapper.sent .reply-preview {
-  background: rgba(255,255,255,0.15);
-  border-left-color: rgba(255,255,255,0.5);
+.message-wrapper.received .reply-quote-container {
+  justify-content: flex-start;
 }
 
-.reply-preview .reply-sender {
+.reply-quote {
+  display: inline-flex;
+  flex-direction: column;
+  background: transparent;
+  border: 1.5px solid #667eea;
+  border-radius: 18px;
+  padding: 8px 14px;
+  max-width: 70%;
+  transition: opacity 0.2s, transform 0.2s, background 0.2s;
+  transform: scale(0.88);
+  transform-origin: bottom right;
+}
+
+.message-wrapper.received .reply-quote {
+  transform-origin: bottom left;
+}
+
+.reply-quote:hover {
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(0.92);
+}
+
+/* Hide the line - we're using a bubble now */
+.reply-quote-line {
+  display: none;
+}
+
+.reply-quote-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reply-quote-sender {
+  font-size: 11px;
   font-weight: 600;
   color: #667eea;
-  margin-bottom: 2px;
 }
 
-.message-wrapper.sent .reply-preview .reply-sender {
-  color: rgba(255,255,255,0.9);
-}
-
-.reply-preview .reply-text {
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
-}
-
-.message-wrapper.sent .reply-preview .reply-text {
-  color: rgba(255,255,255,0.8);
+.reply-quote-text {
+  font-size: 13px;
+  color: #667eea;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .reply-bar {

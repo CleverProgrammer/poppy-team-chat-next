@@ -268,6 +268,18 @@ export default function MessageItem({
       onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchMove}
     >
+      {/* Reply quote - shows above the message bubble like iMessage */}
+      {msg.replyTo && (
+        <div className="reply-quote-container" onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
+          <div className="reply-quote">
+            <div className="reply-quote-line"></div>
+            <div className="reply-quote-content">
+              <div className="reply-quote-sender">{msg.replyTo.sender}</div>
+              <div className="reply-quote-text">{msg.replyTo.text}</div>
+            </div>
+          </div>
+        </div>
+      )}
       {!isSent && (
         <div className="message-sender">
           {msg.sender}
@@ -275,12 +287,6 @@ export default function MessageItem({
         </div>
       )}
       <div className="message">
-        {msg.replyTo && (
-          <div className="reply-preview" onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
-            <div className="reply-sender">{msg.replyTo.sender}</div>
-            <div className="reply-text">{msg.replyTo.text}</div>
-          </div>
-        )}
         {/* Support multiple images or single image */}
         {(msg.imageUrls || msg.imageUrl) && (
           <div className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}>
