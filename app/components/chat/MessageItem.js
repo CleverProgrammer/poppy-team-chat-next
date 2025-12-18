@@ -290,7 +290,6 @@ export default function MessageItem({
                 src={url}
                 alt={`Shared image ${idx + 1}`}
                 className="message-image"
-                loading="lazy"
                 onClick={() => onImageClick(url)}
               />
             ))}

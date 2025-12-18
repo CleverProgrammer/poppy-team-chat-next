@@ -694,6 +694,9 @@ export default function ChatWindow() {
                     initialTopMostItemIndex={999999}
                     followOutput='smooth'
                     startReached={loadOlder}
+                    // Keep all 50 messages rendered to prevent image re-rendering jitter
+                    overscan={{ main: 2000, reverse: 2000 }}
+                    increaseViewportBy={{ top: 1500, bottom: 1500 }}
                     atTopStateChange={atTop => {
                       console.log('📜 atTopStateChange:', atTop)
                       if (atTop) {
