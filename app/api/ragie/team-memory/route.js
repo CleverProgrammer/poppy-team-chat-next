@@ -70,7 +70,8 @@ export async function POST(request) {
         contentType: 'text',
         hasAccompanyingImage: hasImages,
         imageCount: allImageUrls.length,
-        imageUrls: hasImages ? allImageUrls : null
+        // Only include imageUrls if there are images (Ragie doesn't accept null values)
+        ...(hasImages && { imageUrls: allImageUrls })
       };
 
       const imageCountText = allImageUrls.length > 1 ? `${allImageUrls.length} images` : 'image';
