@@ -570,6 +570,7 @@ html {
   flex-direction: column;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 .sidebar-header {
@@ -2018,17 +2019,19 @@ iframe[src*="vercel"] {
 
   .sidebar {
     position: fixed;
-    left: -260px;
+    left: -100%;
     top: 0;
+    width: 100% !important;
     height: 100vh;
     z-index: 1000;
     transition: left 0.3s ease;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
   }
 
   .sidebar.open {
     left: 0;
   }
+
 
   .chat-container {
     width: 100%;

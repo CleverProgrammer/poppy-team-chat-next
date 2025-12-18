@@ -59,6 +59,74 @@ export default function ChatWindow() {
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
 
+  // Swipe from left edge to open sidebar (mobile)
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const isSwiping = useRef(false)
+
+  useEffect(() => {
+    const EDGE_THRESHOLD = 30 // px from left edge to start swipe
+    const SWIPE_THRESHOLD = 80 // px to complete swipe
+    const VERTICAL_LIMIT = 50 // max vertical movement
+
+    const handleTouchStart = (e) => {
+      const touch = e.touches[0]
+      // Swipe from left edge to open, or anywhere to close when open
+      if ((touch.clientX < EDGE_THRESHOLD && !isSidebarOpen) || isSidebarOpen) {
+        touchStartX.current = touch.clientX
+        touchStartY.current = touch.clientY
+        isSwiping.current = true
+      }
+    }
+
+    const handleTouchMove = (e) => {
+      if (!isSwiping.current) return
+
+      const touch = e.touches[0]
+      const deltaX = touch.clientX - touchStartX.current
+      const deltaY = Math.abs(touch.clientY - touchStartY.current)
+
+      // Cancel if vertical movement is too much (user is scrolling)
+      if (deltaY > VERTICAL_LIMIT) {
+        isSwiping.current = false
+        return
+      }
+
+      // Prevent default to avoid scrolling while swiping
+      if (Math.abs(deltaX) > 10) {
+        e.preventDefault()
+      }
+    }
+
+    const handleTouchEnd = (e) => {
+      if (!isSwiping.current) return
+
+      const touch = e.changedTouches[0]
+      const deltaX = touch.clientX - touchStartX.current
+
+      // Swipe right to open
+      if (!isSidebarOpen && deltaX > SWIPE_THRESHOLD) {
+        setIsSidebarOpen(true)
+      }
+      // Swipe left to close
+      if (isSidebarOpen && deltaX < -SWIPE_THRESHOLD) {
+        setIsSidebarOpen(false)
+      }
+
+      isSwiping.current = false
+    }
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('touchend', handleTouchEnd, { passive: true })
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isSidebarOpen])
+
   // Image upload hook (supports multiple images)
   const {
     imagePreview,
