@@ -451,6 +451,24 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.25);
   z-index: 9998;
+  /* Prevent text selection on iOS when menu is open */
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  touch-action: none;
+}
+
+/* When action sheet is present, prevent all text selection globally */
+body:has(.action-sheet-overlay) {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+body:has(.action-sheet-overlay) * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 
 /* Main content container - floating pill */

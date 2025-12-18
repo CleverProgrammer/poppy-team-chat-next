@@ -1849,6 +1849,10 @@ iframe[src*="vercel"] {
   position: relative;
   transition: transform 0.2s ease;
   z-index: 9997; /* Just below overlay but establishes stacking context */
+  /* Prevent iOS text selection when menu is open */
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 
 /* Bright glow effect behind the selected message */
