@@ -59,13 +59,16 @@ export default function ChatWindow() {
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
 
-  // Image upload hook
+  // Image upload hook (supports multiple images)
   const {
     imagePreview,
     imageFile,
+    imagePreviews,
+    imageFiles,
     uploading,
     setUploading,
     handleRemoveImage,
+    handleRemoveImageAtIndex,
     clearImage,
     dropzoneProps,
   } = useImageUpload()
@@ -112,6 +115,8 @@ export default function ChatWindow() {
     virtuosoRef,
     imageFile,
     imagePreview,
+    imageFiles,
+    imagePreviews,
     clearImage,
     replyingTo,
     setReplyingTo,
@@ -379,16 +384,20 @@ export default function ChatWindow() {
   }
 
   // Add message to Team AI Memory (globally accessible)
-  // Supports both text and image messages
+  // Supports both text and image messages (including multiple images)
   const handleAddToTeamMemory = async message => {
     try {
+      // Get all image URLs (support both single and multiple)
+      const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : []);
+      
       const response = await fetch('/api/ragie/team-memory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messageId: message.id,
           text: message.text || message.content || '',
-          imageUrl: message.imageUrl || null,
+          imageUrl: imageUrls[0] || null, // First image for backwards compat
+          imageUrls: imageUrls.length > 0 ? imageUrls : null, // All images
           sender: message.sender,
           senderEmail: user.email,
           senderId: user.uid,
@@ -401,10 +410,10 @@ export default function ChatWindow() {
       if (response.ok) {
         const data = await response.json()
         let typeMsg = 'message'
-        if (data.type === 'image+text') {
-          typeMsg = 'image and text'
-        } else if (data.type === 'image') {
-          typeMsg = 'image'
+        if (data.type === 'image+text' || data.type === 'images+text') {
+          typeMsg = imageUrls.length > 1 ? 'images and text' : 'image and text'
+        } else if (data.type === 'image' || data.type === 'images') {
+          typeMsg = imageUrls.length > 1 ? 'images' : 'image'
         }
         alert(
           `✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`
@@ -824,12 +833,14 @@ export default function ChatWindow() {
                 replyingTo={replyingTo}
                 sending={sending}
                 imagePreview={imagePreview}
+                imagePreviews={imagePreviews}
                 mentionMenu={mentionMenu}
                 mentionMenuIndex={mentionMenuIndex}
                 handleTextareaChange={handleTextareaChange}
                 handleKeyDown={handleKeyDown}
                 handleSend={handleSend}
                 handleRemoveImage={handleRemoveImage}
+                handleRemoveImageAtIndex={handleRemoveImageAtIndex}
                 cancelEdit={cancelEdit}
                 cancelReply={cancelReply}
                 getMentionMenuItems={getMentionMenuItems}

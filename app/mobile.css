@@ -421,6 +421,36 @@
     -webkit-user-select: none;
     user-select: none;
   }
+
+  /* Tiny X button for image preview on mobile */
+  .remove-image-btn-mini {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    max-width: 18px !important;
+    max-height: 18px !important;
+    font-size: 10px !important;
+    top: 3px !important;
+    right: 3px !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    border: none !important;
+    padding: 0 !important;
+    -webkit-appearance: none !important;
+  }
+
+  .image-preview-wrapper {
+    position: relative;
+  }
+
+  .image-preview-container {
+    padding: 8px 12px;
+  }
+
+  .image-preview-container.multi-image .image-preview {
+    max-width: 70px;
+    max-height: 70px;
+  }
 }
 
 /* Safe area support for iOS notch/dynamic island */

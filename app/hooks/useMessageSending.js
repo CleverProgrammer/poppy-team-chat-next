@@ -23,6 +23,8 @@ export function useMessageSending({
   virtuosoRef,
   imageFile,
   imagePreview,
+  imageFiles = [],
+  imagePreviews = [],
   clearImage,
   replyingTo,
   setReplyingTo,
@@ -99,7 +101,9 @@ export function useMessageSending({
       return handleEdit();
     }
 
-    if ((!messageText.trim() && !imageFile) || sending) return;
+    // Allow sending if there's text OR images
+    const hasImages = imageFiles.length > 0;
+    if ((!messageText.trim() && !hasImages) || sending) return;
 
     // Check for @poppy mention - match @poppy anywhere in text and capture everything after
     const poppyMention = messageText.match(/@poppy\s*(.*)/i);
@@ -115,7 +119,9 @@ export function useMessageSending({
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: new Date(),
-      imageUrl: imagePreview, // Show preview immediately if image
+      // Support both single and multiple images
+      imageUrl: imagePreviews[0] || null,
+      imageUrls: imagePreviews.length > 0 ? imagePreviews : null,
       replyTo: replyingTo,
       optimistic: true // Mark as optimistic
     };
@@ -124,7 +130,7 @@ export function useMessageSending({
     setMessages(prev => [...prev, optimisticMessage]);
 
     // Clear input and state immediately for instant feel
-    const currentImageFile = imageFile;
+    const currentImageFiles = [...imageFiles];
     const currentReplyingTo = replyingTo;
 
     clearImage();
@@ -150,11 +156,17 @@ export function useMessageSending({
     setSending(true);
     try {
       let imageUrl = null;
+      let imageUrls = [];
 
-      // Upload image if present
-      if (currentImageFile) {
+      // Upload images if present
+      if (currentImageFiles.length > 0) {
         setUploading(true);
-        imageUrl = await uploadImage(currentImageFile, user.uid);
+        // Upload all images in parallel
+        imageUrls = await Promise.all(
+          currentImageFiles.map(file => uploadImage(file, user.uid))
+        );
+        // For backwards compatibility, set imageUrl to first image
+        imageUrl = imageUrls[0];
         setUploading(false);
       }
 
@@ -167,15 +179,15 @@ export function useMessageSending({
       } else if (currentChat.type === 'channel') {
         // Check if replying
         if (currentReplyingTo) {
-          if (imageUrl) {
+          if (imageUrls.length > 0) {
             // TODO: Add support for reply with image
-            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
+            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText, imageUrls);
           } else {
             await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
           }
         } else {
-          if (imageUrl) {
-            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText);
+          if (imageUrls.length > 0) {
+            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText, imageUrls);
           } else {
             await sendMessage(currentChat.id, user, messageText);
           }
@@ -198,15 +210,15 @@ export function useMessageSending({
 
         // Check if replying
         if (currentReplyingTo) {
-          if (imageUrl) {
+          if (imageUrls.length > 0) {
             // TODO: Add support for reply with image
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient);
+            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient, imageUrls);
           } else {
             await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
           }
         } else {
-          if (imageUrl) {
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient);
+          if (imageUrls.length > 0) {
+            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient, imageUrls);
           } else {
             await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
           }
@@ -241,8 +253,8 @@ export function useMessageSending({
     currentChat,
     inputRef,
     virtuosoRef,
-    imageFile,
-    imagePreview,
+    imageFiles,
+    imagePreviews,
     clearImage,
     replyingTo,
     setReplyingTo,

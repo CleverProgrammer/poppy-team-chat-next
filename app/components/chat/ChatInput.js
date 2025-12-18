@@ -9,12 +9,14 @@ export default function ChatInput({
   replyingTo,
   sending,
   imagePreview,
+  imagePreviews = [],
   mentionMenu,
   mentionMenuIndex,
   handleTextareaChange,
   handleKeyDown,
   handleSend,
   handleRemoveImage,
+  handleRemoveImageAtIndex,
   cancelEdit,
   cancelReply,
   getMentionMenuItems,
@@ -59,7 +61,7 @@ export default function ChatInput({
 
   const handleInput = e => {
     handleTextareaChange(e)
-    setHasContent(e.target.value.trim().length > 0)
+    setHasContent(e.target.value.trim().length > 0 || imagePreviews.length > 0)
   }
 
   const onSend = e => {
@@ -69,9 +71,9 @@ export default function ChatInput({
 
   useEffect(() => {
     if (inputRef.current) {
-      setHasContent(inputRef.current.value.trim().length > 0)
+      setHasContent(inputRef.current.value.trim().length > 0 || imagePreviews.length > 0)
     }
-  }, [sending])
+  }, [sending, imagePreviews])
 
   return (
     <>
@@ -183,16 +185,23 @@ export default function ChatInput({
           transition: 'bottom 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
       >
-        {imagePreview && (
-          <div className='image-preview-container'>
-            <img src={imagePreview} alt='Preview' className='image-preview' />
-            <button
-              onClick={handleRemoveImage}
-              className='remove-image-btn'
-              aria-label='Remove image'
-            >
-              ✕
-            </button>
+        {imagePreviews.length > 0 && (
+          <div className={`image-preview-container ${imagePreviews.length > 1 ? 'multi-image' : ''}`}>
+            {imagePreviews.map((preview, index) => (
+              <div key={index} className='image-preview-wrapper'>
+                <img src={preview} alt={`Preview ${index + 1}`} className='image-preview' />
+                <button
+                  onClick={() => handleRemoveImageAtIndex ? handleRemoveImageAtIndex(index) : handleRemoveImage()}
+                  className='remove-image-btn-mini'
+                  aria-label='Remove image'
+                  type='button'
+                >
+                  <svg width='8' height='8' viewBox='0 0 12 12' fill='none' stroke='white' strokeWidth='2.5' strokeLinecap='round'>
+                    <path d='M2 2L10 10M10 2L2 10' />
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
         )}
         <div className='input-row'>

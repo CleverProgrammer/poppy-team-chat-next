@@ -4,27 +4,50 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 
 export function useImageUpload() {
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
+  // Support multiple images
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
 
+  // Legacy single image getters for backwards compatibility
+  const imagePreview = imagePreviews[0] || null;
+  const imageFile = imageFiles[0] || null;
+
   const handleImageSelect = useCallback((file) => {
-    setImageFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImagePreview(reader.result);
+      setImagePreviews(prev => [...prev, reader.result]);
+      setImageFiles(prev => [...prev, file]);
     };
     reader.readAsDataURL(file);
   }, []);
 
-  const handleRemoveImage = useCallback(() => {
-    setImageFile(null);
-    setImagePreview(null);
+  // Add multiple images at once
+  const handleMultipleImageSelect = useCallback((files) => {
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews(prev => [...prev, reader.result]);
+        setImageFiles(prev => [...prev, file]);
+      };
+      reader.readAsDataURL(file);
+    });
   }, []);
 
+  // Remove a specific image by index
+  const handleRemoveImageAtIndex = useCallback((index) => {
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Legacy remove (removes first image)
+  const handleRemoveImage = useCallback(() => {
+    handleRemoveImageAtIndex(0);
+  }, [handleRemoveImageAtIndex]);
+
   const clearImage = useCallback(() => {
-    setImageFile(null);
-    setImagePreview(null);
+    setImageFiles([]);
+    setImagePreviews([]);
   }, []);
 
   // Paste image handler
@@ -49,34 +72,39 @@ export function useImageUpload() {
     return () => document.removeEventListener('paste', handlePaste);
   }, [handleImageSelect]);
 
-  // Drag and drop handler
+  // Drag and drop handler - now supports multiple files
   const onDrop = useCallback((acceptedFiles) => {
-    if (acceptedFiles.length > 0) {
-      const file = acceptedFiles[0];
-      if (file.type.startsWith('image/')) {
-        handleImageSelect(file);
-      }
+    const imageFiles = acceptedFiles.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length > 0) {
+      handleMultipleImageSelect(imageFiles);
     }
-  }, [handleImageSelect]);
+  }, [handleMultipleImageSelect]);
 
   const dropzoneProps = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
     },
-    multiple: false,
+    multiple: true, // Allow multiple files
     noClick: true,
     noKeyboard: true
   });
 
   return {
+    // Legacy single-image API
     imagePreview,
     imageFile,
+    // New multi-image API
+    imagePreviews,
+    imageFiles,
     uploading,
     setUploading,
     handleImageSelect,
+    handleMultipleImageSelect,
     handleRemoveImage,
+    handleRemoveImageAtIndex,
     clearImage,
     dropzoneProps
   };
 }
+

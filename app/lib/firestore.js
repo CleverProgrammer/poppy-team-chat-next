@@ -344,15 +344,20 @@ export async function uploadImage(file, userId) {
   }
 }
 
-// Send message with image
-export async function sendMessageWithImage(channelId, user, imageUrl, text = '') {
-  if (!user || !imageUrl) return;
+// Send message with image(s)
+// imageUrl can be a single URL (string) or array of URLs for multiple images
+export async function sendMessageWithImage(channelId, user, imageUrl, text = '', imageUrls = null) {
+  if (!user || (!imageUrl && (!imageUrls || imageUrls.length === 0))) return;
+
+  // Normalize to array
+  const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : []);
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages');
     const docRef = await addDoc(messagesRef, {
       text: text,
-      imageUrl: imageUrl,
+      imageUrl: allImageUrls[0], // Keep for backwards compatibility
+      imageUrls: allImageUrls.length > 1 ? allImageUrls : null, // Only set if multiple images
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
@@ -378,37 +383,44 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '')
       }).catch(err => console.error('Ragie text sync failed:', err));
     }
 
-    // 2. Sync image content - Ragie will extract captions/OCR from the image
-    fetch('/api/ragie/sync-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messageId: docRef.id + '_img',
-        chatId: channelId,
-        chatType: 'channel',
-        imageUrl,
-        text,
-        sender: user.displayName || user.email,
-        senderEmail: user.email,
-        senderId: user.uid,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(err => console.error('Ragie image sync failed:', err));
+    // 2. Sync each image to Ragie - extract captions/OCR from images
+    allImageUrls.forEach((url, index) => {
+      fetch('/api/ragie/sync-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id + '_img' + (index > 0 ? `_${index}` : ''),
+          chatId: channelId,
+          chatType: 'channel',
+          imageUrl: url,
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(err => console.error('Ragie image sync failed:', err));
+    });
   } catch (error) {
     console.error('Error sending message with image:', error);
     throw error;
   }
 }
 
-// Send DM with image
-export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, text = '', recipient = null) {
-  if (!user || !imageUrl) return;
+// Send DM with image(s)
+// imageUrl can be a single URL (string) or array of URLs for multiple images
+export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, text = '', recipient = null, imageUrls = null) {
+  if (!user || (!imageUrl && (!imageUrls || imageUrls.length === 0))) return;
+
+  // Normalize to array
+  const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : []);
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages');
     const docRef = await addDoc(messagesRef, {
       text: text,
-      imageUrl: imageUrl,
+      imageUrl: allImageUrls[0], // Keep for backwards compatibility
+      imageUrls: allImageUrls.length > 1 ? allImageUrls : null, // Only set if multiple images
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
@@ -438,26 +450,28 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
       }).catch(err => console.error('Ragie text sync failed:', err));
     }
 
-    // 2. Sync image content - Ragie will extract captions/OCR from the image
-    fetch('/api/ragie/sync-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messageId: docRef.id + '_img',
-        chatId: dmId,
-        chatType: 'dm',
-        imageUrl,
-        text,
-        sender: user.displayName || user.email,
-        senderEmail: user.email,
-        senderId: user.uid,
-        timestamp: new Date().toISOString(),
-        participants: dmId.split('_').slice(1),
-        recipientId: recipientId,
-        recipientName: recipient?.displayName || recipient?.email || null,
-        recipientEmail: recipient?.email || null
-      })
-    }).catch(err => console.error('Ragie image sync failed:', err));
+    // 2. Sync each image to Ragie - extract captions/OCR from images
+    allImageUrls.forEach((url, index) => {
+      fetch('/api/ragie/sync-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id + '_img' + (index > 0 ? `_${index}` : ''),
+          chatId: dmId,
+          chatType: 'dm',
+          imageUrl: url,
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+          participants: dmId.split('_').slice(1),
+          recipientId: recipientId,
+          recipientName: recipient?.displayName || recipient?.email || null,
+          recipientEmail: recipient?.email || null
+        })
+      }).catch(err => console.error('Ragie image sync failed:', err));
+    });
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId);

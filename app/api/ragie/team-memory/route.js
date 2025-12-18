@@ -2,23 +2,28 @@ import { NextResponse } from 'next/server';
 import ragie from '../../../lib/ragie-client.js';
 
 // Add a message to team-wide AI memory (globally accessible)
-// Supports both text messages and images
+// Supports both text messages and images (including multiple images)
 export async function POST(request) {
   try {
     const {
       messageId,
       text,
       imageUrl,
+      imageUrls, // Support multiple images
       sender,
       senderEmail,
       senderId,
       timestamp
     } = await request.json();
 
-    // Must have messageId and either text or imageUrl
-    if (!messageId || (!text && !imageUrl)) {
+    // Normalize to array of image URLs
+    const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : []);
+    const hasImages = allImageUrls.length > 0;
+
+    // Must have messageId and either text or images
+    if (!messageId || (!text && !hasImages)) {
       return NextResponse.json(
-        { error: 'Missing required fields: messageId, and either text or imageUrl' },
+        { error: 'Missing required fields: messageId, and either text or imageUrl(s)' },
         { status: 400 }
       );
     }
@@ -37,34 +42,40 @@ export async function POST(request) {
 
     const documents = [];
 
-    // If there's an image, create an image document
-    if (imageUrl) {
+    // Add each image as a separate document
+    for (let i = 0; i < allImageUrls.length; i++) {
+      const url = allImageUrls[i];
       const imageMetadata = {
         ...metadata,
+        messageId: allImageUrls.length > 1 ? `${messageId}_img${i}` : messageId,
         contentType: 'image',
+        imageIndex: i,
+        totalImages: allImageUrls.length,
         hasAccompanyingText: !!text
       };
 
-      console.log(`🧠 Team Memory: Adding image from ${sender}`);
+      console.log(`🧠 Team Memory: Adding image ${i + 1}/${allImageUrls.length} from ${sender}`);
 
       const imageDoc = await ragie.documents.createDocumentFromUrl({
-        url: imageUrl,
+        url: url,
         metadata: imageMetadata
       });
       documents.push({ id: imageDoc.id, type: 'image' });
     }
 
-    // If there's text, create a text document (even if there's also an image)
+    // If there's text, create a text document (even if there are also images)
     if (text) {
       const textMetadata = {
         ...metadata,
         contentType: 'text',
-        hasAccompanyingImage: !!imageUrl,
-        imageUrl: imageUrl || null
+        hasAccompanyingImage: hasImages,
+        imageCount: allImageUrls.length,
+        imageUrls: hasImages ? allImageUrls : null
       };
 
-      const textContent = imageUrl
-        ? `[Team Memory from ${sender}] (with image): ${text}`
+      const imageCountText = allImageUrls.length > 1 ? `${allImageUrls.length} images` : 'image';
+      const textContent = hasImages
+        ? `[Team Memory from ${sender}] (with ${imageCountText}): ${text}`
         : `[Team Memory from ${sender}]: ${text}`;
 
       console.log(`🧠 Team Memory: Adding text "${text.substring(0, 50)}..." by ${sender}`);
@@ -78,11 +89,19 @@ export async function POST(request) {
 
     console.log(`✅ Team Memory: Added ${documents.length} document(s), IDs: ${documents.map(d => d.id).join(', ')}`);
 
+    // Determine response type
+    let type = 'text';
+    if (hasImages && text) {
+      type = allImageUrls.length > 1 ? 'images+text' : 'image+text';
+    } else if (hasImages) {
+      type = allImageUrls.length > 1 ? 'images' : 'image';
+    }
+
     return NextResponse.json({
       success: true,
       documents,
       messageId,
-      type: imageUrl && text ? 'image+text' : (imageUrl ? 'image' : 'text')
+      type
     });
   } catch (error) {
     console.error('❌ Team Memory error:', error);

@@ -1025,6 +1025,20 @@ iframe[src*="vercel"] {
 }
 
 /* Image Upload & Display */
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.message-images.multi-image .message-image {
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: cover;
+  margin-bottom: 0;
+}
+
 .message-image {
   max-width: 300px;
   max-height: 400px;
@@ -1061,10 +1075,28 @@ iframe[src*="vercel"] {
 
 .image-preview-container {
   position: relative;
-  display: inline-block;
-  max-width: 200px;
-  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 12px;
   margin-bottom: 4px;
+}
+
+/* Multi-image: smaller thumbnails */
+.image-preview-container.multi-image .image-preview-wrapper {
+  max-width: 80px;
+}
+
+.image-preview-container.multi-image .image-preview {
+  max-width: 80px;
+  max-height: 80px;
+  object-fit: cover;
+}
+
+.image-preview-wrapper {
+  position: relative;
+  display: inline-block;
 }
 
 .image-preview {
@@ -1072,8 +1104,49 @@ iframe[src*="vercel"] {
   max-height: 150px;
   border-radius: 8px;
   border: 2px solid var(--border-input);
+  display: block;
 }
 
+/* Tiny delete button in top-right corner */
+.remove-image-btn-mini {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  max-height: 16px;
+  background: rgba(0, 0, 0, 0.65);
+  color: white;
+  border: none !important;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  line-height: 1;
+  transition: background 0.2s;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.remove-image-btn-mini svg {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.remove-image-btn-mini:hover {
+  background: rgba(220, 53, 69, 0.9);
+}
+
+/* Legacy large button (keeping for backwards compat) */
 .remove-image-btn {
   position: absolute;
   top: -8px;

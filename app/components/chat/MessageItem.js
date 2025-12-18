@@ -160,7 +160,8 @@ export default function MessageItem({
   const reactions = msg.reactions || {};
   const reactionCounts = {};
   const userReactedWith = {};
-  const isJumboEmoji = msg.text && !msg.imageUrl && isSingleEmoji(msg.text);
+  const hasImages = msg.imageUrl || (msg.imageUrls && msg.imageUrls.length > 0);
+  const isJumboEmoji = msg.text && !hasImages && isSingleEmoji(msg.text);
 
   // Count reactions
   Object.entries(reactions).forEach(([userId, emoji]) => {
@@ -280,14 +281,20 @@ export default function MessageItem({
             <div className="reply-text">{msg.replyTo.text}</div>
           </div>
         )}
-        {msg.imageUrl && (
-          <img
-            src={msg.imageUrl}
-            alt="Shared image"
-            className="message-image"
-            loading="lazy"
-            onClick={() => onImageClick(msg.imageUrl)}
-          />
+        {/* Support multiple images or single image */}
+        {(msg.imageUrls || msg.imageUrl) && (
+          <div className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}>
+            {(msg.imageUrls || [msg.imageUrl]).filter(Boolean).map((url, idx) => (
+              <img
+                key={idx}
+                src={url}
+                alt={`Shared image ${idx + 1}`}
+                className="message-image"
+                loading="lazy"
+                onClick={() => onImageClick(url)}
+              />
+            ))}
+          </div>
         )}
         {/* Loom video embed */}
         {msg.text && isLoomUrl(msg.text) && (
@@ -306,7 +313,6 @@ export default function MessageItem({
             {msg.edited && <span className="edited-indicator"> (edited)</span>}
           </div>
         )}
-
       </div>
       {isSent && (
         <div className="message-timestamp-sent">
