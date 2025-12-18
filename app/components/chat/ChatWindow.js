@@ -55,6 +55,7 @@ export default function ChatWindow() {
   const [selectedPost, setSelectedPost] = useState(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
@@ -167,6 +168,15 @@ export default function ChatWindow() {
   // AI hook (must be after virtuosoRef is defined)
   const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } =
     useAI(user, currentChat, messages, setMessages, virtuosoRef)
+
+  // Scroll to bottom helper (for mobile keyboard)
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: 'LAST',
+      align: 'end',
+      behavior: 'smooth',
+    })
+  }, [])
 
   // Message sending hook
   const {
@@ -767,6 +777,16 @@ export default function ChatWindow() {
                     // Keep all 50 messages rendered to prevent image re-rendering jitter
                     overscan={{ main: 2000, reverse: 2000 }}
                     increaseViewportBy={{ top: 1500, bottom: 1500 }}
+                    // Add spacer at bottom for keyboard
+                    components={{
+                      Footer: () => {
+                        if (keyboardHeight > 0) {
+                          console.log('⌨️ Footer height:', keyboardHeight)
+                          return <div style={{ height: keyboardHeight, background: 'transparent' }} />
+                        }
+                        return null
+                      }
+                    }}
                     atTopStateChange={atTop => {
                       console.log('📜 atTopStateChange:', atTop)
                       if (atTop) {
@@ -919,6 +939,8 @@ export default function ChatWindow() {
                 getMentionMenuItems={getMentionMenuItems}
                 selectMentionItem={selectMentionItem}
                 setMentionMenuIndex={setMentionMenuIndex}
+                onScrollToBottom={scrollToBottom}
+                onKeyboardHeightChange={setKeyboardHeight}
               />
             </>
           )}

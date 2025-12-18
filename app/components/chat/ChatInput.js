@@ -22,6 +22,8 @@ export default function ChatInput({
   getMentionMenuItems,
   selectMentionItem,
   setMentionMenuIndex,
+  onScrollToBottom,
+  onKeyboardHeightChange,
 }) {
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [hasContent, setHasContent] = useState(false)
@@ -39,11 +41,23 @@ export default function ChatInput({
         await Keyboard.setResizeMode({ mode: 'none' })
 
         await Keyboard.addListener('keyboardWillShow', info => {
+          console.log('⌨️ Keyboard height:', info.keyboardHeight)
           setKeyboardHeight(info.keyboardHeight)
+          // Notify parent about keyboard height change
+          if (onKeyboardHeightChange) {
+            onKeyboardHeightChange(info.keyboardHeight)
+          }
+          // Scroll to bottom when keyboard shows (with delay for animation)
+          if (onScrollToBottom) {
+            setTimeout(() => onScrollToBottom(), 350)
+          }
         })
 
         await Keyboard.addListener('keyboardWillHide', () => {
           setKeyboardHeight(0)
+          if (onKeyboardHeightChange) {
+            onKeyboardHeightChange(0)
+          }
         })
       } catch (error) {
         console.error('Failed to setup keyboard listeners:', error)
@@ -235,6 +249,13 @@ export default function ChatInput({
               rows='1'
               onInput={handleInput}
               onKeyDown={handleKeyDown}
+              onFocus={() => {
+                // Scroll to bottom when input is focused (for web mobile)
+                // Native platforms use Capacitor Keyboard events instead
+                if (onScrollToBottom && !Capacitor.isNativePlatform()) {
+                  setTimeout(() => onScrollToBottom(), 300)
+                }
+              }}
               autoComplete='off'
               autoCorrect='on'
               autoCapitalize='sentences'
