@@ -39,6 +39,7 @@
     "react-onesignal": "^3.4.0",
     "react-virtuoso": "^4.17.0",
     "vaul": "^1.1.2",
+    "yet-another-react-lightbox": "^3.27.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {

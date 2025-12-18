@@ -290,15 +290,21 @@ export default function MessageItem({
         {/* Support multiple images or single image */}
         {(msg.imageUrls || msg.imageUrl) && (
           <div className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}>
-            {(msg.imageUrls || [msg.imageUrl]).filter(Boolean).map((url, idx) => (
-              <img
-                key={idx}
-                src={url}
-                alt={`Shared image ${idx + 1}`}
-                className="message-image"
-                onClick={() => onImageClick(url)}
-              />
-            ))}
+            {(() => {
+              const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean);
+              return allImages.map((url, idx) => (
+                <img
+                  key={idx}
+                  src={url}
+                  alt={`Shared image ${idx + 1}`}
+                  className="message-image"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onImageClick(allImages, idx);
+                  }}
+                />
+              ));
+            })()}
           </div>
         )}
         {/* Loom video embed */}

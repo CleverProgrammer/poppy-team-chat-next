@@ -5,8 +5,8 @@ import { useEffect } from 'react';
 export function useKeyboardShortcuts({
   user,
   messages,
-  previewModalImage,
-  setPreviewModalImage,
+  lightboxOpen,
+  closeLightbox,
   replyingTo,
   editingMessage,
   isPaletteOpen,
@@ -28,8 +28,8 @@ export function useKeyboardShortcuts({
 
       // Escape: Close modals/states
       if (e.key === 'Escape') {
-        if (previewModalImage) {
-          setPreviewModalImage(null);
+        if (lightboxOpen) {
+          closeLightbox();
         } else if (replyingTo) {
           cancelReply();
         }
@@ -61,8 +61,8 @@ export function useKeyboardShortcuts({
   }, [
     user,
     messages,
-    previewModalImage,
-    setPreviewModalImage,
+    lightboxOpen,
+    closeLightbox,
     replyingTo,
     editingMessage,
     isPaletteOpen,

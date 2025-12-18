@@ -7,7 +7,7 @@ import { Capacitor } from '@capacitor/core'
 import Sidebar from '../layout/Sidebar'
 import CommandPalette from './CommandPalette'
 import AIModal from './AIModal'
-import ImagePreviewModal from './ImagePreviewModal'
+import ImageLightbox from './ImageLightbox'
 import MessageItem from './MessageItem'
 import ChatInput from './ChatInput'
 import ChatHeader from './ChatHeader'
@@ -44,7 +44,7 @@ export default function ChatWindow() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false)
   const [unreadChats, setUnreadChats] = useState([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [previewModalImage, setPreviewModalImage] = useState(null)
+  const [lightboxData, setLightboxData] = useState({ open: false, images: [], startIndex: 0 })
   const [contextMenu, setContextMenu] = useState(null)
   const [editingMessage, setEditingMessage] = useState(null)
   const [replyingTo, setReplyingTo] = useState(null)
@@ -329,8 +329,8 @@ export default function ChatWindow() {
   useKeyboardShortcuts({
     user,
     messages,
-    previewModalImage,
-    setPreviewModalImage,
+    lightboxOpen: lightboxData.open,
+    closeLightbox: () => setLightboxData({ open: false, images: [], startIndex: 0 }),
     replyingTo,
     editingMessage,
     isPaletteOpen,
@@ -617,10 +617,12 @@ export default function ChatWindow() {
         onSelectChat={handleSelectChat}
       />
 
-      {/* Image Preview Modal */}
-      <ImagePreviewModal
-        imageUrl={previewModalImage}
-        onClose={() => setPreviewModalImage(null)}
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={lightboxData.images}
+        open={lightboxData.open}
+        onClose={() => setLightboxData({ open: false, images: [], startIndex: 0 })}
+        startIndex={lightboxData.startIndex}
       />
 
       <div className='app-container'>
@@ -738,7 +740,7 @@ export default function ChatWindow() {
                             onPromote={handlePromoteMessage}
                             onAddToTeamMemory={handleAddToTeamMemory}
                             onAddReaction={handleAddReaction}
-                            onImageClick={setPreviewModalImage}
+                            onImageClick={(images, startIndex) => setLightboxData({ open: true, images, startIndex })}
                             onScrollToMessage={scrollToMessage}
                             messageRef={el =>
                               (messageRefs.current[item.id] = el)
