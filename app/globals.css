@@ -1843,26 +1843,32 @@ iframe[src*="vercel"] {
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
 }
 
-/* Selected message (action sheet open) - pops above the overlay */
+/* Selected message (action sheet open) - bright above dimmed background */
 .message-wrapper.message-selected {
   transform: scale(1.02);
-  z-index: 10000; /* Above the action-sheet-overlay (9998) */
   position: relative;
   transition: transform 0.2s ease;
 }
 
-.message-wrapper.message-selected .message {
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.5);
-  background: var(--bg-message-received); /* Keep full color, not dimmed */
+/* Create a "light" effect behind the selected message to counter the overlay dimming */
+.message-wrapper.message-selected::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(ellipse at center, rgba(102, 126, 234, 0.3) 0%, transparent 70%);
+  border-radius: 20px;
+  z-index: -1;
+  pointer-events: none;
 }
 
-.message-wrapper.message-selected.sent .message {
-  background: var(--bg-message-sent); /* Keep full color for sent messages */
+.message-wrapper.message-selected .message {
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6);
+  filter: brightness(1.15);
 }
 
 .message-wrapper.message-selected.jumbo-emoji-wrapper .jumbo-emoji {
   transform: scale(1.1);
-  filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.5));
+  filter: drop-shadow(0 4px 16px rgba(102, 126, 234, 0.6)) brightness(1.15);
 }
 
 /* Mobile Menu Button */
