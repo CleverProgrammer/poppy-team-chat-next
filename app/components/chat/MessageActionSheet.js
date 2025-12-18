@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { hapticLight } from '../../utils/haptics';
 
@@ -21,6 +21,25 @@ export default function MessageActionSheet({
   onDemote,
   onAddToTeamMemory,
 }) {
+  const openTimeRef = useRef(0);
+
+  // Track when menu opens to prevent immediate close from synthetic click
+  useEffect(() => {
+    if (isOpen) {
+      openTimeRef.current = Date.now();
+    }
+  }, [isOpen]);
+
+  // Close handler with delay protection
+  const handleOverlayClick = useCallback(() => {
+    // Ignore clicks within 300ms of opening (iOS fires synthetic click after touch)
+    const timeSinceOpen = Date.now() - openTimeRef.current;
+    if (timeSinceOpen < 300) {
+      return;
+    }
+    onClose();
+  }, [onClose]);
+
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e) => {
@@ -84,8 +103,8 @@ export default function MessageActionSheet({
 
   const content = (
     <>
-      {/* Backdrop - tap to close */}
-      <div className="action-sheet-overlay" onClick={onClose} />
+      {/* Backdrop - tap to close (with delay to prevent iOS synthetic click) */}
+      <div className="action-sheet-overlay" onClick={handleOverlayClick} />
       
       {/* Floating pill */}
       <div 

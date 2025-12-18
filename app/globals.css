@@ -1843,19 +1843,26 @@ iframe[src*="vercel"] {
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
 }
 
-/* Selected message (action sheet open) */
+/* Selected message (action sheet open) - pops above the overlay */
 .message-wrapper.message-selected {
   transform: scale(1.02);
-  z-index: 100;
+  z-index: 10000; /* Above the action-sheet-overlay (9998) */
   position: relative;
+  transition: transform 0.2s ease;
 }
 
 .message-wrapper.message-selected .message {
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.5);
+  background: var(--bg-message-received); /* Keep full color, not dimmed */
+}
+
+.message-wrapper.message-selected.sent .message {
+  background: var(--bg-message-sent); /* Keep full color for sent messages */
 }
 
 .message-wrapper.message-selected.jumbo-emoji-wrapper .jumbo-emoji {
   transform: scale(1.1);
+  filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.5));
 }
 
 /* Mobile Menu Button */
