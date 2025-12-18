@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import MessageTimestamp from './MessageTimestamp';
 import { linkifyText, isSingleEmoji, isLoomUrl, getLoomEmbedUrl } from '../../utils/messageFormatting';
 import { ALL_EMOJIS } from '../../constants/emojis';
@@ -26,6 +26,57 @@ export default function MessageItem({
   messageRef
 }) {
   const [copied, setCopied] = useState(false);
+  
+  // Long press detection for mobile
+  const longPressTimer = useRef(null);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+  const isLongPress = useRef(false);
+
+  const handleTouchStart = useCallback((e) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    isLongPress.current = false;
+    
+    // Get the message wrapper element
+    const messageWrapper = e.currentTarget;
+    
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      // Trigger haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      // Create a synthetic event with touch coordinates and message element for context menu
+      const syntheticEvent = {
+        preventDefault: () => {},
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        messageElement: messageWrapper, // Pass the element for iMessage-style positioning
+      };
+      onContextMenu(syntheticEvent, msg);
+    }, 500); // 500ms long press
+  }, [msg, onContextMenu]);
+
+  const handleTouchMove = useCallback((e) => {
+    // Cancel long press if user moves finger
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
+    
+    if (deltaX > 10 || deltaY > 10) {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
 
   // Copy message text to clipboard
   const handleCopy = async () => {
@@ -96,6 +147,10 @@ export default function MessageItem({
         data-msg-id={msg.id}
         className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper`}
         onContextMenu={(e) => onContextMenu(e, msg)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         <div className="jumbo-emoji">
           {msg.text}
@@ -179,6 +234,10 @@ export default function MessageItem({
       data-msg-id={msg.id}
       className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''}`}
       onContextMenu={(e) => onContextMenu(e, msg)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {!isSent && (
         <div className="message-sender">

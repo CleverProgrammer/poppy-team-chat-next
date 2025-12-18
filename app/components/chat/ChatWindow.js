@@ -416,10 +416,13 @@ export default function ChatWindow() {
   // Context menu handler
   const handleContextMenu = (e, message) => {
     e.preventDefault()
+    // Get the message wrapper element - for right-click, find from target
+    const messageElement = e.messageElement || e.target.closest('.message-wrapper')
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       message,
+      messageElement,
     })
   }
 
@@ -834,6 +837,8 @@ export default function ChatWindow() {
         onPromote={handlePromoteMessage}
         onDemote={handleDemotePost}
         onAddToTeamMemory={handleAddToTeamMemory}
+        topReactions={topReactions}
+        onAddReaction={handleAddReaction}
       />
     </>
   )
