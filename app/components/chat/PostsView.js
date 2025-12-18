@@ -5,7 +5,7 @@ import { subscribeToPosts, createPost, deletePost, getDMId } from '../../lib/fir
 import PostItem from './PostItem';
 import PostComposer from './PostComposer';
 
-export default function PostsView({ user, currentChat }) {
+export default function PostsView({ user, currentChat, onViewModeChange }) {
   const [posts, setPosts] = useState([]);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
 
@@ -59,6 +59,21 @@ export default function PostsView({ user, currentChat }) {
   return (
     <div className="posts-view">
       <div className="posts-header">
+        <button
+          className="posts-back-btn"
+          onClick={() => onViewModeChange?.('messages')}
+        >
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="none">
+            <path
+              d="M10 2L2 10L10 18"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>Messages</span>
+        </button>
         <h2>Posts</h2>
         <button
           className="create-post-btn"

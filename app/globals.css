@@ -2365,6 +2365,11 @@ iframe[src*="vercel"] {
   color: var(--text-primary);
 }
 
+/* Hide posts back button on desktop - toggle is available */
+.posts-back-btn {
+  display: none;
+}
+
 .create-post-btn {
   padding: 10px 20px;
   background: #667eea;

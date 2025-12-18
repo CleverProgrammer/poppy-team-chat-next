@@ -38,6 +38,31 @@
 
   .posts-header {
     padding: 16px;
+    padding-top: calc(env(safe-area-inset-top, 20px) + 16px);
+  }
+
+  /* Mobile back button for posts view */
+  .posts-back-btn {
+    display: flex !important;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: #007AFF;
+    font-size: 17px;
+    font-weight: 400;
+    cursor: pointer;
+    padding: 8px 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .posts-back-btn svg {
+    width: 12px;
+    height: 20px;
+  }
+
+  .posts-back-btn:active {
+    opacity: 0.5;
   }
 
   .posts-list {
@@ -389,5 +414,16 @@
 @supports (padding-top: env(safe-area-inset-top)) {
   .sidebar {
     padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Additional iOS text selection prevention */
+@media (max-width: 768px) {
+  .message-wrapper .message,
+  .message-wrapper .text,
+  .message-wrapper .message-sender {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
   }
 }

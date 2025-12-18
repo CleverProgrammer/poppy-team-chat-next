@@ -54,7 +54,7 @@ export default function MessageItem({
         messageElement: messageWrapper, // Pass the element for iMessage-style positioning
       };
       onContextMenu(syntheticEvent, msg);
-    }, 500); // 500ms long press
+    }, 300); // 300ms - fire before iOS
   }, [msg, onContextMenu]);
 
   const handleTouchMove = useCallback((e) => {

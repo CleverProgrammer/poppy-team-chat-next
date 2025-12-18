@@ -632,7 +632,7 @@ export default function ChatWindow() {
           />
 
           {viewMode === 'posts' ? (
-            <PostsView user={user} currentChat={currentChat} />
+            <PostsView user={user} currentChat={currentChat} onViewModeChange={setViewMode} />
           ) : (
             <>
               {/* Messages Area */}
