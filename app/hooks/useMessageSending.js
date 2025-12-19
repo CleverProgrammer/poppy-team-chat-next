@@ -213,19 +213,13 @@ export function useMessageSending({
         // Get AI response
         await askPoppyDirectly(messageText);
       } else if (currentChat.type === 'channel') {
-        // Check if replying
-        if (currentReplyingTo) {
-          if (hasMedia) {
-            await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds);
-          } else {
-            await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
-          }
+        // Send message with optional media and reply
+        if (hasMedia) {
+          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo);
+        } else if (currentReplyingTo) {
+          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
         } else {
-          if (hasMedia) {
-            await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds);
-          } else {
-            await sendMessage(currentChat.id, user, messageText);
-          }
+          await sendMessage(currentChat.id, user, messageText);
         }
 
         // Mark as unread for all other users (async, non-blocking)
@@ -243,19 +237,13 @@ export function useMessageSending({
         // Find recipient from allUsers for Ragie metadata
         const recipient = allUsers.find(u => u.uid === currentChat.id) || null;
 
-        // Check if replying
-        if (currentReplyingTo) {
-          if (hasMedia) {
-            await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds);
-          } else {
-            await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
-          }
+        // Send DM with optional media and reply
+        if (hasMedia) {
+          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo);
+        } else if (currentReplyingTo) {
+          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
         } else {
-          if (hasMedia) {
-            await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds);
-          } else {
-            await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
-          }
+          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
         }
 
         // Mark as unread for the recipient (async, non-blocking)

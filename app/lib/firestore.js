@@ -534,12 +534,12 @@ export async function sendMessageDMWithImage(
 }
 
 // Send message with media (images and/or Mux videos)
-export async function sendMessageWithMedia(channelId, user, text = '', imageUrls = [], muxPlaybackIds = []) {
+export async function sendMessageWithMedia(channelId, user, text = '', imageUrls = [], muxPlaybackIds = [], replyTo = null) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
@@ -548,7 +548,18 @@ export async function sendMessageWithMedia(channelId, user, text = '', imageUrls
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add reply reference if replying
+    if (replyTo) {
+      messageData.replyTo = {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text,
+      }
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index text to Ragie if present
     if (text) {
@@ -574,12 +585,12 @@ export async function sendMessageWithMedia(channelId, user, text = '', imageUrls
 }
 
 // Send DM with media (images and/or Mux videos)
-export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '', recipient = null, imageUrls = [], muxPlaybackIds = []) {
+export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '', recipient = null, imageUrls = [], muxPlaybackIds = [], replyTo = null) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
@@ -588,7 +599,18 @@ export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '',
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add reply reference if replying
+    if (replyTo) {
+      messageData.replyTo = {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text,
+      }
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index text to Ragie if present
     if (text) {

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import MuxPlayer from '@mux/mux-player-react'
 import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
 import {
@@ -349,23 +348,54 @@ export default function MessageItem({
         </div>
       )}
       <div className='message'>
-        {/* Mux videos */}
+        {/* Mux videos - special styling for video replies */}
         {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && (
-          <div className='message-videos'>
+          <div className={`message-videos ${msg.replyTo ? 'video-reply' : ''}`}>
             {msg.muxPlaybackIds.map((playbackId, idx) => (
-              <MuxPlayer
-                key={idx}
-                playbackId={playbackId}
-                className='message-mux-video'
-                streamType='on-demand'
-                accentColor='#7c3aed'
-                style={{ 
-                  width: '100%', 
-                  maxWidth: '300px',
-                  borderRadius: '12px',
-                  marginBottom: '8px'
-                }}
-              />
+              msg.replyTo ? (
+                // Video reply - compact bubble with play button
+                <div key={idx} className='video-reply-bubble' onClick={(e) => {
+                  e.stopPropagation();
+                  // TODO: Open Stories viewer
+                }}>
+                  <img 
+                    src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
+                    alt='Video reply'
+                    className='video-reply-thumbnail'
+                  />
+                  <div className='video-reply-play'>
+                    <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
+                      <path d='M8 5v14l11-7z'/>
+                    </svg>
+                  </div>
+                  <div className='video-reply-badge'>🎬</div>
+                </div>
+              ) : (
+                // Regular video - use native video for better mobile compatibility
+                <video
+                  key={idx}
+                  className='message-mux-video'
+                  controls
+                  playsInline
+                  preload='metadata'
+                  poster={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
+                  style={{ 
+                    width: '100%', 
+                    maxWidth: '300px',
+                    borderRadius: '12px',
+                    marginBottom: '8px'
+                  }}
+                >
+                  <source 
+                    src={`https://stream.mux.com/${playbackId}.m3u8`} 
+                    type='application/x-mpegURL' 
+                  />
+                  <source 
+                    src={`https://stream.mux.com/${playbackId}/high.mp4`} 
+                    type='video/mp4' 
+                  />
+                </video>
+              )
             ))}
           </div>
         )}
