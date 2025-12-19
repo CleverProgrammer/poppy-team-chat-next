@@ -105,7 +105,7 @@ export function useSubscriptions({
 
               if (isMentioned) {
                 console.log(`🔔 Global notification - Mentioned in ${channelId} channel by ${lastMessage.sender}`);
-                playKnockSound();
+                // playKnockSound(); // Disabled
                 sendBrowserNotification(
                   `Mentioned in #${channelId}`,
                   lastMessage.text,
@@ -135,7 +135,7 @@ export function useSubscriptions({
           if (lastMessageId && lastMessageId !== lastMessage.id) {
             if (lastMessage.senderId !== user.uid && !lastMessage.optimistic && isTabHiddenRef.current) {
               console.log(`🔔 Global notification - New DM from ${lastMessage.sender}`);
-              playKnockSound();
+              // playKnockSound(); // Disabled
               sendBrowserNotification(
                 'New Direct Message',
                 lastMessage.text,
