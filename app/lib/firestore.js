@@ -533,6 +533,94 @@ export async function sendMessageDMWithImage(
   }
 }
 
+// Send message with media (images and/or Mux videos)
+export async function sendMessageWithMedia(channelId, user, text = '', imageUrls = [], muxPlaybackIds = []) {
+  if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  try {
+    const messagesRef = collection(db, 'channels', channelId, 'messages')
+    const docRef = await addDoc(messagesRef, {
+      text: text,
+      imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
+      imageUrls: imageUrls.length > 0 ? imageUrls : null,
+      muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    })
+
+    // Index text to Ragie if present
+    if (text) {
+      fetch('/api/ragie/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: channelId,
+          chatType: 'channel',
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(err => console.error('Ragie sync failed:', err))
+    }
+  } catch (error) {
+    console.error('Error sending message with media:', error)
+    throw error
+  }
+}
+
+// Send DM with media (images and/or Mux videos)
+export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '', recipient = null, imageUrls = [], muxPlaybackIds = []) {
+  if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  try {
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
+    const docRef = await addDoc(messagesRef, {
+      text: text,
+      imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
+      imageUrls: imageUrls.length > 0 ? imageUrls : null,
+      muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    })
+
+    // Index text to Ragie if present
+    if (text) {
+      fetch('/api/ragie/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: dmId,
+          chatType: 'dm',
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+          participants: dmId.split('_').slice(1),
+          recipientId: recipientId,
+          recipientName: recipient?.displayName || recipient?.email || null,
+          recipientEmail: recipient?.email || null,
+        }),
+      }).catch(err => console.error('Ragie sync failed:', err))
+    }
+
+    // Add to active DMs
+    await addActiveDM(user.uid, recipientId)
+    await addActiveDM(recipientId, user.uid)
+  } catch (error) {
+    console.error('Error sending DM with media:', error)
+    throw error
+  }
+}
+
 // Add reaction to a message
 export async function addReaction(channelId, messageId, userId, emoji, isDM = false) {
   try {

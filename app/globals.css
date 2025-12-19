@@ -1078,6 +1078,17 @@ iframe[src*="vercel"] {
   margin-bottom: 0;
 }
 
+/* Mux video player */
+.message-videos {
+  margin-bottom: 8px;
+}
+
+.message-mux-video {
+  --media-object-fit: contain;
+  --media-object-position: center;
+  aspect-ratio: 16/9;
+}
+
 /* Video preview badge in input */
 .video-badge {
   position: absolute;

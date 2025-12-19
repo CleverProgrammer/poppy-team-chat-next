@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import MuxPlayer from '@mux/mux-player-react'
 import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
 import {
@@ -348,26 +349,34 @@ export default function MessageItem({
         </div>
       )}
       <div className='message'>
-        {/* Support multiple images/videos or single image/video */}
+        {/* Mux videos */}
+        {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && (
+          <div className='message-videos'>
+            {msg.muxPlaybackIds.map((playbackId, idx) => (
+              <MuxPlayer
+                key={idx}
+                playbackId={playbackId}
+                className='message-mux-video'
+                streamType='on-demand'
+                accentColor='#7c3aed'
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '300px',
+                  borderRadius: '12px',
+                  marginBottom: '8px'
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {/* Support multiple images or single image */}
         {(msg.imageUrls || msg.imageUrl) && (
           <div
             className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}
           >
             {(() => {
-              const allMedia = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
-              const isVideoUrl = url => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)
-              return allMedia.map((url, idx) =>
-                isVideoUrl(url) ? (
-                  <video
-                    key={idx}
-                    src={url}
-                    className='message-video'
-                    controls
-                    playsInline
-                    preload='metadata'
-                    onClick={e => e.stopPropagation()}
-                  />
-                ) : (
+              const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
+              return allImages.map((url, idx) => (
                   <img
                     key={idx}
                     src={url}
@@ -375,10 +384,7 @@ export default function MessageItem({
                     className='message-image'
                     onClick={e => {
                       e.stopPropagation()
-                      onImageClick(
-                        allMedia.filter(u => !isVideoUrl(u)),
-                        idx
-                      )
+                      onImageClick(allImages, idx)
                     }}
                   />
                 )

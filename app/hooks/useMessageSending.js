@@ -6,8 +6,8 @@ import {
   sendMessageDM,
   getDMId,
   uploadImage,
-  sendMessageWithImage,
-  sendMessageDMWithImage,
+  sendMessageWithMedia,
+  sendMessageDMWithMedia,
   sendMessageWithReply,
   sendMessageDMWithReply,
   editMessage,
@@ -155,20 +155,56 @@ export function useMessageSending({
 
     setSending(true);
     try {
-      let imageUrl = null;
       let imageUrls = [];
+      let muxPlaybackIds = [];
 
-      // Upload images if present
+      // Separate videos and images
+      const videoFiles = currentImageFiles.filter(f => f.type.startsWith('video/'));
+      const imageOnlyFiles = currentImageFiles.filter(f => f.type.startsWith('image/'));
+
+      // Upload media if present
       if (currentImageFiles.length > 0) {
         setUploading(true);
-        // Upload all images in parallel
-        imageUrls = await Promise.all(
-          currentImageFiles.map(file => uploadImage(file, user.uid))
-        );
-        // For backwards compatibility, set imageUrl to first image
-        imageUrl = imageUrls[0];
+
+        // Upload images to Firebase in parallel
+        if (imageOnlyFiles.length > 0) {
+          imageUrls = await Promise.all(
+            imageOnlyFiles.map(file => uploadImage(file, user.uid))
+          );
+        }
+
+        // Upload videos to Mux in parallel
+        if (videoFiles.length > 0) {
+          const muxResults = await Promise.all(
+            videoFiles.map(async (file) => {
+              // Get upload URL
+              const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' });
+              const { uploadUrl, uploadId } = await uploadResponse.json();
+              
+              // Upload to Mux
+              await fetch(uploadUrl, { method: 'PUT', body: file });
+              
+              // Poll for playback ID (with timeout)
+              let playbackId = null;
+              for (let i = 0; i < 30; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const assetRes = await fetch(`/api/mux/asset?uploadId=${uploadId}`);
+                const assetData = await assetRes.json();
+                if (assetData.ready && assetData.playbackId) {
+                  playbackId = assetData.playbackId;
+                  break;
+                }
+              }
+              return playbackId;
+            })
+          );
+          muxPlaybackIds = muxResults.filter(Boolean);
+        }
+
         setUploading(false);
       }
+
+      const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0;
 
       if (currentChat.type === 'ai') {
         // Send user message to Firestore
@@ -179,15 +215,14 @@ export function useMessageSending({
       } else if (currentChat.type === 'channel') {
         // Check if replying
         if (currentReplyingTo) {
-          if (imageUrls.length > 0) {
-            // TODO: Add support for reply with image
-            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText, imageUrls);
+          if (hasMedia) {
+            await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds);
           } else {
             await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
           }
         } else {
-          if (imageUrls.length > 0) {
-            await sendMessageWithImage(currentChat.id, user, imageUrl, messageText, imageUrls);
+          if (hasMedia) {
+            await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds);
           } else {
             await sendMessage(currentChat.id, user, messageText);
           }
@@ -210,15 +245,14 @@ export function useMessageSending({
 
         // Check if replying
         if (currentReplyingTo) {
-          if (imageUrls.length > 0) {
-            // TODO: Add support for reply with image
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient, imageUrls);
+          if (hasMedia) {
+            await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds);
           } else {
             await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
           }
         } else {
-          if (imageUrls.length > 0) {
-            await sendMessageDMWithImage(dmId, user, imageUrl, currentChat.id, messageText, recipient, imageUrls);
+          if (hasMedia) {
+            await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds);
           } else {
             await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
           }
