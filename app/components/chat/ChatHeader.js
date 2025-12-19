@@ -83,7 +83,7 @@ export default function ChatHeader({
           </svg>
         </button>
         <span className='chat-header-icon'>{getIcon()}</span>
-        <h1>{currentChat.name}</h1>
+        <h1>{currentChat.name?.replace('🤖 ', '').replace('🤖', '')}</h1>
         <span className='chat-header-subtitle'>{getSubtitle()}</span>
 
         {viewMode && onViewModeChange && (
@@ -121,7 +121,7 @@ export default function ChatHeader({
           <span>Back</span>
         </button>
         {getMobileAvatar()}
-        <div className='chat-header-name'>{currentChat.name}</div>
+        <div className='chat-header-name'>{currentChat.name?.replace('🤖 ', '').replace('🤖', '')}</div>
         <div className='chat-header-status'>{getSubtitle()}</div>
       </div>
     </>

@@ -122,11 +122,9 @@ Don't ask permission to search or remember things - just do it.
     const recentHistory = chatHistory.slice(-10)
     recentHistory.forEach(msg => {
       if (msg.sender && msg.text) {
-        // For AI messages, don't include sender prefix (it learns to mimic it)
-        const content = msg.senderId === 'ai' ? msg.text : `${msg.sender}: ${msg.text}`
         messages.push({
           role: msg.senderId === 'ai' ? 'assistant' : 'user',
-          content,
+          content: `${msg.sender}: ${msg.text}`,
         })
       }
     })
@@ -184,9 +182,7 @@ Don't ask permission to search or remember things - just do it.
     },
   })
 
-  console.log(
-    '🌸 Poppy: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...'
-  )
+  console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
   const keywordsApiKey = process.env.KEYWORDS_AI_API_KEY
@@ -254,21 +250,18 @@ Don't ask permission to search or remember things - just do it.
       },
       async () => {
         const response = await anthropic.messages.create(createParams)
-        console.log('🌸 Poppy: Response received')
+        console.log('🤖 Poppy AI: Response received')
         return response
       }
     )
   } catch (error) {
-    console.error('🌸 Poppy: API Error:', error)
+    console.error('🤖 Poppy AI: API Error:', error)
     throw new Error(`API error: ${error.message}`)
   }
 
   // Log response structure for debugging
   if (!data.content) {
-    console.error(
-      '🌸 Poppy: WARNING - No content in response:',
-      JSON.stringify(data, null, 2)
-    )
+    console.error('🤖 Poppy AI: WARNING - No content in response:', JSON.stringify(data, null, 2))
   }
 
   // Handle tool use loop
@@ -298,10 +291,7 @@ Don't ask permission to search or remember things - just do it.
 
       console.log(`\n${'='.repeat(50)}`)
       console.log(`${toolCategory}: Using tool "${toolUse.name}"`)
-      console.log(
-        `${toolCategory}: Input:`,
-        JSON.stringify(toolUse.input, null, 2)
-      )
+      console.log(`${toolCategory}: Input:`, JSON.stringify(toolUse.input, null, 2))
       console.log(`${'='.repeat(50)}`)
 
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
@@ -311,15 +301,9 @@ Don't ask permission to search or remember things - just do it.
 
         // Handle Ragie search tool separately
         if (toolUse.name === 'search_chat_history') {
-          console.log(
-            `🔍 RAGIE: Searching chat history for: "${toolUse.input.query}"`
-          )
+          console.log(`🔍 RAGIE: Searching chat history for: "${toolUse.input.query}"`)
           console.log(`🔍 RAGIE: Current chat context:`, currentChat)
-          const results = await searchChatHistory(
-            userId,
-            toolUse.input.query,
-            currentChat
-          )
+          const results = await searchChatHistory(userId, toolUse.input.query, currentChat)
           toolResponse = { content: results }
           console.log(`🔍 RAGIE: Found ${results.length} results`)
           if (results.length > 0) {
@@ -338,11 +322,7 @@ Don't ask permission to search or remember things - just do it.
               },
             },
             async () => {
-              return await mcpManager.callTool(
-                userId,
-                toolUse.name,
-                toolUse.input
-              )
+              return await mcpManager.callTool(userId, toolUse.name, toolUse.input)
             }
           )
         }
@@ -398,9 +378,7 @@ Don't ask permission to search or remember things - just do it.
 
     // If execute_action failed due to size, add a hint to retry with query_database
     if (executeActionFailed) {
-      console.log(
-        '🔄 MCP: execute_action was truncated, adding retry hint for Claude'
-      )
+      console.log('🔄 MCP: execute_action was truncated, adding retry hint for Claude')
       messages.push({
         role: 'user',
         content:
@@ -450,35 +428,29 @@ Don't ask permission to search or remember things - just do it.
         },
       },
     })
-    console.log('🌸 Poppy: Got response after tool use')
+    console.log('🤖 Poppy AI: Got response after tool use')
   }
 
   // Extract final text from response
   if (!data || !data.content || !Array.isArray(data.content)) {
-    console.error('🌸 Poppy: Invalid response structure:', data)
+    console.error('🤖 Poppy AI: Invalid response structure:', data)
     const aiResponse = 'Sorry, I got a weird response. Try again!'
 
     if (controller && encoder) {
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`)
-      )
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`))
     }
 
     return aiResponse
   }
 
   const textBlock = data.content.find(block => block.type === 'text')
-  const aiResponse = textBlock
-    ? textBlock.text
-    : 'Hmm, I got confused there. Try asking again!'
+  const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!'
 
   if (sendStatus) sendStatus('Done!')
 
   // If streaming, send the final response
   if (controller && encoder) {
-    controller.enqueue(
-      encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`)
-    )
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`))
   }
 
   return aiResponse
@@ -486,23 +458,16 @@ Don't ask permission to search or remember things - just do it.
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user, currentChat } =
-      await request.json()
+    const { message, chatHistory, stream, user, currentChat } = await request.json()
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       console.error('ANTHROPIC_API_KEY not configured')
-      return NextResponse.json(
-        { error: 'AI service not configured' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
     }
 
     // Generate unique workflow ID for this request
@@ -515,9 +480,7 @@ export async function POST(request) {
       const customReadable = new ReadableStream({
         async start(controller) {
           const sendStatus = status => {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ status })}\n\n`)
-            )
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status })}\n\n`))
           }
 
           try {
@@ -552,9 +515,7 @@ export async function POST(request) {
             controller.close()
           } catch (error) {
             controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ error: error.message })}\n\n`
-              )
+              encoder.encode(`data: ${JSON.stringify({ error: error.message })}\n\n`)
             )
             controller.close()
           }
@@ -598,9 +559,6 @@ export async function POST(request) {
     return NextResponse.json({ response: aiResponse })
   } catch (error) {
     console.error('Error in AI chat route:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,203 +1,222 @@
-'use client';
+'use client'
 
-import { useState, useCallback } from 'react';
-import { sendMessage, sendMessageDM, getDMId, sendAIMessage, markChatAsUnread } from '../lib/firestore';
+import { useState, useCallback } from 'react'
+import {
+  sendMessage,
+  sendMessageDM,
+  getDMId,
+  sendAIMessage,
+  markChatAsUnread,
+} from '../lib/firestore'
 
 const AI_USER = {
   uid: 'ai',
   displayName: 'Poppy',
   email: 'ai@poppy.chat',
-  photoURL: ''
-};
+  photoURL: '',
+}
 
 export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
-  const [aiProcessing, setAiProcessing] = useState(false);
-  const [aiTyping, setAiTyping] = useState(false);
-  const [aiTypingStatus, setAiTypingStatus] = useState('');
+  const [aiProcessing, setAiProcessing] = useState(false)
+  const [aiTyping, setAiTyping] = useState(false)
+  const [aiTypingStatus, setAiTypingStatus] = useState('')
 
   // Call AI API with streaming support
-  const callAI = useCallback(async (question, chatHistory, onStatus = null) => {
-    const response = await fetch('/api/ai-chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: question,
-        chatHistory,
-        stream: !!onStatus,  // Enable streaming if onStatus callback is provided
-        user: user ? {
-          id: user.uid,
-          email: user.email,
-          name: user.displayName
-        } : null,
-        currentChat: currentChat ? {
-          type: currentChat.type,
-          id: currentChat.id
-        } : null
+  const callAI = useCallback(
+    async (question, chatHistory, onStatus = null) => {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: question,
+          chatHistory,
+          stream: !!onStatus, // Enable streaming if onStatus callback is provided
+          user: user
+            ? {
+                id: user.uid,
+                email: user.email,
+                name: user.displayName,
+              }
+            : null,
+          currentChat: currentChat
+            ? {
+                type: currentChat.type,
+                id: currentChat.id,
+              }
+            : null,
+        }),
       })
-    });
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
 
-    // If streaming
-    if (onStatus && response.headers.get('content-type')?.includes('text/event-stream')) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let finalResponse = '';
+      // If streaming
+      if (onStatus && response.headers.get('content-type')?.includes('text/event-stream')) {
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let finalResponse = ''
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6))
 
-            if (data.status) {
-              onStatus(data.status);
-            } else if (data.response) {
-              finalResponse = data.response;
-            } else if (data.error) {
-              throw new Error(data.error);
+              if (data.status) {
+                onStatus(data.status)
+              } else if (data.response) {
+                finalResponse = data.response
+              } else if (data.error) {
+                throw new Error(data.error)
+              }
             }
           }
         }
+
+        return finalResponse
       }
 
-      return finalResponse;
-    }
-
-    // Non-streaming fallback
-    const data = await response.json();
-    return data.response;
-  }, [user, currentChat]);
+      // Non-streaming fallback
+      const data = await response.json()
+      return data.response
+    },
+    [user, currentChat]
+  )
 
   // Ask Poppy in channel/DM (posts response as message)
-  const askPoppy = useCallback(async (userQuestion) => {
-    if (aiProcessing || !currentChat) return;
+  const askPoppy = useCallback(
+    async userQuestion => {
+      if (aiProcessing || !currentChat) return
 
-    setAiProcessing(true);
+      setAiProcessing(true)
 
-    // Show typing indicator with state (like DM typing)
-    setAiTyping(true);
-    setAiTypingStatus('Thinking...');
-    setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: 'LAST',
-        align: 'end',
-        behavior: 'smooth'
-      });
-    }, 0);
+      // Show typing indicator with state (like DM typing)
+      setAiTyping(true)
+      setAiTypingStatus('Thinking...')
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: 'LAST',
+          align: 'end',
+          behavior: 'smooth',
+        })
+      }, 0)
 
-    try {
-      console.log('🌸 Poppy: Calling API...');
+      try {
+        console.log('🤖 Poppy AI: Calling API...')
 
-      // Update typing indicator with status updates
-      const onStatus = (status) => {
-        console.log('🔄 Poppy Status Update:', status);
-        setAiTypingStatus(status);
-      };
+        // Update typing indicator with status updates
+        const onStatus = status => {
+          console.log('🔄 Poppy Status Update:', status)
+          setAiTypingStatus(status)
+        }
 
-      const aiResponse = await callAI(userQuestion, messages.slice(-10), onStatus);
+        const aiResponse = await callAI(userQuestion, messages.slice(-10), onStatus)
 
-      // Remove typing indicator
-      setAiTyping(false);
+        // Remove typing indicator
+        setAiTyping(false)
 
-      // Post AI response as a real message
-      if (currentChat.type === 'channel') {
-        await sendMessage(currentChat.id, AI_USER, aiResponse);
-      } else {
-        const dmId = getDMId(user.uid, currentChat.id);
-        await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id);
+        // Post AI response as a real message
+        if (currentChat.type === 'channel') {
+          await sendMessage(currentChat.id, AI_USER, aiResponse)
+        } else {
+          const dmId = getDMId(user.uid, currentChat.id)
+          await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id)
+        }
+
+        console.log('🤖 Poppy AI: Response posted')
+      } catch (error) {
+        console.error('🤖 Poppy AI: Error:', error)
+
+        // Remove typing indicator
+        setAiTyping(false)
+
+        // Post error message
+        const errorMsg = `Sorry, I had a problem: ${error.message}. Try again!`
+        if (currentChat.type === 'channel') {
+          await sendMessage(currentChat.id, AI_USER, errorMsg)
+        } else {
+          const dmId = getDMId(user.uid, currentChat.id)
+          await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id)
+        }
+      } finally {
+        setAiProcessing(false)
       }
-
-      console.log('🌸 Poppy: Response posted');
-    } catch (error) {
-      console.error('🌸 Poppy: Error:', error);
-
-      // Remove typing indicator
-      setAiTyping(false);
-
-      // Post error message
-      const errorMsg = `Sorry, I had a problem: ${error.message}. Try again!`;
-      if (currentChat.type === 'channel') {
-        await sendMessage(currentChat.id, AI_USER, errorMsg);
-      } else {
-        const dmId = getDMId(user.uid, currentChat.id);
-        await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id);
-      }
-    } finally {
-      setAiProcessing(false);
-    }
-  }, [aiProcessing, currentChat, user, messages, setMessages, virtuosoRef, callAI]);
+    },
+    [aiProcessing, currentChat, user, messages, setMessages, virtuosoRef, callAI]
+  )
 
   // Direct chat with Poppy (for AI chat type - saves to Firestore)
-  const askPoppyDirectly = useCallback(async (userQuestion) => {
-    if (aiProcessing || !user) return;
+  const askPoppyDirectly = useCallback(
+    async userQuestion => {
+      if (aiProcessing || !user) return
 
-    setAiProcessing(true);
+      setAiProcessing(true)
 
-    // Show typing indicator with state (like DM typing)
-    setAiTyping(true);
-    setAiTypingStatus('Thinking...');
-    setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: 'LAST',
-        align: 'end',
-        behavior: 'smooth'
-      });
-    }, 0);
+      // Show typing indicator with state (like DM typing)
+      setAiTyping(true)
+      setAiTypingStatus('Thinking...')
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: 'LAST',
+          align: 'end',
+          behavior: 'smooth',
+        })
+      }, 0)
 
-    try {
-      console.log('🌸 Poppy: Calling API for direct chat...');
-      const chatHistory = messages.slice(-10).map(m => ({
-        role: m.senderId === 'ai' ? 'assistant' : 'user',
-        text: m.text
-      }));
+      try {
+        console.log('🤖 Poppy AI: Calling API for direct chat...')
+        const chatHistory = messages.slice(-10).map(m => ({
+          role: m.senderId === 'ai' ? 'assistant' : 'user',
+          text: m.text,
+        }))
 
-      // Update typing indicator with status updates
-      const onStatus = (status) => {
-        console.log('🔄 Poppy Status Update:', status);
-        setAiTypingStatus(status);
-      };
+        // Update typing indicator with status updates
+        const onStatus = status => {
+          console.log('🔄 Poppy Status Update:', status)
+          setAiTypingStatus(status)
+        }
 
-      const aiResponse = await callAI(userQuestion, chatHistory, onStatus);
+        const aiResponse = await callAI(userQuestion, chatHistory, onStatus)
 
-      // Remove typing indicator
-      setAiTyping(false);
+        // Remove typing indicator
+        setAiTyping(false)
 
-      // Save AI response to Firestore
-      await sendAIMessage(user.uid, aiResponse, true);
+        // Save AI response to Firestore
+        await sendAIMessage(user.uid, aiResponse, true)
 
-      // Mark AI chat as unread for the user
-      markChatAsUnread(user.uid, 'ai', 'poppy-ai');
+        // Mark AI chat as unread for the user
+        markChatAsUnread(user.uid, 'ai', 'poppy-ai')
 
-      console.log('🌸 Poppy: Response added to direct chat');
-    } catch (error) {
-      console.error('🌸 Poppy: Error:', error);
+        console.log('🤖 Poppy AI: Response added to direct chat')
+      } catch (error) {
+        console.error('🤖 Poppy AI: Error:', error)
 
-      // Remove typing indicator
-      setAiTyping(false);
+        // Remove typing indicator
+        setAiTyping(false)
 
-      // Save error message to Firestore
-      await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again!`, true);
+        // Save error message to Firestore
+        await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again!`, true)
 
-      // Mark AI chat as unread for the user
-      markChatAsUnread(user.uid, 'ai', 'poppy-ai');
-    } finally {
-      setAiProcessing(false);
-    }
-  }, [aiProcessing, user, messages, setMessages, virtuosoRef, callAI]);
+        // Mark AI chat as unread for the user
+        markChatAsUnread(user.uid, 'ai', 'poppy-ai')
+      } finally {
+        setAiProcessing(false)
+      }
+    },
+    [aiProcessing, user, messages, setMessages, virtuosoRef, callAI]
+  )
 
   return {
     aiProcessing,
     aiTyping,
     aiTypingStatus,
     askPoppy,
-    askPoppyDirectly
-  };
+    askPoppyDirectly,
+  }
 }
