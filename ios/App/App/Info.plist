@@ -57,5 +57,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Poppy Chat needs camera access to record video replies</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Poppy Chat needs microphone access to record audio with your videos</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Poppy Chat needs photo library access to share photos and videos</string>
 </dict>
 </plist>
