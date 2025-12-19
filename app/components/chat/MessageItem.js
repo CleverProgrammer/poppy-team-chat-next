@@ -23,6 +23,7 @@ export default function MessageItem({
   replyingTo,
   topReactions,
   onReply,
+  onVideoReply,
   onEdit,
   onDelete,
   onPromote,
@@ -40,6 +41,7 @@ export default function MessageItem({
   const [storiesVideos, setStoriesVideos] = useState([])
   const [storiesInitialIndex, setStoriesInitialIndex] = useState(0)
   const lastTapTime = useRef(0)
+  const secondLastTapTime = useRef(0) // For triple-tap detection
   const elementRef = useRef(null)
   const longPressTimer = useRef(null)
   const isLongPressTriggered = useRef(false)
@@ -86,6 +88,17 @@ export default function MessageItem({
     setActionSheetOpen(true)
   }, [])
 
+  // Handle triple-tap: open video reply directly
+  const handleTripleTap = useCallback(() => {
+    hapticHeavy()
+    onVideoReply?.(msg.id, msg.sender, msg.text || msg.content || '')
+  }, [msg.id, msg.sender, msg.text, msg.content, onVideoReply])
+
+  // Handle video reply from action sheet
+  const handleVideoReply = useCallback(() => {
+    onVideoReply?.(msg.id, msg.sender, msg.text || msg.content || '')
+  }, [msg.id, msg.sender, msg.text, msg.content, onVideoReply])
+
   // Handle long-press/right-click: show full actions (centered)
   const handleLongPress = useCallback(() => {
     hapticHeavy()
@@ -107,7 +120,7 @@ export default function MessageItem({
     [handleLongPress]
   )
 
-  // Touch end - check for double tap
+  // Touch end - check for double tap and triple tap
   const handleTouchEnd = useCallback(
     e => {
       // Clear long press timer
@@ -121,21 +134,34 @@ export default function MessageItem({
         return
       }
 
-      // Double tap detection
+      // Tap detection
       const now = Date.now()
       const timeSinceLastTap = now - lastTapTime.current
+      const timeSinceSecondLastTap = now - secondLastTapTime.current
 
+      // Triple tap detection (3 taps within 600ms total)
+      if (timeSinceSecondLastTap < 600 && timeSinceLastTap < 350 && timeSinceLastTap > 50) {
+        e.preventDefault()
+        e.stopPropagation()
+        handleTripleTap()
+        lastTapTime.current = 0
+        secondLastTapTime.current = 0
+        return
+      }
+
+      // Double tap detection
       if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
-        // Double tap!
         e.preventDefault()
         e.stopPropagation()
         handleDoubleTap()
+        secondLastTapTime.current = lastTapTime.current
         lastTapTime.current = 0
       } else {
+        secondLastTapTime.current = lastTapTime.current
         lastTapTime.current = now
       }
     },
-    [handleDoubleTap]
+    [handleDoubleTap, handleTripleTap]
   )
 
   // Touch move - cancel long press
@@ -296,6 +322,7 @@ export default function MessageItem({
           position={actionSheetPosition}
           onReaction={emoji => onAddReaction(msg.id, emoji)}
           onReply={() => onReply(msg.id, msg.sender, msg.text)}
+          onVideoReply={handleVideoReply}
           onEdit={() => onEdit(msg.id, msg.text)}
           onDelete={() => onDelete?.(msg.id)}
           onPromote={() => onPromote?.(msg.id)}
@@ -542,6 +569,7 @@ export default function MessageItem({
         position={actionSheetPosition}
         onReaction={emoji => onAddReaction(msg.id, emoji)}
         onReply={() => onReply(msg.id, msg.sender, msg.text)}
+        onVideoReply={handleVideoReply}
         onEdit={() => onEdit(msg.id, msg.text)}
         onDelete={() => onDelete?.(msg.id)}
         onPromote={() => onPromote?.(msg.id)}

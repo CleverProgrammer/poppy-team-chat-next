@@ -16,6 +16,7 @@ export default function MessageActionSheet({
   position = null, // { top, left } for contextual placement, null for centered
   onReaction,
   onReply,
+  onVideoReply,
   onEdit,
   onDelete,
   onPromote,
@@ -173,6 +174,12 @@ export default function MessageActionSheet({
               <button className="action-sheet-action-btn" onClick={() => handleAction(onReply)}>
                 <span className="action-icon">↩</span>
                 <span>Reply</span>
+              </button>
+            )}
+            {!isPost && onVideoReply && (
+              <button className="action-sheet-action-btn" onClick={() => handleAction(onVideoReply)}>
+                <span className="action-icon">🎬</span>
+                <span>Video Reply</span>
               </button>
             )}
             {isOwnMessage && (

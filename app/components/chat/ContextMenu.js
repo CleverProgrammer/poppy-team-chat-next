@@ -9,6 +9,7 @@ export default function ContextMenu({
   setContextMenu,
   user,
   onReply,
+  onVideoReply,
   onEdit,
   onDelete,
   onPromote,
@@ -60,6 +61,11 @@ export default function ContextMenu({
 
   const handleReply = () => {
     onReply(message.id, message.sender, message.text || message.content);
+    setContextMenu(null);
+  };
+
+  const handleVideoReply = () => {
+    onVideoReply?.(message.id, message.sender, message.text || message.content || '');
     setContextMenu(null);
   };
 
@@ -191,7 +197,9 @@ export default function ContextMenu({
             <div className="context-menu-actions">
               {/* 1. Reply */}
               {!isPost && <button onClick={handleReply}>↩ Reply</button>}
-              {/* 2. Add to Team Memory */}
+              {/* 2. Video Reply */}
+              {!isPost && onVideoReply && <button onClick={handleVideoReply}>🎬 Video Reply</button>}
+              {/* 3. Add to Team Memory */}
               {isOwnMessage && (
                 <button onClick={handleAddToTeamMemory}>🧠 Add to Team AI Memory</button>
               )}

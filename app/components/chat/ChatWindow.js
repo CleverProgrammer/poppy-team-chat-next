@@ -136,6 +136,7 @@ export default function ChatWindow() {
     imageFiles,
     uploading,
     setUploading,
+    handleImageSelect,
     handleRemoveImage,
     handleRemoveImageAtIndex,
     clearImage,
@@ -154,6 +155,8 @@ export default function ChatWindow() {
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const videoReplyInputRef = useRef(null)
+  const pendingVideoReplyRef = useRef(null) // Store the message we're replying to
 
   // Subscriptions hook (handles all Firebase subscriptions) - must be early for allUsers
   const { allUsers, activeDMs, otherUserTyping } = useSubscriptions({
@@ -360,6 +363,38 @@ export default function ChatWindow() {
 
   const cancelReply = () => {
     setReplyingTo(null)
+  }
+
+  // Video reply - opens camera directly and auto-sends
+  const startVideoReply = (messageId, sender, text) => {
+    // Store the reply info for when video is selected
+    pendingVideoReplyRef.current = { msgId: messageId, sender, text }
+    setContextMenu(null)
+    // Trigger the hidden video input
+    videoReplyInputRef.current?.click()
+  }
+
+  // Handle when a video is selected for reply
+  const handleVideoReplySelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !pendingVideoReplyRef.current) return
+
+    // Set the reply state
+    setReplyingTo(pendingVideoReplyRef.current)
+    
+    // Add the video to the upload queue
+    await handleImageSelect(file)
+
+    // Clear the pending ref
+    pendingVideoReplyRef.current = null
+
+    // Reset the input so the same file can be selected again
+    e.target.value = ''
+
+    // Auto-send after a brief delay to let the state update
+    setTimeout(() => {
+      handleSend()
+    }, 100)
   }
 
   const handleMessagesAreaClick = e => {
@@ -751,6 +786,15 @@ export default function ChatWindow() {
                   capture={replyingTo ? 'user' : undefined}
                   accept={replyingTo ? 'video/*' : undefined}
                 />
+                {/* Hidden input for video replies - opens camera directly */}
+                <input
+                  ref={videoReplyInputRef}
+                  type="file"
+                  accept="video/*"
+                  capture="user"
+                  onChange={handleVideoReplySelect}
+                  style={{ display: 'none' }}
+                />
                 {isDragActive && (
                   <div className='drag-overlay'>
                     <div className='drag-overlay-content'>
@@ -827,6 +871,7 @@ export default function ChatWindow() {
                             replyingTo={replyingTo}
                             topReactions={topReactions}
                             onReply={startReply}
+                            onVideoReply={startVideoReply}
                             onEdit={startEdit}
                             onDelete={handleDeleteMessage}
                             onPromote={handlePromoteMessage}
@@ -956,6 +1001,7 @@ export default function ChatWindow() {
         setContextMenu={setContextMenu}
         user={user}
         onReply={startReply}
+        onVideoReply={startVideoReply}
         onEdit={startEdit}
         onDelete={handleDeleteMessage}
         onPromote={handlePromoteMessage}

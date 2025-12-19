@@ -98,7 +98,7 @@ export function useImageUpload() {
     }
   }, [handleMultipleImageSelect]);
 
-  const dropzoneProps = useDropzone({
+  const { open, ...dropzoneProps } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
@@ -123,7 +123,8 @@ export function useImageUpload() {
     handleRemoveImage,
     handleRemoveImageAtIndex,
     clearImage,
-    dropzoneProps
+    dropzoneProps,
+    openFilePicker: open, // Expose to trigger file picker programmatically
   };
 }
 
