@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import MessageTimestamp from './MessageTimestamp';
 import MessageActionSheet from './MessageActionSheet';
 import { linkifyText, isSingleEmoji, isLoomUrl, getLoomEmbedUrl } from '../../utils/messageFormatting';
-import { hapticHeavy, hapticLight } from '../../utils/haptics';
+import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics';
 
 export default function MessageItem({
   msg,
@@ -29,12 +29,38 @@ export default function MessageItem({
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
   const [actionSheetReactionsOnly, setActionSheetReactionsOnly] = useState(false);
   const [actionSheetPosition, setActionSheetPosition] = useState(null);
+  const [animatingEmoji, setAnimatingEmoji] = useState(null);
   const lastTapTime = useRef(0);
   const elementRef = useRef(null);
   const longPressTimer = useRef(null);
   const isLongPressTriggered = useRef(false);
+  const prevReactionsRef = useRef(null);
 
   const isOwnMessage = msg.senderId === user?.uid;
+
+  // Track reaction changes and trigger animation for new reactions
+  useEffect(() => {
+    const currentReactions = msg.reactions || {};
+    const prevReactions = prevReactionsRef.current;
+    
+    // Skip on initial mount
+    if (prevReactions !== null) {
+      // Find new or increased reactions
+      Object.entries(currentReactions).forEach(([userId, emoji]) => {
+        const prevEmoji = prevReactions[userId];
+        if (prevEmoji !== emoji) {
+          // New reaction or changed reaction - trigger animation
+          setAnimatingEmoji(emoji);
+          hapticSuccess();
+          
+          // Clear animation after it completes
+          setTimeout(() => setAnimatingEmoji(null), 900);
+        }
+      });
+    }
+    
+    prevReactionsRef.current = { ...currentReactions };
+  }, [msg.reactions]);
 
   // Handle double-tap/double-click: show reactions
   const handleDoubleTap = useCallback(() => {
@@ -223,10 +249,10 @@ export default function MessageItem({
             {Object.entries(reactionCounts).map(([emoji, data]) => (
               <div
                 key={emoji}
-                className={`reaction-badge ${userReactedWith[emoji] ? 'user-reacted' : ''}`}
+                className={`reaction-badge ${userReactedWith[emoji] ? 'user-reacted' : ''} ${animatingEmoji === emoji ? 'reaction-pop' : ''}`}
                 onClick={() => onAddReaction(msg.id, emoji)}
               >
-                <span>{emoji}</span>
+                <span className="reaction-emoji">{emoji}</span>
                 <span className="reaction-count">{data.count}</span>
               </div>
             ))}
@@ -340,10 +366,10 @@ export default function MessageItem({
             return (
               <div
                 key={emoji}
-                className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''}`}
+                className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''} ${animatingEmoji === emoji ? 'reaction-pop' : ''}`}
                 onClick={() => onAddReaction(msg.id, emoji)}
               >
-                {emoji}
+                <span className="reaction-emoji">{emoji}</span>
                 <span className="count">{data.count}</span>
 
                 {/* Reaction tooltip with user avatars */}
