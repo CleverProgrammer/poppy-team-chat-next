@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState, useLayoutEffect } from 'react';
+import { useRef, useState, useLayoutEffect, useEffect } from 'react';
 import { hapticLight, hapticSelection } from '../../utils/haptics';
+import { ALL_EMOJIS } from '../../constants/emojis';
 
 export default function ContextMenu({
   contextMenu,
@@ -19,6 +20,14 @@ export default function ContextMenu({
 }) {
   const menuRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0, isVisible: false });
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Reset emoji picker when menu closes/opens
+  useEffect(() => {
+    if (!contextMenu) {
+      setShowEmojiPicker(false);
+    }
+  }, [contextMenu]);
   
   // Position the menu centered and visible on screen
   useLayoutEffect(() => {
@@ -122,7 +131,7 @@ export default function ContextMenu({
         onClick={(e) => e.stopPropagation()}
       >
           {/* Reactions Row at the top */}
-          {!isPost && topReactions.length > 0 && (
+          {!isPost && topReactions.length > 0 && !showEmojiPicker && (
             <div className="context-menu-reactions">
               {topReactions.slice(0, 6).map(emoji => (
                 <button
@@ -133,6 +142,42 @@ export default function ContextMenu({
                   {emoji}
                 </button>
               ))}
+              {/* Plus button to show full emoji picker */}
+              <button
+                className="context-menu-reaction-btn context-menu-more-btn"
+                onClick={() => {
+                  hapticLight();
+                  setShowEmojiPicker(true);
+                }}
+              >
+                +
+              </button>
+            </div>
+          )}
+
+          {/* Full emoji picker */}
+          {!isPost && showEmojiPicker && (
+            <div className="context-menu-emoji-picker">
+              <div className="emoji-picker-header">
+                <button 
+                  className="emoji-picker-back"
+                  onClick={() => setShowEmojiPicker(false)}
+                >
+                  ←
+                </button>
+                <span>All Reactions</span>
+              </div>
+              <div className="emoji-picker-grid">
+                {ALL_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="emoji-picker-btn"
+                    onClick={() => handleReaction(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           

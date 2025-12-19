@@ -1873,6 +1873,25 @@ iframe[src*="vercel"] {
   transform: scale(0.95);
 }
 
+/* Plus button for more emojis */
+.context-menu-more-btn {
+  background: var(--border-light);
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--text-secondary);
+}
+
+.context-menu-more-btn:hover {
+  background: var(--border-input);
+  color: var(--text-primary);
+}
+
+/* Full emoji picker panel in context menu */
+.context-menu-emoji-picker {
+  padding: 8px;
+  min-width: 280px;
+}
+
 /* Divider between reactions and actions */
 .context-menu-divider {
   height: 1px;

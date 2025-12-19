@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { hapticLight } from '../../utils/haptics';
+import { ALL_EMOJIS } from '../../constants/emojis';
 
 export default function MessageActionSheet({
   isOpen,
@@ -22,11 +23,13 @@ export default function MessageActionSheet({
   onAddToTeamMemory,
 }) {
   const openTimeRef = useRef(0);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Track when menu opens to prevent immediate close from synthetic click
   useEffect(() => {
     if (isOpen) {
       openTimeRef.current = Date.now();
+      setShowEmojiPicker(false); // Reset when opening
     }
   }, [isOpen]);
 
@@ -113,7 +116,7 @@ export default function MessageActionSheet({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Reactions row */}
-        {!isPost && topReactions.length > 0 && (
+        {!isPost && topReactions.length > 0 && !showEmojiPicker && (
           <div className="action-sheet-reactions">
             {topReactions.slice(0, 6).map((emoji) => (
               <button
@@ -124,6 +127,42 @@ export default function MessageActionSheet({
                 {emoji}
               </button>
             ))}
+            {/* Plus button to show full emoji picker */}
+            <button
+              className="action-sheet-reaction-btn action-sheet-more-btn"
+              onClick={() => {
+                hapticLight();
+                setShowEmojiPicker(true);
+              }}
+            >
+              +
+            </button>
+          </div>
+        )}
+
+        {/* Full emoji picker */}
+        {!isPost && showEmojiPicker && (
+          <div className="action-sheet-emoji-picker">
+            <div className="emoji-picker-header">
+              <button 
+                className="emoji-picker-back"
+                onClick={() => setShowEmojiPicker(false)}
+              >
+                ←
+              </button>
+              <span>All Reactions</span>
+            </div>
+            <div className="emoji-picker-grid">
+              {ALL_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  className="emoji-picker-btn"
+                  onClick={() => handleReaction(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
