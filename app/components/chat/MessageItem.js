@@ -42,6 +42,7 @@ export default function MessageItem({
   const [storiesInitialIndex, setStoriesInitialIndex] = useState(0)
   const lastTapTime = useRef(0)
   const secondLastTapTime = useRef(0) // For triple-tap detection
+  const doubleTapTimer = useRef(null) // Delay double-tap to check for triple-tap
   const elementRef = useRef(null)
   const longPressTimer = useRef(null)
   const isLongPressTriggered = useRef(false)
@@ -137,10 +138,12 @@ export default function MessageItem({
       // Tap detection
       const now = Date.now()
       const timeSinceLastTap = now - lastTapTime.current
-      const timeSinceSecondLastTap = now - secondLastTapTime.current
 
-      // Triple tap detection (3 taps within 600ms total)
-      if (timeSinceSecondLastTap < 600 && timeSinceLastTap < 350 && timeSinceLastTap > 50) {
+      // Check if this is a potential triple-tap (3rd tap after a pending double-tap)
+      if (doubleTapTimer.current && timeSinceLastTap < 350 && timeSinceLastTap > 50) {
+        // Cancel the pending double-tap and do triple-tap instead!
+        clearTimeout(doubleTapTimer.current)
+        doubleTapTimer.current = null
         e.preventDefault()
         e.stopPropagation()
         handleTripleTap()
@@ -149,13 +152,22 @@ export default function MessageItem({
         return
       }
 
-      // Double tap detection
+      // Double tap detection - but delay execution to check for triple-tap
       if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
         e.preventDefault()
         e.stopPropagation()
-        handleDoubleTap()
+        
+        // Store the second tap time
         secondLastTapTime.current = lastTapTime.current
-        lastTapTime.current = 0
+        lastTapTime.current = now
+        
+        // Delay double-tap to see if a third tap is coming
+        doubleTapTimer.current = setTimeout(() => {
+          doubleTapTimer.current = null
+          handleDoubleTap()
+          lastTapTime.current = 0
+          secondLastTapTime.current = 0
+        }, 150) // 150ms window for third tap
       } else {
         secondLastTapTime.current = lastTapTime.current
         lastTapTime.current = now

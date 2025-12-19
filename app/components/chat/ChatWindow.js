@@ -56,6 +56,7 @@ export default function ChatWindow() {
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
+  const [autoSendPending, setAutoSendPending] = useState(false) // Flag for auto-sending video replies
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
@@ -382,6 +383,9 @@ export default function ChatWindow() {
     // Set the reply state
     setReplyingTo(pendingVideoReplyRef.current)
     
+    // Set auto-send flag BEFORE adding the file
+    setAutoSendPending(true)
+    
     // Add the video to the upload queue
     await handleImageSelect(file)
 
@@ -390,12 +394,16 @@ export default function ChatWindow() {
 
     // Reset the input so the same file can be selected again
     e.target.value = ''
-
-    // Auto-send after a brief delay to let the state update
-    setTimeout(() => {
-      handleSend()
-    }, 100)
   }
+  
+  // Auto-send when video is ready (triggered by imageFiles change when autoSendPending is true)
+  useEffect(() => {
+    if (autoSendPending && imageFiles.length > 0 && replyingTo) {
+      // File is ready, send it!
+      setAutoSendPending(false)
+      handleSend()
+    }
+  }, [autoSendPending, imageFiles.length, replyingTo, handleSend])
 
   const handleMessagesAreaClick = e => {
     // Cancel reply when clicking in the messages area
