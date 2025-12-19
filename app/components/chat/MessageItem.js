@@ -1,10 +1,15 @@
-'use client';
+'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import MessageTimestamp from './MessageTimestamp';
-import MessageActionSheet from './MessageActionSheet';
-import { linkifyText, isSingleEmoji, isLoomUrl, getLoomEmbedUrl } from '../../utils/messageFormatting';
-import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics';
+import { useState, useRef, useCallback, useEffect } from 'react'
+import MessageTimestamp from './MessageTimestamp'
+import MessageActionSheet from './MessageActionSheet'
+import {
+  linkifyText,
+  isSingleEmoji,
+  isLoomUrl,
+  getLoomEmbedUrl,
+} from '../../utils/messageFormatting'
+import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
 
 export default function MessageItem({
   msg,
@@ -24,192 +29,204 @@ export default function MessageItem({
   onAddReaction,
   onImageClick,
   onScrollToMessage,
-  messageRef
+  messageRef,
 }) {
-  const [actionSheetOpen, setActionSheetOpen] = useState(false);
-  const [actionSheetReactionsOnly, setActionSheetReactionsOnly] = useState(false);
-  const [actionSheetPosition, setActionSheetPosition] = useState(null);
-  const [animatingEmoji, setAnimatingEmoji] = useState(null);
-  const lastTapTime = useRef(0);
-  const elementRef = useRef(null);
-  const longPressTimer = useRef(null);
-  const isLongPressTriggered = useRef(false);
-  const prevReactionsRef = useRef(null);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false)
+  const [actionSheetReactionsOnly, setActionSheetReactionsOnly] = useState(false)
+  const [actionSheetPosition, setActionSheetPosition] = useState(null)
+  const [animatingEmoji, setAnimatingEmoji] = useState(null)
+  const lastTapTime = useRef(0)
+  const elementRef = useRef(null)
+  const longPressTimer = useRef(null)
+  const isLongPressTriggered = useRef(false)
+  const prevReactionsRef = useRef(null)
 
-  const isOwnMessage = msg.senderId === user?.uid;
+  const isOwnMessage = msg.senderId === user?.uid
 
   // Track reaction changes and trigger animation for new reactions
   useEffect(() => {
-    const currentReactions = msg.reactions || {};
-    const prevReactions = prevReactionsRef.current;
-    
+    const currentReactions = msg.reactions || {}
+    const prevReactions = prevReactionsRef.current
+
     // Skip on initial mount
     if (prevReactions !== null) {
       // Find new or increased reactions
       Object.entries(currentReactions).forEach(([userId, emoji]) => {
-        const prevEmoji = prevReactions[userId];
+        const prevEmoji = prevReactions[userId]
         if (prevEmoji !== emoji) {
           // New reaction or changed reaction - trigger animation
-          setAnimatingEmoji(emoji);
-          hapticSuccess();
-          
+          setAnimatingEmoji(emoji)
+          hapticSuccess()
+
           // Clear animation after it completes
-          setTimeout(() => setAnimatingEmoji(null), 900);
+          setTimeout(() => setAnimatingEmoji(null), 900)
         }
-      });
+      })
     }
-    
-    prevReactionsRef.current = { ...currentReactions };
-  }, [msg.reactions]);
+
+    prevReactionsRef.current = { ...currentReactions }
+  }, [msg.reactions])
 
   // Handle double-tap/double-click: show reactions
   const handleDoubleTap = useCallback(() => {
-    hapticLight();
+    hapticLight()
     // Get message position for contextual placement
-    const rect = elementRef.current?.getBoundingClientRect();
+    const rect = elementRef.current?.getBoundingClientRect()
     if (rect) {
       setActionSheetPosition({
         top: rect.top,
         left: rect.left + rect.width / 2,
-      });
+      })
     }
-    setActionSheetReactionsOnly(true);
-    setActionSheetOpen(true);
-  }, []);
+    setActionSheetReactionsOnly(true)
+    setActionSheetOpen(true)
+  }, [])
 
   // Handle long-press/right-click: show full actions (centered)
   const handleLongPress = useCallback(() => {
-    hapticHeavy();
-    setActionSheetPosition(null); // Center for full menu
-    setActionSheetReactionsOnly(false);
-    setActionSheetOpen(true);
-  }, []);
+    hapticHeavy()
+    setActionSheetPosition(null) // Center for full menu
+    setActionSheetReactionsOnly(false)
+    setActionSheetOpen(true)
+  }, [])
 
   // Touch start - start long press timer
-  const handleTouchStart = useCallback((e) => {
-    isLongPressTriggered.current = false;
-    
-    longPressTimer.current = setTimeout(() => {
-      isLongPressTriggered.current = true;
-      handleLongPress();
-    }, 400);
-  }, [handleLongPress]);
+  const handleTouchStart = useCallback(
+    e => {
+      isLongPressTriggered.current = false
+
+      longPressTimer.current = setTimeout(() => {
+        isLongPressTriggered.current = true
+        handleLongPress()
+      }, 400)
+    },
+    [handleLongPress]
+  )
 
   // Touch end - check for double tap
-  const handleTouchEnd = useCallback((e) => {
-    // Clear long press timer
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    
-    // Skip if long press was triggered
-    if (isLongPressTriggered.current) {
-      return;
-    }
-    
-    // Double tap detection
-    const now = Date.now();
-    const timeSinceLastTap = now - lastTapTime.current;
-    
-    if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
-      // Double tap! 
-      e.preventDefault();
-      e.stopPropagation();
-      handleDoubleTap();
-      lastTapTime.current = 0;
-    } else {
-      lastTapTime.current = now;
-    }
-  }, [handleDoubleTap]);
+  const handleTouchEnd = useCallback(
+    e => {
+      // Clear long press timer
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current)
+        longPressTimer.current = null
+      }
+
+      // Skip if long press was triggered
+      if (isLongPressTriggered.current) {
+        return
+      }
+
+      // Double tap detection
+      const now = Date.now()
+      const timeSinceLastTap = now - lastTapTime.current
+
+      if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
+        // Double tap!
+        e.preventDefault()
+        e.stopPropagation()
+        handleDoubleTap()
+        lastTapTime.current = 0
+      } else {
+        lastTapTime.current = now
+      }
+    },
+    [handleDoubleTap]
+  )
 
   // Touch move - cancel long press
   const handleTouchMove = useCallback(() => {
     if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
     }
-  }, []);
+  }, [])
 
   // Right-click handler - show full action sheet
-  const handleContextMenuWrapper = useCallback((e) => {
-    e.preventDefault();
-    handleLongPress(); // Full menu
-  }, [handleLongPress]);
+  const handleContextMenuWrapper = useCallback(
+    e => {
+      e.preventDefault()
+      handleLongPress() // Full menu
+    },
+    [handleLongPress]
+  )
 
   // Mouse long-press for desktop (quick reactions)
-  const handleMouseDown = useCallback((e) => {
-    // Only handle left mouse button
-    if (e.button !== 0) return;
-    
-    isLongPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      isLongPressTriggered.current = true;
-      handleDoubleTap(); // Show quick reactions on long-click
-    }, 500);
-  }, [handleDoubleTap]);
+  const handleMouseDown = useCallback(
+    e => {
+      // Only handle left mouse button
+      if (e.button !== 0) return
+
+      isLongPressTriggered.current = false
+      longPressTimer.current = setTimeout(() => {
+        isLongPressTriggered.current = true
+        handleDoubleTap() // Show quick reactions on long-click
+      }, 500)
+    },
+    [handleDoubleTap]
+  )
 
   const handleMouseUp = useCallback(() => {
     if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
     }
-  }, []);
+  }, [])
 
   const handleMouseLeave = useCallback(() => {
     if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
     }
-  }, []);
+  }, [])
 
   // Handle AI typing indicator
   if (msg.isTyping) {
     return (
-      <div className="message-wrapper received ai-typing">
-        <div className="message-sender">{msg.sender}</div>
-        <div className="message">
-          <div className="ai-typing-with-status">
-            <div className="ai-typing-indicator">
-              <span></span><span></span><span></span>
+      <div className='message-wrapper received ai-typing'>
+        <div className='message-sender'>{msg.sender}</div>
+        <div className='message'>
+          <div className='ai-typing-with-status'>
+            <div className='ai-typing-indicator'>
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
-            {msg.text && (
-              <div className="ai-status-text">{msg.text}</div>
-            )}
+            {msg.text && <div className='ai-status-text'>{msg.text}</div>}
           </div>
         </div>
       </div>
-    );
+    )
   }
 
-  const isSent = msg.senderId === user?.uid;
-  const reactions = msg.reactions || {};
-  const reactionCounts = {};
-  const userReactedWith = {};
-  const hasImages = msg.imageUrl || (msg.imageUrls && msg.imageUrls.length > 0);
-  const isJumboEmoji = msg.text && !hasImages && isSingleEmoji(msg.text);
+  const isSent = msg.senderId === user?.uid
+  const reactions = msg.reactions || {}
+  const reactionCounts = {}
+  const userReactedWith = {}
+  const hasImages = msg.imageUrl || (msg.imageUrls && msg.imageUrls.length > 0)
+  const isJumboEmoji = msg.text && !hasImages && isSingleEmoji(msg.text)
 
   // Count reactions
   Object.entries(reactions).forEach(([userId, emoji]) => {
     if (!reactionCounts[emoji]) {
-      reactionCounts[emoji] = { count: 0, userIds: [] };
+      reactionCounts[emoji] = { count: 0, userIds: [] }
     }
-    reactionCounts[emoji].count++;
-    reactionCounts[emoji].userIds.push(userId);
+    reactionCounts[emoji].count++
+    reactionCounts[emoji].userIds.push(userId)
     if (userId === user?.uid) {
-      userReactedWith[emoji] = true;
+      userReactedWith[emoji] = true
     }
-  });
+  })
 
-  const isReplyTarget = replyingTo?.msgId === msg.id;
-  const isLastMessage = index === totalMessages - 1;
+  const isReplyTarget = replyingTo?.msgId === msg.id
+  const isLastMessage = index === totalMessages - 1
 
   // Find the last message from this specific sender
-  let isLastMessageFromSender = true;
+  let isLastMessageFromSender = true
   for (let i = index + 1; i < totalMessages; i++) {
     if (messages[i].senderId === msg.senderId) {
-      isLastMessageFromSender = false;
-      break;
+      isLastMessageFromSender = false
+      break
     }
   }
 
@@ -217,9 +234,14 @@ export default function MessageItem({
   if (isJumboEmoji) {
     return (
       <div
-        ref={(el) => { messageRef(el); elementRef.current = el; }}
+        ref={el => {
+          messageRef(el)
+          elementRef.current = el
+        }}
         data-msg-id={msg.id}
-        className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper ${actionSheetOpen ? 'message-selected' : ''}`}
+        className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper ${
+          actionSheetOpen ? 'message-selected' : ''
+        }`}
         onContextMenu={handleContextMenuWrapper}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -229,31 +251,31 @@ export default function MessageItem({
         onTouchMove={handleTouchMove}
         onTouchCancel={handleTouchMove}
       >
-        <div className="jumbo-emoji">
-          {msg.text}
-        </div>
+        <div className='jumbo-emoji'>{msg.text}</div>
         {isSent && (
-          <div className="message-timestamp-sent">
+          <div className='message-timestamp-sent'>
             <MessageTimestamp timestamp={msg.timestamp} />
           </div>
         )}
         {!isSent && (
-          <div className="message-timestamp-received">
+          <div className='message-timestamp-received'>
             <MessageTimestamp timestamp={msg.timestamp} />
           </div>
         )}
 
         {/* Reaction Badges */}
         {Object.keys(reactionCounts).length > 0 && (
-          <div className="reactions-display">
+          <div className='reactions-display'>
             {Object.entries(reactionCounts).map(([emoji, data]) => (
               <div
                 key={emoji}
-                className={`reaction-badge ${userReactedWith[emoji] ? 'user-reacted' : ''} ${animatingEmoji === emoji ? 'reaction-pop' : ''}`}
+                className={`reaction-badge ${userReactedWith[emoji] ? 'user-reacted' : ''} ${
+                  animatingEmoji === emoji ? 'reaction-pop' : ''
+                }`}
                 onClick={() => onAddReaction(msg.id, emoji)}
               >
-                <span className="reaction-emoji">{emoji}</span>
-                <span className="reaction-count">{data.count}</span>
+                <span className='reaction-emoji'>{emoji}</span>
+                <span className='reaction-count'>{data.count}</span>
               </div>
             ))}
           </div>
@@ -268,7 +290,7 @@ export default function MessageItem({
           isPost={false}
           topReactions={topReactions}
           position={actionSheetPosition}
-          onReaction={(emoji) => onAddReaction(msg.id, emoji)}
+          onReaction={emoji => onAddReaction(msg.id, emoji)}
           onReply={() => onReply(msg.id, msg.sender, msg.text)}
           onEdit={() => onEdit(msg.id, msg.text)}
           onDelete={() => onDelete?.(msg.id)}
@@ -277,14 +299,19 @@ export default function MessageItem({
           reactionsOnly={actionSheetReactionsOnly}
         />
       </div>
-    );
+    )
   }
 
   return (
     <div
-      ref={(el) => { messageRef(el); elementRef.current = el; }}
+      ref={el => {
+        messageRef(el)
+        elementRef.current = el
+      }}
       data-msg-id={msg.id}
-      className={`message-wrapper ${isSent ? 'sent' : 'received'} ${isReplyTarget ? 'reply-target' : ''} ${actionSheetOpen ? 'message-selected' : ''}`}
+      className={`message-wrapper ${isSent ? 'sent' : 'received'} ${
+        isReplyTarget ? 'reply-target' : ''
+      } ${actionSheetOpen ? 'message-selected' : ''}`}
       onContextMenu={handleContextMenuWrapper}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -296,122 +323,160 @@ export default function MessageItem({
     >
       {/* Reply quote - shows above the message bubble like iMessage */}
       {msg.replyTo && (
-        <div className="reply-quote-container" onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
-          <div className="reply-quote">
-            <div className="reply-quote-line"></div>
-            <div className="reply-quote-content">
-              <div className="reply-quote-sender">{msg.replyTo.sender}</div>
-              <div className="reply-quote-text">{msg.replyTo.text}</div>
+        <div className='reply-quote-container' onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
+          <div className='reply-quote'>
+            <div className='reply-quote-line'></div>
+            <div className='reply-quote-content'>
+              <div className='reply-quote-sender'>{msg.replyTo.sender}</div>
+              <div className='reply-quote-text'>{msg.replyTo.text}</div>
             </div>
           </div>
         </div>
       )}
       {!isSent && (
-        <div className="message-sender">
+        <div className='message-sender'>
           {msg.senderId === 'ai' && (
-            <img src="/poppy-icon.png" alt="Poppy" className="ai-sender-icon" style={{ width: '24px', height: '24px', maxWidth: '24px', maxHeight: '24px' }} />
+            <img
+              src='/poppy-icon.png'
+              alt='Poppy'
+              className='ai-sender-icon'
+              style={{ width: '24px', height: '24px', maxWidth: '24px', maxHeight: '24px' }}
+            />
           )}
           {msg.senderId === 'ai' ? msg.sender?.replace('🤖 ', '').replace('🤖', '') : msg.sender}
           <MessageTimestamp timestamp={msg.timestamp} />
         </div>
       )}
-      <div className="message">
-        {/* Support multiple images or single image */}
+      <div className='message'>
+        {/* Support multiple images/videos or single image/video */}
         {(msg.imageUrls || msg.imageUrl) && (
-          <div className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}>
+          <div
+            className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}
+          >
             {(() => {
-              const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean);
-              return allImages.map((url, idx) => (
-                <img
-                  key={idx}
-                  src={url}
-                  alt={`Shared image ${idx + 1}`}
-                  className="message-image"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onImageClick(allImages, idx);
-                  }}
-                />
-              ));
+              const allMedia = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
+              const isVideoUrl = url => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)
+              return allMedia.map((url, idx) =>
+                isVideoUrl(url) ? (
+                  <video
+                    key={idx}
+                    src={url}
+                    className='message-video'
+                    controls
+                    playsInline
+                    preload='metadata'
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <img
+                    key={idx}
+                    src={url}
+                    alt={`Shared image ${idx + 1}`}
+                    className='message-image'
+                    onClick={e => {
+                      e.stopPropagation()
+                      onImageClick(
+                        allMedia.filter(u => !isVideoUrl(u)),
+                        idx
+                      )
+                    }}
+                  />
+                )
+              )
             })()}
           </div>
         )}
         {/* Loom video embed */}
         {msg.text && isLoomUrl(msg.text) && (
-          <div className="loom-container">
+          <div className='loom-container'>
             <iframe
               src={getLoomEmbedUrl(msg.text)}
-              loading="lazy"
+              loading='lazy'
               allowFullScreen
-              title="Loom video"
+              title='Loom video'
             />
           </div>
         )}
         {msg.text && (
-          <div className="text">
+          <div className='text'>
             {linkifyText(msg.text)}
-            {msg.edited && <span className="edited-indicator"> (edited)</span>}
+            {msg.edited && <span className='edited-indicator'> (edited)</span>}
           </div>
         )}
       </div>
       {isSent && (
-        <div className="message-timestamp-sent">
+        <div className='message-timestamp-sent'>
           <MessageTimestamp timestamp={msg.timestamp} />
         </div>
       )}
 
       {/* Reactions Display */}
       {Object.keys(reactionCounts).length > 0 && (
-        <div className="reactions-display">
+        <div className='reactions-display'>
           {Object.entries(reactionCounts).map(([emoji, data]) => {
-            const reactedUsers = data.userIds.map(uid => allUsers.find(u => u.uid === uid)).filter(Boolean);
+            const reactedUsers = data.userIds
+              .map(uid => allUsers.find(u => u.uid === uid))
+              .filter(Boolean)
 
             return (
               <div
                 key={emoji}
-                className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''} ${animatingEmoji === emoji ? 'reaction-pop' : ''}`}
+                className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''} ${
+                  animatingEmoji === emoji ? 'reaction-pop' : ''
+                }`}
                 onClick={() => onAddReaction(msg.id, emoji)}
               >
-                <span className="reaction-emoji">{emoji}</span>
-                <span className="count">{data.count}</span>
+                <span className='reaction-emoji'>{emoji}</span>
+                <span className='count'>{data.count}</span>
 
                 {/* Reaction tooltip with user avatars */}
-                <div className="reaction-tooltip">
-                  <div className="reaction-tooltip-avatars">
+                <div className='reaction-tooltip'>
+                  <div className='reaction-tooltip-avatars'>
                     {reactedUsers.map(reactedUser => (
                       <img
                         key={reactedUser.uid}
                         src={reactedUser.photoURL || ''}
                         alt={reactedUser.displayName}
-                        className="reaction-tooltip-avatar"
+                        className='reaction-tooltip-avatar'
                         title={reactedUser.displayName || reactedUser.email}
                       />
                     ))}
                   </div>
-                  <div className="reaction-tooltip-names">
+                  <div className='reaction-tooltip-names'>
                     {reactedUsers.map(u => u.displayName || u.email).join(', ')}
                   </div>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       )}
 
       {/* Read Receipt - Only show on messages I sent that were read by the other person */}
-      {isSent && currentChat.type === 'dm' && msg.readBy && msg.readBy[currentChat.id] && isLastMessageFromSender && (() => {
-        const otherUser = allUsers.find(u => u.uid === currentChat.id);
-        return (
-          <div className="read-receipt">
-            <span className="read-text">Read {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
-            <img
-              src={otherUser?.photoURL || ''}
-              alt={otherUser?.displayName || 'User'}
-              className="read-receipt-avatar"
-            />
-          </div>
-        );
-      })()}
+      {isSent &&
+        currentChat.type === 'dm' &&
+        msg.readBy &&
+        msg.readBy[currentChat.id] &&
+        isLastMessageFromSender &&
+        (() => {
+          const otherUser = allUsers.find(u => u.uid === currentChat.id)
+          return (
+            <div className='read-receipt'>
+              <span className='read-text'>
+                Read{' '}
+                {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </span>
+              <img
+                src={otherUser?.photoURL || ''}
+                alt={otherUser?.displayName || 'User'}
+                className='read-receipt-avatar'
+              />
+            </div>
+          )
+        })()}
 
       {/* Mobile Action Sheet (vaul) */}
       <MessageActionSheet
@@ -422,7 +487,7 @@ export default function MessageItem({
         isPost={false}
         topReactions={topReactions}
         position={actionSheetPosition}
-        onReaction={(emoji) => onAddReaction(msg.id, emoji)}
+        onReaction={emoji => onAddReaction(msg.id, emoji)}
         onReply={() => onReply(msg.id, msg.sender, msg.text)}
         onEdit={() => onEdit(msg.id, msg.text)}
         onDelete={() => onDelete?.(msg.id)}
@@ -431,5 +496,5 @@ export default function MessageItem({
         reactionsOnly={actionSheetReactionsOnly}
       />
     </div>
-  );
+  )
 }

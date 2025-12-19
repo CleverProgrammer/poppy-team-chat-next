@@ -10,6 +10,7 @@ export default function ChatInput({
   sending,
   imagePreview,
   imagePreviews = [],
+  imageFiles = [],
   mentionMenu,
   mentionMenuIndex,
   handleTextareaChange,
@@ -203,21 +204,25 @@ export default function ChatInput({
       >
         {imagePreviews.length > 0 && (
           <div className={`image-preview-container ${imagePreviews.length > 1 ? 'multi-image' : ''}`}>
-            {imagePreviews.map((preview, index) => (
-              <div key={index} className='image-preview-wrapper'>
-                <img src={preview} alt={`Preview ${index + 1}`} className='image-preview' />
-                <button
-                  onClick={() => handleRemoveImageAtIndex ? handleRemoveImageAtIndex(index) : handleRemoveImage()}
-                  className='remove-image-btn-mini'
-                  aria-label='Remove image'
-                  type='button'
-                >
-                  <svg width='8' height='8' viewBox='0 0 12 12' fill='none' stroke='white' strokeWidth='2.5' strokeLinecap='round'>
-                    <path d='M2 2L10 10M10 2L2 10' />
-                  </svg>
-                </button>
-              </div>
-            ))}
+            {imagePreviews.map((preview, index) => {
+              const isVideo = imageFiles[index]?.type?.startsWith('video/');
+              return (
+                <div key={index} className='image-preview-wrapper'>
+                  <img src={preview} alt={`Preview ${index + 1}`} className='image-preview' />
+                  <button
+                    onClick={() => handleRemoveImageAtIndex ? handleRemoveImageAtIndex(index) : handleRemoveImage()}
+                    className='remove-image-btn-mini'
+                    aria-label='Remove media'
+                    type='button'
+                  >
+                    <svg width='8' height='8' viewBox='0 0 12 12' fill='none' stroke='white' strokeWidth='2.5' strokeLinecap='round'>
+                      <path d='M2 2L10 10M10 2L2 10' />
+                    </svg>
+                  </button>
+                  {isVideo && <div className='video-badge'>🎬</div>}
+                </div>
+              );
+            })}
           </div>
         )}
         <div className='input-row'>

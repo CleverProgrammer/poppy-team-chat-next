@@ -1,35 +1,56 @@
-import { doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, collectionGroup, updateDoc, deleteDoc, arrayUnion, limit, startAfter } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from './firebase';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  getDocs,
+  collectionGroup,
+  updateDoc,
+  deleteDoc,
+  arrayUnion,
+  limit,
+  startAfter,
+} from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from './firebase'
 
 export async function saveUser(user) {
-  if (!user) return;
+  if (!user) return
 
   try {
-    await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
-      displayName: user.displayName || user.email,
-      email: user.email,
-      photoURL: user.photoURL || '',
-      lastSeen: serverTimestamp()
-    }, { merge: true });
+    await setDoc(
+      doc(db, 'users', user.uid),
+      {
+        uid: user.uid,
+        displayName: user.displayName || user.email,
+        email: user.email,
+        photoURL: user.photoURL || '',
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    )
   } catch (error) {
-    console.error('Error saving user:', error);
+    console.error('Error saving user:', error)
   }
 }
 
 export async function sendMessage(channelId, user, text) {
-  if (!user || !text.trim()) return;
+  if (!user || !text.trim()) return
 
   try {
-    const messagesRef = collection(db, 'channels', channelId, 'messages');
+    const messagesRef = collection(db, 'channels', channelId, 'messages')
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+    })
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -43,128 +64,128 @@ export async function sendMessage(channelId, user, text) {
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(err => console.error('Ragie sync failed:', err));
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
   } catch (error) {
-    console.error('Error sending message:', error);
-    throw error;
+    console.error('Error sending message:', error)
+    throw error
   }
 }
 
 export function subscribeToMessages(channelId, callback, messageLimit = 50) {
-  const messagesRef = collection(db, 'channels', channelId, 'messages');
-  const q = query(
-    messagesRef,
-    orderBy('timestamp', 'desc'),
-    limit(messageLimit)
-  );
+  const messagesRef = collection(db, 'channels', channelId, 'messages')
+  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(messageLimit))
 
-  return onSnapshot(q, (snapshot) => {
-    const messages = [];
-    snapshot.forEach((doc) => {
-      messages.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    callback(messages.reverse()); // Reverse to show oldest->newest
-  }, (error) => {
-    console.error('Error loading messages:', error);
-  });
+  return onSnapshot(
+    q,
+    snapshot => {
+      const messages = []
+      snapshot.forEach(doc => {
+        messages.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(messages.reverse()) // Reverse to show oldest->newest
+    },
+    error => {
+      console.error('Error loading messages:', error)
+    }
+  )
 }
 
 export function subscribeToMessagesDM(dmId, callback, messageLimit = 50) {
-  const messagesRef = collection(db, 'dms', dmId, 'messages');
-  const q = query(
-    messagesRef,
-    orderBy('timestamp', 'desc'),
-    limit(messageLimit)
-  );
+  const messagesRef = collection(db, 'dms', dmId, 'messages')
+  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(messageLimit))
 
-  return onSnapshot(q, (snapshot) => {
-    const messages = [];
-    snapshot.forEach((doc) => {
-      messages.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    callback(messages.reverse()); // Reverse to show oldest->newest
-  }, (error) => {
-    console.error('Error loading messages:', error);
-  });
+  return onSnapshot(
+    q,
+    snapshot => {
+      const messages = []
+      snapshot.forEach(doc => {
+        messages.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(messages.reverse()) // Reverse to show oldest->newest
+    },
+    error => {
+      console.error('Error loading messages:', error)
+    }
+  )
 }
 
 // Load older messages for infinite scroll
 export async function loadOlderMessages(channelId, oldestTimestamp, messageLimit = 50) {
-  const messagesRef = collection(db, 'channels', channelId, 'messages');
+  const messagesRef = collection(db, 'channels', channelId, 'messages')
   const q = query(
     messagesRef,
     orderBy('timestamp', 'desc'),
     startAfter(oldestTimestamp),
     limit(messageLimit)
-  );
+  )
 
-  const snapshot = await getDocs(q);
-  const messages = [];
-  snapshot.forEach((doc) => {
+  const snapshot = await getDocs(q)
+  const messages = []
+  snapshot.forEach(doc => {
     messages.push({
       id: doc.id,
-      ...doc.data()
-    });
-  });
-  return messages.reverse();
+      ...doc.data(),
+    })
+  })
+  return messages.reverse()
 }
 
 export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 50) {
-  const messagesRef = collection(db, 'dms', dmId, 'messages');
+  const messagesRef = collection(db, 'dms', dmId, 'messages')
   const q = query(
     messagesRef,
     orderBy('timestamp', 'desc'),
     startAfter(oldestTimestamp),
     limit(messageLimit)
-  );
+  )
 
-  const snapshot = await getDocs(q);
-  const messages = [];
-  snapshot.forEach((doc) => {
+  const snapshot = await getDocs(q)
+  const messages = []
+  snapshot.forEach(doc => {
     messages.push({
       id: doc.id,
-      ...doc.data()
-    });
-  });
-  return messages.reverse();
+      ...doc.data(),
+    })
+  })
+  return messages.reverse()
 }
 
 export async function sendMessageDM(dmId, user, text, recipientId, recipient = null) {
-  if (!user || !text.trim()) return;
+  if (!user || !text.trim()) return
 
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('📤 [SEND DM] SENDING MESSAGE');
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log(`📨 DM ID: ${dmId}`);
-  console.log(`👤 Sender: ${user.displayName || user.email} (${user.uid})`);
-  console.log(`🎯 Recipient ID: ${recipientId}`);
-  console.log(`💬 Text: "${text.substring(0, 50)}..."`);
-  console.log('───────────────────────────────────────────────────────────');
+  console.log('═══════════════════════════════════════════════════════════')
+  console.log('📤 [SEND DM] SENDING MESSAGE')
+  console.log('═══════════════════════════════════════════════════════════')
+  console.log(`📨 DM ID: ${dmId}`)
+  console.log(`👤 Sender: ${user.displayName || user.email} (${user.uid})`)
+  console.log(`🎯 Recipient ID: ${recipientId}`)
+  console.log(`💬 Text: "${text.substring(0, 50)}..."`)
+  console.log('───────────────────────────────────────────────────────────')
 
   try {
-    const messagesRef = collection(db, 'dms', dmId, 'messages');
-    console.log('📝 Writing to Firestore: dms/' + dmId + '/messages');
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
+    console.log('📝 Writing to Firestore: dms/' + dmId + '/messages')
 
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+    })
 
-    console.log('✅ [SEND DM] Message written to Firestore!');
-    console.log(`📝 Document ID: ${docRef.id}`);
-    console.log('🔔 Firebase Cloud Function should trigger now...');
-    console.log('═══════════════════════════════════════════════════════════');
+    console.log('✅ [SEND DM] Message written to Firestore!')
+    console.log(`📝 Document ID: ${docRef.id}`)
+    console.log('🔔 Firebase Cloud Function should trigger now...')
+    console.log('═══════════════════════════════════════════════════════════')
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -183,177 +204,199 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
         // Recipient info for DMs
         recipientId: recipientId,
         recipientName: recipient?.displayName || recipient?.email || null,
-        recipientEmail: recipient?.email || null
-      })
-    }).catch(err => console.error('Ragie sync failed:', err));
+        recipientEmail: recipient?.email || null,
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
 
     // Add both users to each other's active DMs
     if (recipientId) {
-      await addActiveDM(user.uid, recipientId);
-      await addActiveDM(recipientId, user.uid);
+      await addActiveDM(user.uid, recipientId)
+      await addActiveDM(recipientId, user.uid)
     }
   } catch (error) {
-    console.error('Error sending message:', error);
-    throw error;
+    console.error('Error sending message:', error)
+    throw error
   }
 }
 
 export function subscribeToUsers(callback) {
-  return onSnapshot(collection(db, 'users'), (snapshot) => {
-    const users = [];
-    snapshot.forEach((doc) => {
-      users.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    callback(users);
-  }, (error) => {
-    console.error('Error loading users:', error);
-  });
+  return onSnapshot(
+    collection(db, 'users'),
+    snapshot => {
+      const users = []
+      snapshot.forEach(doc => {
+        users.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(users)
+    },
+    error => {
+      console.error('Error loading users:', error)
+    }
+  )
 }
 
 export function getDMId(userId1, userId2) {
-  return [userId1, userId2].sort().join('_');
+  return [userId1, userId2].sort().join('_')
 }
 
 export async function saveCurrentChat(userId, chatData) {
-  if (!userId) return;
+  if (!userId) return
 
-  console.log('📌 [Firestore] saveCurrentChat called with:', { userId, chatData });
+  console.log('📌 [Firestore] saveCurrentChat called with:', { userId, chatData })
   try {
-    await setDoc(doc(db, 'users', userId), {
-      currentChat: chatData,
-      lastSeen: serverTimestamp()
-    }, { merge: true });
-    console.log('📌 [Firestore] saveCurrentChat SUCCESS');
+    await setDoc(
+      doc(db, 'users', userId),
+      {
+        currentChat: chatData,
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    )
+    console.log('📌 [Firestore] saveCurrentChat SUCCESS')
   } catch (error) {
-    console.error('Error saving current chat:', error);
+    console.error('Error saving current chat:', error)
   }
 }
 
 export async function getCurrentChat(userId) {
-  if (!userId) return null;
+  if (!userId) return null
 
-  console.log('📌 [Firestore] getCurrentChat called for userId:', userId);
+  console.log('📌 [Firestore] getCurrentChat called for userId:', userId)
   try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userDoc = await getDoc(doc(db, 'users', userId))
     if (userDoc.exists()) {
-      const data = userDoc.data();
-      console.log('📌 [Firestore] getCurrentChat found:', data?.currentChat);
-      return data?.currentChat || null;
+      const data = userDoc.data()
+      console.log('📌 [Firestore] getCurrentChat found:', data?.currentChat)
+      return data?.currentChat || null
     }
-    console.log('📌 [Firestore] getCurrentChat - user doc does not exist');
-    return null;
+    console.log('📌 [Firestore] getCurrentChat - user doc does not exist')
+    return null
   } catch (error) {
-    console.error('Error loading current chat:', error);
-    return null;
+    console.error('Error loading current chat:', error)
+    return null
   }
 }
 
 export async function addActiveDM(userId, dmUserId) {
-  if (!userId || !dmUserId) return;
+  if (!userId || !dmUserId) return
 
   try {
-    await setDoc(doc(db, 'users', userId), {
-      activeDMs: arrayUnion(dmUserId),
-      lastSeen: serverTimestamp()
-    }, { merge: true });
+    await setDoc(
+      doc(db, 'users', userId),
+      {
+        activeDMs: arrayUnion(dmUserId),
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    )
   } catch (error) {
-    console.error('Error adding active DM:', error);
+    console.error('Error adding active DM:', error)
   }
 }
 
 export function subscribeToActiveDMs(userId, callback) {
-  if (!userId) return () => {};
+  if (!userId) return () => {}
 
-  return onSnapshot(doc(db, 'users', userId), (snapshot) => {
-    if (snapshot.exists()) {
-      const data = snapshot.data();
-      callback(data?.activeDMs || []);
-    } else {
-      callback([]);
+  return onSnapshot(
+    doc(db, 'users', userId),
+    snapshot => {
+      if (snapshot.exists()) {
+        const data = snapshot.data()
+        callback(data?.activeDMs || [])
+      } else {
+        callback([])
+      }
+    },
+    error => {
+      console.error('Error loading active DMs:', error)
+      callback([])
     }
-  }, (error) => {
-    console.error('Error loading active DMs:', error);
-    callback([]);
-  });
+  )
 }
 
 export async function discoverExistingDMs(userId) {
-  if (!userId) return;
+  if (!userId) return
 
   try {
     // Query all messages in DM subcollections (much more efficient)
-    const q = query(collectionGroup(db, 'messages'));
-    const messagesSnapshot = await getDocs(q);
-    const dmUserIds = new Set();
+    const q = query(collectionGroup(db, 'messages'))
+    const messagesSnapshot = await getDocs(q)
+    const dmUserIds = new Set()
 
     // Extract DM IDs from paths where this user is involved
-    messagesSnapshot.forEach((messageDoc) => {
-      const pathParts = messageDoc.ref.path.split('/');
+    messagesSnapshot.forEach(messageDoc => {
+      const pathParts = messageDoc.ref.path.split('/')
       // Path format: dms/{dmId}/messages/{messageId}
       if (pathParts[0] === 'dms' && pathParts.length >= 2) {
-        const dmId = pathParts[1];
-        const [user1, user2] = dmId.split('_');
+        const dmId = pathParts[1]
+        const [user1, user2] = dmId.split('_')
 
         // Check if current user is involved in this DM
         if (user1 === userId || user2 === userId) {
-          const otherUserId = user1 === userId ? user2 : user1;
+          const otherUserId = user1 === userId ? user2 : user1
           if (otherUserId !== userId) {
-            dmUserIds.add(otherUserId);
+            dmUserIds.add(otherUserId)
           }
         }
       }
-    });
+    })
 
-    const existingDMs = Array.from(dmUserIds);
+    const existingDMs = Array.from(dmUserIds)
 
     // Update the user's activeDMs in Firestore
     if (existingDMs.length > 0) {
-      await setDoc(doc(db, 'users', userId), {
-        activeDMs: existingDMs,
-        lastSeen: serverTimestamp()
-      }, { merge: true });
+      await setDoc(
+        doc(db, 'users', userId),
+        {
+          activeDMs: existingDMs,
+          lastSeen: serverTimestamp(),
+        },
+        { merge: true }
+      )
     }
   } catch (error) {
-    console.error('Error discovering existing DMs:', error);
+    console.error('Error discovering existing DMs:', error)
   }
 }
 
-// Image upload helper function
+// Media upload helper function (images and videos)
 export async function uploadImage(file, userId) {
-  if (!file) throw new Error('No file provided');
+  if (!file) throw new Error('No file provided')
 
   try {
     // Generate unique filename with timestamp
-    const timestamp = Date.now();
-    const filename = `${userId}/${timestamp}_${file.name}`;
-    const storageRef = ref(storage, `chat-images/${filename}`);
+    const timestamp = Date.now()
+    const filename = `${userId}/${timestamp}_${file.name}`
+    // Use chat-media folder for all media types
+    const folder = file.type.startsWith('video/') ? 'chat-videos' : 'chat-images'
+    const storageRef = ref(storage, `${folder}/${filename}`)
 
     // Upload the file
-    const snapshot = await uploadBytes(storageRef, file);
+    const snapshot = await uploadBytes(storageRef, file)
 
     // Get download URL
-    const downloadURL = await getDownloadURL(snapshot.ref);
+    const downloadURL = await getDownloadURL(snapshot.ref)
 
-    return downloadURL;
+    return downloadURL
   } catch (error) {
-    console.error('Error uploading image:', error);
-    throw error;
+    console.error('Error uploading media:', error)
+    throw error
   }
 }
 
 // Send message with image(s)
 // imageUrl can be a single URL (string) or array of URLs for multiple images
 export async function sendMessageWithImage(channelId, user, imageUrl, text = '', imageUrls = null) {
-  if (!user || (!imageUrl && (!imageUrls || imageUrls.length === 0))) return;
+  if (!user || (!imageUrl && (!imageUrls || imageUrls.length === 0))) return
 
   // Normalize to array
-  const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : []);
+  const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : [])
 
   try {
-    const messagesRef = collection(db, 'channels', channelId, 'messages');
+    const messagesRef = collection(db, 'channels', channelId, 'messages')
     const docRef = await addDoc(messagesRef, {
       text: text,
       imageUrl: allImageUrls[0], // Keep for backwards compatibility
@@ -361,8 +404,8 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+    })
 
     // Index to Ragie (fire and forget, don't block send)
     // 1. Sync accompanying text (if any)
@@ -378,9 +421,9 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString()
-        })
-      }).catch(err => console.error('Ragie text sync failed:', err));
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(err => console.error('Ragie text sync failed:', err))
     }
 
     // 2. Sync each image to Ragie - extract captions/OCR from images
@@ -397,26 +440,34 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString()
-        })
-      }).catch(err => console.error('Ragie image sync failed:', err));
-    });
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(err => console.error('Ragie image sync failed:', err))
+    })
   } catch (error) {
-    console.error('Error sending message with image:', error);
-    throw error;
+    console.error('Error sending message with image:', error)
+    throw error
   }
 }
 
 // Send DM with image(s)
 // imageUrl can be a single URL (string) or array of URLs for multiple images
-export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, text = '', recipient = null, imageUrls = null) {
-  if (!user || (!imageUrl && (!imageUrls || imageUrls.length === 0))) return;
+export async function sendMessageDMWithImage(
+  dmId,
+  user,
+  imageUrl,
+  recipientId,
+  text = '',
+  recipient = null,
+  imageUrls = null
+) {
+  if (!user || (!imageUrl && (!imageUrls || imageUrls.length === 0))) return
 
   // Normalize to array
-  const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : []);
+  const allImageUrls = imageUrls || (imageUrl ? [imageUrl] : [])
 
   try {
-    const messagesRef = collection(db, 'dms', dmId, 'messages');
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
     const docRef = await addDoc(messagesRef, {
       text: text,
       imageUrl: allImageUrls[0], // Keep for backwards compatibility
@@ -424,8 +475,8 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+    })
 
     // Index to Ragie (fire and forget, don't block send)
     // 1. Sync accompanying text (if any)
@@ -445,9 +496,9 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
-          recipientEmail: recipient?.email || null
-        })
-      }).catch(err => console.error('Ragie text sync failed:', err));
+          recipientEmail: recipient?.email || null,
+        }),
+      }).catch(err => console.error('Ragie text sync failed:', err))
     }
 
     // 2. Sync each image to Ragie - extract captions/OCR from images
@@ -468,17 +519,17 @@ export async function sendMessageDMWithImage(dmId, user, imageUrl, recipientId, 
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
-          recipientEmail: recipient?.email || null
-        })
-      }).catch(err => console.error('Ragie image sync failed:', err));
-    });
+          recipientEmail: recipient?.email || null,
+        }),
+      }).catch(err => console.error('Ragie image sync failed:', err))
+    })
 
     // Add to active DMs
-    await addActiveDM(user.uid, recipientId);
-    await addActiveDM(recipientId, user.uid);
+    await addActiveDM(user.uid, recipientId)
+    await addActiveDM(recipientId, user.uid)
   } catch (error) {
-    console.error('Error sending DM with image:', error);
-    throw error;
+    console.error('Error sending DM with image:', error)
+    throw error
   }
 }
 
@@ -487,22 +538,22 @@ export async function addReaction(channelId, messageId, userId, emoji, isDM = fa
   try {
     const messagesRef = isDM
       ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId);
+      : doc(db, 'channels', channelId, 'messages', messageId)
 
-    const msgSnap = await getDoc(messagesRef);
-    const reactions = msgSnap.data()?.reactions || {};
+    const msgSnap = await getDoc(messagesRef)
+    const reactions = msgSnap.data()?.reactions || {}
 
     // Toggle reaction: remove if same emoji, otherwise set new one
     if (reactions[userId] === emoji) {
-      delete reactions[userId];
+      delete reactions[userId]
     } else {
-      reactions[userId] = emoji;
+      reactions[userId] = emoji
     }
 
-    await updateDoc(messagesRef, { reactions });
+    await updateDoc(messagesRef, { reactions })
   } catch (error) {
-    console.error('Error adding reaction:', error);
-    throw error;
+    console.error('Error adding reaction:', error)
+    throw error
   }
 }
 
@@ -511,16 +562,16 @@ export async function editMessage(channelId, messageId, newText, isDM = false) {
   try {
     const messagesRef = isDM
       ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId);
+      : doc(db, 'channels', channelId, 'messages', messageId)
 
     await updateDoc(messagesRef, {
       text: newText,
       edited: true,
-      editedAt: serverTimestamp()
-    });
+      editedAt: serverTimestamp(),
+    })
   } catch (error) {
-    console.error('Error editing message:', error);
-    throw error;
+    console.error('Error editing message:', error)
+    throw error
   }
 }
 
@@ -529,21 +580,21 @@ export async function deleteMessage(channelId, messageId, isDM = false) {
   try {
     const messagesRef = isDM
       ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId);
+      : doc(db, 'channels', channelId, 'messages', messageId)
 
-    await deleteDoc(messagesRef);
+    await deleteDoc(messagesRef)
   } catch (error) {
-    console.error('Error deleting message:', error);
-    throw error;
+    console.error('Error deleting message:', error)
+    throw error
   }
 }
 
 // Send message with reply
 export async function sendMessageWithReply(channelId, user, text, replyTo) {
-  if (!user || !text.trim()) return;
+  if (!user || !text.trim()) return
 
   try {
-    const messagesRef = collection(db, 'channels', channelId, 'messages');
+    const messagesRef = collection(db, 'channels', channelId, 'messages')
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
@@ -553,9 +604,9 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
       replyTo: {
         msgId: replyTo.msgId,
         sender: replyTo.sender,
-        text: replyTo.text
-      }
-    });
+        text: replyTo.text,
+      },
+    })
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -569,21 +620,28 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(err => console.error('Ragie sync failed:', err));
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
   } catch (error) {
-    console.error('Error sending message with reply:', error);
-    throw error;
+    console.error('Error sending message with reply:', error)
+    throw error
   }
 }
 
 // Send DM with reply
-export async function sendMessageDMWithReply(dmId, user, text, recipientId, replyTo, recipient = null) {
-  if (!user || !text.trim()) return;
+export async function sendMessageDMWithReply(
+  dmId,
+  user,
+  text,
+  recipientId,
+  replyTo,
+  recipient = null
+) {
+  if (!user || !text.trim()) return
 
   try {
-    const messagesRef = collection(db, 'dms', dmId, 'messages');
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
@@ -593,9 +651,9 @@ export async function sendMessageDMWithReply(dmId, user, text, recipientId, repl
       replyTo: {
         msgId: replyTo.msgId,
         sender: replyTo.sender,
-        text: replyTo.text
-      }
-    });
+        text: replyTo.text,
+      },
+    })
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -613,90 +671,94 @@ export async function sendMessageDMWithReply(dmId, user, text, recipientId, repl
         participants: dmId.split('_').slice(1),
         recipientId: recipientId,
         recipientName: recipient?.displayName || recipient?.email || null,
-        recipientEmail: recipient?.email || null
-      })
-    }).catch(err => console.error('Ragie sync failed:', err));
+        recipientEmail: recipient?.email || null,
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
 
     // Add to active DMs
-    await addActiveDM(user.uid, recipientId);
-    await addActiveDM(recipientId, user.uid);
+    await addActiveDM(user.uid, recipientId)
+    await addActiveDM(recipientId, user.uid)
   } catch (error) {
-    console.error('Error sending DM with reply:', error);
-    throw error;
+    console.error('Error sending DM with reply:', error)
+    throw error
   }
 }
 
 // Get emoji usage for user
 export async function getEmojiUsage(userId) {
-  if (!userId) return {};
+  if (!userId) return {}
 
   try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userDoc = await getDoc(doc(db, 'users', userId))
     if (userDoc.exists()) {
-      return userDoc.data()?.emojiUsage || {};
+      return userDoc.data()?.emojiUsage || {}
     }
-    return {};
+    return {}
   } catch (error) {
-    console.error('Error getting emoji usage:', error);
-    return {};
+    console.error('Error getting emoji usage:', error)
+    return {}
   }
 }
 
 // Update emoji usage count
 export async function updateEmojiUsage(userId, emoji) {
-  if (!userId || !emoji) return;
+  if (!userId || !emoji) return
 
   try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    const currentUsage = userDoc.exists() ? (userDoc.data().emojiUsage || {}) : {};
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const currentUsage = userDoc.exists() ? userDoc.data().emojiUsage || {} : {}
 
     // Increment count for this emoji
-    currentUsage[emoji] = (currentUsage[emoji] || 0) + 1;
+    currentUsage[emoji] = (currentUsage[emoji] || 0) + 1
 
-    await setDoc(doc(db, 'users', userId), {
-      emojiUsage: currentUsage,
-      lastSeen: serverTimestamp()
-    }, { merge: true });
+    await setDoc(
+      doc(db, 'users', userId),
+      {
+        emojiUsage: currentUsage,
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    )
   } catch (error) {
-    console.error('Error updating emoji usage:', error);
+    console.error('Error updating emoji usage:', error)
   }
 }
 
 // Mark DM messages as read
 export async function markDMMessagesAsRead(dmId, userId, messageIds) {
-  if (!dmId || !userId || !messageIds || messageIds.length === 0) return;
+  if (!dmId || !userId || !messageIds || messageIds.length === 0) return
 
   try {
-    const batch = [];
-    const messagesRef = collection(db, 'dms', dmId, 'messages');
+    const batch = []
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
 
     for (const messageId of messageIds) {
-      const messageRef = doc(messagesRef, messageId);
+      const messageRef = doc(messagesRef, messageId)
       batch.push(
         updateDoc(messageRef, {
-          [`readBy.${userId}`]: serverTimestamp()
+          [`readBy.${userId}`]: serverTimestamp(),
         })
-      );
+      )
     }
 
-    await Promise.all(batch);
+    await Promise.all(batch)
   } catch (error) {
-    console.error('Error marking messages as read:', error);
+    console.error('Error marking messages as read:', error)
   }
 }
 
 // AI Chat functions
 export async function sendAIMessage(userId, text, isAI = false, user = null) {
-  if (!userId || !text.trim()) return;
+  if (!userId || !text.trim()) return
 
   try {
-    const messagesRef = collection(db, 'aiChats', userId, 'messages');
+    const messagesRef = collection(db, 'aiChats', userId, 'messages')
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: isAI ? 'Poppy AI' : null,
       senderId: isAI ? 'ai' : userId,
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+    })
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -707,152 +769,173 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
         chatId: `ai_${userId}`,
         chatType: 'ai',
         text,
-        sender: isAI ? 'Poppy AI' : (user?.displayName || user?.email || 'User'),
-        senderEmail: isAI ? 'ai@poppy.chat' : (user?.email || null),
+        sender: isAI ? 'Poppy AI' : user?.displayName || user?.email || 'User',
+        senderEmail: isAI ? 'ai@poppy.chat' : user?.email || null,
         senderId: isAI ? 'ai' : userId,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(err => console.error('Ragie sync failed:', err));
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
   } catch (error) {
-    console.error('Error sending AI message:', error);
-    throw error;
+    console.error('Error sending AI message:', error)
+    throw error
   }
 }
 
 export function subscribeToAIMessages(userId, callback) {
-  const messagesRef = collection(db, 'aiChats', userId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const messagesRef = collection(db, 'aiChats', userId, 'messages')
+  const q = query(messagesRef, orderBy('timestamp', 'asc'))
 
-  return onSnapshot(q, (snapshot) => {
-    const messages = [];
-    snapshot.forEach((doc) => {
+  return onSnapshot(q, snapshot => {
+    const messages = []
+    snapshot.forEach(doc => {
       messages.push({
         id: doc.id,
-        ...doc.data()
-      });
-    });
-    callback(messages);
-  });
+        ...doc.data(),
+      })
+    })
+    callback(messages)
+  })
 }
 
 // Typing indicator functions
 export async function setUserTyping(dmId, userId, isTyping) {
-  if (!dmId || !userId) return;
+  if (!dmId || !userId) return
 
   try {
-    const typingRef = doc(db, 'typing', dmId);
-    await setDoc(typingRef, {
-      [userId]: isTyping ? serverTimestamp() : null
-    }, { merge: true });
+    const typingRef = doc(db, 'typing', dmId)
+    await setDoc(
+      typingRef,
+      {
+        [userId]: isTyping ? serverTimestamp() : null,
+      },
+      { merge: true }
+    )
   } catch (error) {
-    console.error('Error setting typing status:', error);
+    console.error('Error setting typing status:', error)
   }
 }
 
 export function subscribeToTypingStatus(dmId, otherUserId, callback) {
-  if (!dmId || !otherUserId) return () => {};
+  if (!dmId || !otherUserId) return () => {}
 
-  const typingRef = doc(db, 'typing', dmId);
+  const typingRef = doc(db, 'typing', dmId)
 
-  return onSnapshot(typingRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const data = snapshot.data();
-      const typingTimestamp = data?.[otherUserId];
+  return onSnapshot(
+    typingRef,
+    snapshot => {
+      if (snapshot.exists()) {
+        const data = snapshot.data()
+        const typingTimestamp = data?.[otherUserId]
 
-      if (typingTimestamp) {
-        // Check if typing timestamp is recent (within 3 seconds)
-        const now = Date.now();
-        const typingTime = typingTimestamp.seconds * 1000;
-        const isTyping = (now - typingTime) < 3000;
-        callback(isTyping);
+        if (typingTimestamp) {
+          // Check if typing timestamp is recent (within 3 seconds)
+          const now = Date.now()
+          const typingTime = typingTimestamp.seconds * 1000
+          const isTyping = now - typingTime < 3000
+          callback(isTyping)
+        } else {
+          callback(false)
+        }
       } else {
-        callback(false);
+        callback(false)
       }
-    } else {
-      callback(false);
+    },
+    error => {
+      console.error('Error subscribing to typing status:', error)
+      callback(false)
     }
-  }, (error) => {
-    console.error('Error subscribing to typing status:', error);
-    callback(false);
-  });
+  )
 }
 
 // Unread tracking functions
 export async function markChatAsRead(userId, chatType, chatId) {
-  if (!userId || !chatType || !chatId) return;
+  if (!userId || !chatType || !chatId) return
 
   try {
-    const unreadRef = doc(db, 'unread', userId);
-    const chatKey = `${chatType}:${chatId}`;
+    const unreadRef = doc(db, 'unread', userId)
+    const chatKey = `${chatType}:${chatId}`
 
-    await setDoc(unreadRef, {
-      [chatKey]: {
-        lastRead: serverTimestamp(),
-        read: true
-      }
-    }, { merge: true });
+    await setDoc(
+      unreadRef,
+      {
+        [chatKey]: {
+          lastRead: serverTimestamp(),
+          read: true,
+        },
+      },
+      { merge: true }
+    )
 
-    console.log(`✅ Marked ${chatKey} as read for user ${userId}`);
+    console.log(`✅ Marked ${chatKey} as read for user ${userId}`)
   } catch (error) {
-    console.error('Error marking chat as read:', error);
+    console.error('Error marking chat as read:', error)
   }
 }
 
 export async function markChatAsUnread(userId, chatType, chatId) {
-  if (!userId || !chatType || !chatId) return;
+  if (!userId || !chatType || !chatId) return
 
   try {
-    const unreadRef = doc(db, 'unread', userId);
-    const chatKey = `${chatType}:${chatId}`;
+    const unreadRef = doc(db, 'unread', userId)
+    const chatKey = `${chatType}:${chatId}`
 
-    await setDoc(unreadRef, {
-      [chatKey]: {
-        lastMessageTime: serverTimestamp(),
-        read: false
-      }
-    }, { merge: true });
+    await setDoc(
+      unreadRef,
+      {
+        [chatKey]: {
+          lastMessageTime: serverTimestamp(),
+          read: false,
+        },
+      },
+      { merge: true }
+    )
 
-    console.log(`🔵 Marked ${chatKey} as unread for user ${userId}`);
+    console.log(`🔵 Marked ${chatKey} as unread for user ${userId}`)
   } catch (error) {
-    console.error('Error marking chat as unread:', error);
+    console.error('Error marking chat as unread:', error)
   }
 }
 
 export function subscribeToUnreadChats(userId, callback) {
-  if (!userId) return () => {};
+  if (!userId) return () => {}
 
-  const unreadRef = doc(db, 'unread', userId);
+  const unreadRef = doc(db, 'unread', userId)
 
-  return onSnapshot(unreadRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const data = snapshot.data();
-      const unreadChats = [];
+  return onSnapshot(
+    unreadRef,
+    snapshot => {
+      if (snapshot.exists()) {
+        const data = snapshot.data()
+        const unreadChats = []
 
-      // Iterate through all chat keys and find unread ones
-      Object.keys(data).forEach(chatKey => {
-        if (data[chatKey].read === false) {
-          unreadChats.push(chatKey);
-        }
-      });
+        // Iterate through all chat keys and find unread ones
+        Object.keys(data).forEach(chatKey => {
+          if (data[chatKey].read === false) {
+            unreadChats.push(chatKey)
+          }
+        })
 
-      callback(unreadChats);
-    } else {
-      callback([]);
+        callback(unreadChats)
+      } else {
+        callback([])
+      }
+    },
+    error => {
+      console.error('Error subscribing to unread chats:', error)
+      callback([])
     }
-  }, (error) => {
-    console.error('Error subscribing to unread chats:', error);
-    callback([]);
-  });
+  )
 }
 
 // Posts functions
 export async function createPost(chatType, chatId, user, title, content) {
-  if (!user || !content.trim()) return;
+  if (!user || !content.trim()) return
 
   try {
-    const postsRef = chatType === 'dm'
-      ? collection(db, 'dms', chatId, 'posts')
-      : collection(db, 'channels', chatId, 'posts');
+    const postsRef =
+      chatType === 'dm'
+        ? collection(db, 'dms', chatId, 'posts')
+        : collection(db, 'channels', chatId, 'posts')
 
     const postDoc = await addDoc(postsRef, {
       title: title || '',
@@ -861,65 +944,72 @@ export async function createPost(chatType, chatId, user, title, content) {
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-      edited: false
-    });
+      edited: false,
+    })
 
-    return postDoc.id;
+    return postDoc.id
   } catch (error) {
-    console.error('Error creating post:', error);
-    throw error;
+    console.error('Error creating post:', error)
+    throw error
   }
 }
 
 export function subscribeToPosts(chatType, chatId, callback) {
-  const postsRef = chatType === 'dm'
-    ? collection(db, 'dms', chatId, 'posts')
-    : collection(db, 'channels', chatId, 'posts');
+  const postsRef =
+    chatType === 'dm'
+      ? collection(db, 'dms', chatId, 'posts')
+      : collection(db, 'channels', chatId, 'posts')
 
-  const q = query(postsRef, orderBy('timestamp', 'desc'));
+  const q = query(postsRef, orderBy('timestamp', 'desc'))
 
-  return onSnapshot(q, (snapshot) => {
-    const posts = [];
-    snapshot.forEach((doc) => {
-      posts.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    callback(posts);
-  }, (error) => {
-    console.error('Error loading posts:', error);
-  });
+  return onSnapshot(
+    q,
+    snapshot => {
+      const posts = []
+      snapshot.forEach(doc => {
+        posts.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(posts)
+    },
+    error => {
+      console.error('Error loading posts:', error)
+    }
+  )
 }
 
 export async function editPost(chatType, chatId, postId, newTitle, newContent) {
   try {
-    const postRef = chatType === 'dm'
-      ? doc(db, 'dms', chatId, 'posts', postId)
-      : doc(db, 'channels', chatId, 'posts', postId);
+    const postRef =
+      chatType === 'dm'
+        ? doc(db, 'dms', chatId, 'posts', postId)
+        : doc(db, 'channels', chatId, 'posts', postId)
 
     await updateDoc(postRef, {
       title: newTitle,
       content: newContent,
       edited: true,
-      editedAt: serverTimestamp()
-    });
+      editedAt: serverTimestamp(),
+    })
   } catch (error) {
-    console.error('Error editing post:', error);
-    throw error;
+    console.error('Error editing post:', error)
+    throw error
   }
 }
 
 export async function deletePost(chatType, chatId, postId) {
   try {
-    const postRef = chatType === 'dm'
-      ? doc(db, 'dms', chatId, 'posts', postId)
-      : doc(db, 'channels', chatId, 'posts', postId);
+    const postRef =
+      chatType === 'dm'
+        ? doc(db, 'dms', chatId, 'posts', postId)
+        : doc(db, 'channels', chatId, 'posts', postId)
 
-    await deleteDoc(postRef);
+    await deleteDoc(postRef)
   } catch (error) {
-    console.error('Error deleting post:', error);
-    throw error;
+    console.error('Error deleting post:', error)
+    throw error
   }
 }
 
@@ -927,21 +1017,23 @@ export async function deletePost(chatType, chatId, postId) {
 export async function promoteMessageToPost(chatType, chatId, messageId) {
   try {
     // Get the message data
-    const messageRef = chatType === 'dm'
-      ? doc(db, 'dms', chatId, 'messages', messageId)
-      : doc(db, 'channels', chatId, 'messages', messageId);
+    const messageRef =
+      chatType === 'dm'
+        ? doc(db, 'dms', chatId, 'messages', messageId)
+        : doc(db, 'channels', chatId, 'messages', messageId)
 
-    const messageSnap = await getDoc(messageRef);
+    const messageSnap = await getDoc(messageRef)
     if (!messageSnap.exists()) {
-      throw new Error('Message not found');
+      throw new Error('Message not found')
     }
 
-    const messageData = messageSnap.data();
+    const messageData = messageSnap.data()
 
     // Create a post with the message data
-    const postsRef = chatType === 'dm'
-      ? collection(db, 'dms', chatId, 'posts')
-      : collection(db, 'channels', chatId, 'posts');
+    const postsRef =
+      chatType === 'dm'
+        ? collection(db, 'dms', chatId, 'posts')
+        : collection(db, 'channels', chatId, 'posts')
 
     await addDoc(postsRef, {
       title: '',
@@ -952,14 +1044,14 @@ export async function promoteMessageToPost(chatType, chatId, messageId) {
       timestamp: messageData.timestamp,
       edited: messageData.edited || false,
       imageUrl: messageData.imageUrl || null,
-      replyTo: messageData.replyTo || null
-    });
+      replyTo: messageData.replyTo || null,
+    })
 
     // Delete the original message
-    await deleteDoc(messageRef);
+    await deleteDoc(messageRef)
   } catch (error) {
-    console.error('Error promoting message to post:', error);
-    throw error;
+    console.error('Error promoting message to post:', error)
+    throw error
   }
 }
 
@@ -967,21 +1059,23 @@ export async function promoteMessageToPost(chatType, chatId, messageId) {
 export async function demotePostToMessage(chatType, chatId, postId) {
   try {
     // Get the post data
-    const postRef = chatType === 'dm'
-      ? doc(db, 'dms', chatId, 'posts', postId)
-      : doc(db, 'channels', chatId, 'posts', postId);
+    const postRef =
+      chatType === 'dm'
+        ? doc(db, 'dms', chatId, 'posts', postId)
+        : doc(db, 'channels', chatId, 'posts', postId)
 
-    const postSnap = await getDoc(postRef);
+    const postSnap = await getDoc(postRef)
     if (!postSnap.exists()) {
-      throw new Error('Post not found');
+      throw new Error('Post not found')
     }
 
-    const postData = postSnap.data();
+    const postData = postSnap.data()
 
     // Create a message with the post data
-    const messagesRef = chatType === 'dm'
-      ? collection(db, 'dms', chatId, 'messages')
-      : collection(db, 'channels', chatId, 'messages');
+    const messagesRef =
+      chatType === 'dm'
+        ? collection(db, 'dms', chatId, 'messages')
+        : collection(db, 'channels', chatId, 'messages')
 
     await addDoc(messagesRef, {
       text: postData.content || '',
@@ -992,13 +1086,13 @@ export async function demotePostToMessage(chatType, chatId, postId) {
       edited: postData.edited || false,
       imageUrl: postData.imageUrl || null,
       replyTo: postData.replyTo || null,
-      reactions: {}
-    });
+      reactions: {},
+    })
 
     // Delete the original post
-    await deleteDoc(postRef);
+    await deleteDoc(postRef)
   } catch (error) {
-    console.error('Error demoting post to message:', error);
-    throw error;
+    console.error('Error demoting post to message:', error)
+    throw error
   }
 }

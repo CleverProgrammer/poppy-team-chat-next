@@ -750,7 +750,7 @@ export default function ChatWindow() {
                 {isDragActive && (
                   <div className='drag-overlay'>
                     <div className='drag-overlay-content'>
-                      📎 Drop image here
+                      📎 Drop image or video here
                     </div>
                   </div>
                 )}
@@ -926,6 +926,7 @@ export default function ChatWindow() {
                 sending={sending}
                 imagePreview={imagePreview}
                 imagePreviews={imagePreviews}
+                imageFiles={imageFiles}
                 mentionMenu={mentionMenu}
                 mentionMenuIndex={mentionMenuIndex}
                 handleTextareaChange={handleTextareaChange}

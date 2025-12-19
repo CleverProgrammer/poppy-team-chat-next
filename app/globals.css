@@ -1061,6 +1061,39 @@ iframe[src*="vercel"] {
   transform: scale(1.02);
 }
 
+/* Video messages */
+.message-video {
+  max-width: 300px;
+  max-height: 400px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  display: block;
+  background: #000;
+}
+
+.message-images.multi-image .message-video {
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: cover;
+  margin-bottom: 0;
+}
+
+/* Video preview badge in input */
+.video-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.video-preview {
+  object-fit: cover;
+}
+
 /* Loom video container - responsive 16:9 aspect ratio */
 .loom-container {
   position: relative;

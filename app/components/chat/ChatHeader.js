@@ -11,7 +11,8 @@ export default function ChatHeader({
 }) {
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#'
-    if (currentChat.type === 'ai') return <img src="/poppy-icon.png" alt="Poppy" style={{ width: '20px', height: '20px' }} />
+    if (currentChat.type === 'ai')
+      return <img src='/poppy-icon.png' alt='Poppy' style={{ width: '20px', height: '20px' }} />
     return '💬'
   }
 
@@ -33,31 +34,26 @@ export default function ChatHeader({
   // Get avatar/icon for mobile header
   const getMobileAvatar = () => {
     if (currentChat.type === 'ai') {
-      return <img src="/poppy-icon.png" alt="Poppy" className='chat-header-avatar' style={{ width: '36px', height: '36px' }} />
+      return (
+        <img
+          src='/poppy-icon.png'
+          alt='Poppy'
+          className='chat-header-avatar'
+          style={{ width: '36px', height: '36px' }}
+        />
+      )
     }
     if (currentChat.type === 'dm') {
       const photo = getUserPhoto()
       if (photo) {
-        return (
-          <img
-            src={photo}
-            alt={currentChat.name}
-            className='chat-header-avatar'
-          />
-        )
+        return <img src={photo} alt={currentChat.name} className='chat-header-avatar' />
       }
       // Fallback to initials
       const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
-      return (
-        <div className='chat-header-avatar chat-header-avatar-initials'>
-          {initials}
-        </div>
-      )
+      return <div className='chat-header-avatar chat-header-avatar-initials'>{initials}</div>
     }
     // Channel
-    return (
-      <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
-    )
+    return <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
   }
 
   return (
@@ -89,9 +85,7 @@ export default function ChatHeader({
         {viewMode && onViewModeChange && (
           <div className='view-mode-toggle'>
             <button
-              className={`toggle-btn ${
-                viewMode === 'messages' ? 'active' : ''
-              }`}
+              className={`toggle-btn ${viewMode === 'messages' ? 'active' : ''}`}
               onClick={() => onViewModeChange('messages')}
             >
               Messages
@@ -121,7 +115,9 @@ export default function ChatHeader({
           <span>Back</span>
         </button>
         {getMobileAvatar()}
-        <div className='chat-header-name'>{currentChat.name?.replace('🤖 ', '').replace('🤖', '')}</div>
+        <div className='chat-header-name'>
+          {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
+        </div>
         <div className='chat-header-status'>{getSubtitle()}</div>
       </div>
     </>
