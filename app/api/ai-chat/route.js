@@ -89,6 +89,7 @@ IMPORTANT FORMATTING RULES:
 - Keep responses SHORT but well-spaced
 - Be casual, friendly, and conversational
 - Use emojis sparingly if it fits the vibe
+- NEVER prefix your messages with "Poppy:" or your name - just respond directly
 
 CRITICAL: USE YOUR TOOLS PROACTIVELY
 - You have access to RAGIE.ai tool search_chat_history is the specific tool. this is your MEMORY system
@@ -121,9 +122,11 @@ Don't ask permission to search or remember things - just do it.
     const recentHistory = chatHistory.slice(-10)
     recentHistory.forEach(msg => {
       if (msg.sender && msg.text) {
+        // For AI messages, don't include sender prefix (it learns to mimic it)
+        const content = msg.senderId === 'ai' ? msg.text : `${msg.sender}: ${msg.text}`
         messages.push({
           role: msg.senderId === 'ai' ? 'assistant' : 'user',
-          content: `${msg.sender}: ${msg.text}`,
+          content,
         })
       }
     })
@@ -182,7 +185,7 @@ Don't ask permission to search or remember things - just do it.
   })
 
   console.log(
-    '🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...'
+    '🌸 Poppy: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...'
   )
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -251,19 +254,19 @@ Don't ask permission to search or remember things - just do it.
       },
       async () => {
         const response = await anthropic.messages.create(createParams)
-        console.log('🤖 Poppy AI: Response received')
+        console.log('🌸 Poppy: Response received')
         return response
       }
     )
   } catch (error) {
-    console.error('🤖 Poppy AI: API Error:', error)
+    console.error('🌸 Poppy: API Error:', error)
     throw new Error(`API error: ${error.message}`)
   }
 
   // Log response structure for debugging
   if (!data.content) {
     console.error(
-      '🤖 Poppy AI: WARNING - No content in response:',
+      '🌸 Poppy: WARNING - No content in response:',
       JSON.stringify(data, null, 2)
     )
   }
@@ -447,12 +450,12 @@ Don't ask permission to search or remember things - just do it.
         },
       },
     })
-    console.log('🤖 Poppy AI: Got response after tool use')
+    console.log('🌸 Poppy: Got response after tool use')
   }
 
   // Extract final text from response
   if (!data || !data.content || !Array.isArray(data.content)) {
-    console.error('🤖 Poppy AI: Invalid response structure:', data)
+    console.error('🌸 Poppy: Invalid response structure:', data)
     const aiResponse = 'Sorry, I got a weird response. Try again!'
 
     if (controller && encoder) {

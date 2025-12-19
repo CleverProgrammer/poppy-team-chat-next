@@ -94,7 +94,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
     }, 0);
 
     try {
-      console.log('🤖 Poppy AI: Calling API...');
+      console.log('🌸 Poppy: Calling API...');
 
       // Update typing indicator with status updates
       const onStatus = (status) => {
@@ -115,9 +115,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id);
       }
 
-      console.log('🤖 Poppy AI: Response posted');
+      console.log('🌸 Poppy: Response posted');
     } catch (error) {
-      console.error('🤖 Poppy AI: Error:', error);
+      console.error('🌸 Poppy: Error:', error);
 
       // Remove typing indicator
       setAiTyping(false);
@@ -153,7 +153,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
     }, 0);
 
     try {
-      console.log('🤖 Poppy AI: Calling API for direct chat...');
+      console.log('🌸 Poppy: Calling API for direct chat...');
       const chatHistory = messages.slice(-10).map(m => ({
         role: m.senderId === 'ai' ? 'assistant' : 'user',
         text: m.text
@@ -176,9 +176,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
       // Mark AI chat as unread for the user
       markChatAsUnread(user.uid, 'ai', 'poppy-ai');
 
-      console.log('🤖 Poppy AI: Response added to direct chat');
+      console.log('🌸 Poppy: Response added to direct chat');
     } catch (error) {
-      console.error('🤖 Poppy AI: Error:', error);
+      console.error('🌸 Poppy: Error:', error);
 
       // Remove typing indicator
       setAiTyping(false);
