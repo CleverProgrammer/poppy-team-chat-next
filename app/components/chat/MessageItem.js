@@ -309,7 +309,7 @@ export default function MessageItem({
       {!isSent && (
         <div className="message-sender">
           {msg.senderId === 'ai' && (
-            <img src="/poppy-icon.png" alt="Poppy" className="ai-sender-icon" />
+            <img src="/poppy-icon.png" alt="Poppy" className="ai-sender-icon" style={{ width: '24px', height: '24px', maxWidth: '24px', maxHeight: '24px' }} />
           )}
           {msg.senderId === 'ai' ? msg.sender?.replace('🤖 ', '').replace('🤖', '') : msg.sender}
           <MessageTimestamp timestamp={msg.timestamp} />
