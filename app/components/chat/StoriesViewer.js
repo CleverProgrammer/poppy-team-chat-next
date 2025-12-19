@@ -1,8 +1,50 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Stories from 'react-insta-stories'
+import MuxPlayer from '@mux/mux-player-react'
+
+// Custom renderer that uses MuxPlayer for HLS support on all browsers
+const MuxVideoRenderer = ({ story, action, config }) => {
+  const playerRef = useRef(null)
+  
+  return (
+    <div style={{ 
+      width: '100%', 
+      height: '100%', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      background: '#000'
+    }}>
+      <MuxPlayer
+        ref={playerRef}
+        playbackId={story.playbackId}
+        streamType="on-demand"
+        autoPlay
+        muted={false}
+        loop={false}
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          '--controls': 'none',
+          '--media-object-fit': 'contain',
+        }}
+        onEnded={() => action('next')}
+        onError={() => action('next')}
+      />
+    </div>
+  )
+}
+
+// Tester to determine when to use our custom renderer
+const muxVideoTester = (story) => {
+  return {
+    condition: story.type === 'muxVideo',
+    priority: 3,
+  }
+}
 
 export default function StoriesViewer({ 
   isOpen, 
@@ -37,19 +79,10 @@ export default function StoriesViewer({
 
   if (!isOpen || videos.length === 0) return null
 
-  // Detect iOS/Safari for HLS native support
-  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
-  const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-  const supportsHLS = isIOS || isSafari
-  
-  // Transform videos to react-insta-stories format
-  // Use HLS for iOS/Safari (native support, ready immediately)
-  // Use MP4 for Chrome (takes longer to generate but no HLS.js needed)
+  // Transform videos to react-insta-stories format with MuxPlayer
   const stories = videos.map(video => ({
-    url: supportsHLS 
-      ? `https://stream.mux.com/${video.playbackId}.m3u8`
-      : `https://stream.mux.com/${video.playbackId}/high.mp4`,
-    type: 'video',
+    type: 'muxVideo',
+    playbackId: video.playbackId,
     header: {
       heading: video.sender || 'Video Reply',
       subheading: video.timestamp 
@@ -58,9 +91,9 @@ export default function StoriesViewer({
             minute: '2-digit'
           })
         : '',
-      profileImage: '', // Could add user avatar here
+      profileImage: '',
     },
-    preloadResource: true,
+    duration: 30000, // Max duration, will auto-advance on video end
   }))
 
   return createPortal(
@@ -114,7 +147,7 @@ export default function StoriesViewer({
         <Stories
           stories={stories}
           currentIndex={initialIndex}
-          defaultInterval={15000}
+          defaultInterval={30000}
           width="100%"
           height="100%"
           onAllStoriesEnd={onClose}
@@ -122,6 +155,7 @@ export default function StoriesViewer({
           storyContainerStyles={{
             borderRadius: '12px',
             overflow: 'hidden',
+            background: '#000',
           }}
           storyStyles={{
             objectFit: 'contain',
@@ -138,6 +172,9 @@ export default function StoriesViewer({
           loop={false}
           keyboardNavigation={true}
           isPaused={false}
+          renderers={[
+            { renderer: MuxVideoRenderer, tester: muxVideoTester }
+          ]}
         />
       </div>
     </div>,
