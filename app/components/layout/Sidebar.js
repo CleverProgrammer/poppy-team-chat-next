@@ -157,23 +157,10 @@ export default function Sidebar({
         <div
           className={`dm-item ${currentChat?.type === 'ai' ? 'active' : ''}`}
           onClick={() =>
-            onSelectChat({ type: 'ai', id: 'poppy-ai', name: '🤖 Poppy AI' })
+            onSelectChat({ type: 'ai', id: 'poppy-ai', name: 'Poppy AI' })
           }
         >
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '18px',
-            }}
-          >
-            🤖
-          </div>
+          <img src="/poppy-icon.png" alt="Poppy" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
           <span>Poppy AI</span>
           {unreadChats.includes('ai:poppy-ai') && (
             <div className='unread-badge' />

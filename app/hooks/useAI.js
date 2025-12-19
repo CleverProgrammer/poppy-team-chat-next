@@ -5,7 +5,7 @@ import { sendMessage, sendMessageDM, getDMId, sendAIMessage, markChatAsUnread } 
 
 const AI_USER = {
   uid: 'ai',
-  displayName: '🤖 Poppy',
+  displayName: 'Poppy',
   email: 'ai@poppy.chat',
   photoURL: ''
 };
@@ -123,7 +123,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
       setAiTyping(false);
 
       // Post error message
-      const errorMsg = `Sorry, I had a problem: ${error.message}. Try again! 🤖`;
+      const errorMsg = `Sorry, I had a problem: ${error.message}. Try again!`;
       if (currentChat.type === 'channel') {
         await sendMessage(currentChat.id, AI_USER, errorMsg);
       } else {
@@ -184,7 +184,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
       setAiTyping(false);
 
       // Save error message to Firestore
-      await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again! 🤖`, true);
+      await sendAIMessage(user.uid, `Sorry, I had a problem: ${error.message}. Try again!`, true);
 
       // Mark AI chat as unread for the user
       markChatAsUnread(user.uid, 'ai', 'poppy-ai');

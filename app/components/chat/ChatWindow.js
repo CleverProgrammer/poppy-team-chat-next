@@ -877,11 +877,10 @@ export default function ChatWindow() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '14px',
                         border: '2px solid var(--border-input)',
                       }}
                     >
-                      🤖
+                      <img src="/poppy-icon.png" alt="Poppy" style={{ width: '20px', height: '20px' }} />
                     </div>
                     <div
                       style={{

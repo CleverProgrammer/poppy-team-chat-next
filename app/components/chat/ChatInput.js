@@ -160,7 +160,9 @@ export default function ChatInput({
                     onClick={() => selectMentionItem(item)}
                     onMouseEnter={() => setMentionMenuIndex(index)}
                   >
-                    {item.photoURL ? (
+                    {item.icon ? (
+                      <img src={item.icon} alt={item.name} className='mention-avatar' style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                    ) : item.photoURL ? (
                       <img
                         src={item.photoURL}
                         alt={item.name}

@@ -130,7 +130,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
                         className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
                         onClick={() => handleSelect(item)}
                       >
-                        <div className="cmd-palette-item-icon" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '50%' }}>🤖</div>
+                        <img src="/poppy-icon.png" alt="Poppy" className="cmd-palette-item-icon" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
                         <div className="cmd-palette-item-info">
                           <div className="cmd-palette-item-name">{item.name}</div>
                           <div className="cmd-palette-item-hint">{item.hint}</div>

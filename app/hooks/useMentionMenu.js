@@ -120,9 +120,10 @@ export function useMentionMenu({
     if (!mentionMenu.query || 'poppy'.includes(mentionMenu.query)) {
       items.push({
         type: 'ai',
-        name: '🤖 Poppy',
+        name: 'Poppy',
         uid: 'poppy-ai',
         description: 'AI Assistant',
+        icon: '/poppy-icon.png',
       })
     }
 

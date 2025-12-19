@@ -69,7 +69,7 @@ export default function AIModal({ isOpen, onClose, onInsert, insertPosition }) {
       <div className="ai-modal-overlay" onClick={handleClose} />
       <div className="ai-modal">
         <div className="ai-modal-header">
-          <span>🤖</span>
+          <img src="/poppy-icon.png" alt="Poppy" style={{ width: '32px', height: '32px' }} />
           <h3>Ask Poppy</h3>
           <button className="ai-modal-close" onClick={handleClose}>✕</button>
         </div>

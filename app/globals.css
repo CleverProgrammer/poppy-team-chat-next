@@ -353,6 +353,12 @@ html {
   gap: 6px;
 }
 
+.ai-sender-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
 .message-wrapper.sent .message-sender {
   display: none;
 }
@@ -658,9 +664,10 @@ html {
 }
 
 .dm-item img {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
+  object-fit: cover;
 }
 
 .user-panel {

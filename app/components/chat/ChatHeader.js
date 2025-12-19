@@ -11,7 +11,7 @@ export default function ChatHeader({
 }) {
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#'
-    if (currentChat.type === 'ai') return '🤖'
+    if (currentChat.type === 'ai') return <img src="/poppy-icon.png" alt="Poppy" style={{ width: '20px', height: '20px' }} />
     return '💬'
   }
 
@@ -33,7 +33,7 @@ export default function ChatHeader({
   // Get avatar/icon for mobile header
   const getMobileAvatar = () => {
     if (currentChat.type === 'ai') {
-      return <div className='chat-header-avatar chat-header-avatar-ai'>🤖</div>
+      return <img src="/poppy-icon.png" alt="Poppy" className='chat-header-avatar' style={{ width: '36px', height: '36px' }} />
     }
     if (currentChat.type === 'dm') {
       const photo = getUserPhoto()

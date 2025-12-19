@@ -693,7 +693,7 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
     const messagesRef = collection(db, 'aiChats', userId, 'messages');
     const docRef = await addDoc(messagesRef, {
       text: text,
-      sender: isAI ? '🤖 Poppy AI' : null,
+      sender: isAI ? 'Poppy AI' : null,
       senderId: isAI ? 'ai' : userId,
       timestamp: serverTimestamp()
     });
@@ -707,7 +707,7 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
         chatId: `ai_${userId}`,
         chatType: 'ai',
         text,
-        sender: isAI ? '🤖 Poppy AI' : (user?.displayName || user?.email || 'User'),
+        sender: isAI ? 'Poppy AI' : (user?.displayName || user?.email || 'User'),
         senderEmail: isAI ? 'ai@poppy.chat' : (user?.email || null),
         senderId: isAI ? 'ai' : userId,
         timestamp: new Date().toISOString()

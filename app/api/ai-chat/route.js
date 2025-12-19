@@ -453,7 +453,7 @@ Don't ask permission to search or remember things - just do it.
   // Extract final text from response
   if (!data || !data.content || !Array.isArray(data.content)) {
     console.error('🤖 Poppy AI: Invalid response structure:', data)
-    const aiResponse = 'Sorry, I got a weird response. Try again! 🤖'
+    const aiResponse = 'Sorry, I got a weird response. Try again!'
 
     if (controller && encoder) {
       controller.enqueue(
