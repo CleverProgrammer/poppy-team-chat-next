@@ -1110,9 +1110,9 @@ iframe[src*="vercel"] {
 /* Video Reply Bubble - Special compact style for video replies */
 .video-reply-bubble {
   position: relative;
-  width: 120px;
-  height: 120px;
-  border-radius: 20px;
+  width: 180px;
+  height: 100px;
+  border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
@@ -1164,7 +1164,31 @@ iframe[src*="vercel"] {
 }
 
 .message-videos.video-reply {
-  margin-bottom: 8px;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Position video replies to the right for sent messages */
+.message-wrapper.sent .message-videos.video-reply {
+  justify-content: flex-end;
+}
+
+/* Position video replies to the left for received messages */
+.message-wrapper:not(.sent) .message-videos.video-reply {
+  justify-content: flex-start;
+}
+
+/* Hide empty message bubble for video-only replies */
+.message-wrapper.video-only-reply .message {
+  display: none;
+}
+
+/* Hide timestamp for video-only replies as it's shown in the badge */
+.message-wrapper.video-only-reply .message-timestamp-sent {
+  display: none;
 }
 
 /* Video preview badge in input */

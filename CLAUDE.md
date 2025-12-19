@@ -64,22 +64,13 @@ dms/{dmId}/posts/{postId}
 - Unread chats show blue dot indicator in sidebar
 - Real-time subscription to unread chats updates UI instantly
 
-#### 7. **Browser Push Notifications (OneSignal)**
-- Users receive browser notifications when they're away from the app
-- Notifications sent for:
-  - Channel mentions (@username, @everyone, @channel)
-  - New direct messages
-- OneSignal SDK initializes on app load and sets user ID
-- Notifications triggered via `/api/notifications/send` endpoint
-- Works when tab is hidden or browser is in background
-
 ## Tech Stack
 - **Framework**: Next.js 15.1.3 (App Router)
 - **Styling**: Tailwind CSS + Custom CSS (globals.css)
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth (Google Sign-in)
 - **AI**: Anthropic Claude API via MCP (Model Context Protocol)
-- **Notifications**: OneSignal (Browser Push Notifications)
+- **Video**: Mux (video hosting, streaming, thumbnails)
 - **Language**: JavaScript (React)
 - **Package Manager**: Yarn
 
@@ -103,7 +94,7 @@ app/
 │   ├── layout/
 │   │   └── Sidebar.js          # Navigation with channels, DMs, unread indicators
 │   └── providers/
-│       └── OneSignalProvider.js # OneSignal initialization and user ID management
+│       └── CapacitorProvider.js # Mobile native features (keyboard, camera, haptics)
 ├── contexts/
 │   └── AuthContext.js          # Global auth state (user, login, logout)
 ├── hooks/
@@ -119,8 +110,8 @@ app/
 │   └── mcp-client.js           # Model Context Protocol client for AI
 └── api/
     ├── mcp/                    # MCP server endpoints
-    └── notifications/
-        └── send/               # OneSignal notification dispatch endpoint
+    ├── ai-chat/                # AI chat endpoint
+    └── mux/                    # Mux video upload and asset status endpoints
 ```
 
 ### Key Component Responsibilities
@@ -229,28 +220,19 @@ All database operations centralized in `lib/firestore.js`:
 - **All Users**: Everyone in the system (for starting new DMs)
 - Sidebar shows active DMs first, then "+ New DM" to browse all users
 
-### 9. Browser Push Notifications (OneSignal)
-- **Setup**: OneSignal SDK initialized in `OneSignalProvider` component
-- **User Identification**: External user ID set to Firebase UID for targeted notifications
-- **Notification Flow**:
-  1. New message detected in `useSubscriptions` hook (when tab is hidden)
-  2. `sendBrowserNotification()` calls `/api/notifications/send` endpoint
-  3. Server sends notification via OneSignal REST API to specific user
-  4. Browser displays notification even when tab is closed/minimized
-- **Triggers**:
-  - Channel mentions (@username, @everyone, @channel)
-  - New DM messages
-- **Worker**: OneSignalSDKWorker.js in `/public` directory handles background notifications
-- **Permissions**: OneSignal notify button prompts users to allow notifications on first use
+### 9. Video Replies (Mux)
+- **Upload**: Direct upload to Mux via `/api/mux/upload` endpoint
+- **Processing**: Poll `/api/mux/asset` for playback ID when ready
+- **Display**: Video replies shown as compact bubbles with thumbnail
+- **Playback**: Stories-style viewer with progress bars, tap navigation, 2x speed on hold
+- **Storage**: Mux playback IDs stored in Firestore message docs
 
 ## Important Notes
-- **Browser Notifications**: OneSignal handles push notifications when users are away
-- **Don't use Knock** (legacy - OneSignal replaced it for browser notifications)
 - Messages and posts are stored in **separate Firestore subcollections**
 - Posts preserve all message metadata (images, replies, timestamps)
 - Unread state tracked per-user, per-chat in Firestore
 - MCP server runs serverless on Vercel, spawns Notion MCP on demand
-- OneSignal requires proper environment variables (see `.env.local.example`)
+- Mux requires proper environment variables (MUX_TOKEN_ID, MUX_TOKEN_SECRET)
 
 ## Commands
 ```bash

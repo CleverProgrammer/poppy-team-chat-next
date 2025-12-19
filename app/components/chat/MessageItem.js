@@ -156,11 +156,11 @@ export default function MessageItem({
       if (timeSinceLastTap < 350 && timeSinceLastTap > 50) {
         e.preventDefault()
         e.stopPropagation()
-        
+
         // Store the second tap time
         secondLastTapTime.current = lastTapTime.current
         lastTapTime.current = now
-        
+
         // Delay double-tap to see if a third tap is coming
         doubleTapTimer.current = setTimeout(() => {
           doubleTapTimer.current = null
@@ -354,7 +354,15 @@ export default function MessageItem({
       data-msg-id={msg.id}
       className={`message-wrapper ${isSent ? 'sent' : 'received'} ${
         isReplyTarget ? 'reply-target' : ''
-      } ${actionSheetOpen ? 'message-selected' : ''}`}
+      } ${actionSheetOpen ? 'message-selected' : ''} ${
+        msg.replyTo &&
+        msg.muxPlaybackIds?.length > 0 &&
+        !msg.text &&
+        !msg.imageUrl &&
+        !msg.imageUrls?.length
+          ? 'video-only-reply'
+          : ''
+      }`}
       onContextMenu={handleContextMenuWrapper}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -390,68 +398,78 @@ export default function MessageItem({
           <MessageTimestamp timestamp={msg.timestamp} />
         </div>
       )}
-      <div className='message'>
-        {/* Mux videos - special styling for video replies */}
-        {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && (
-          <div className={`message-videos ${msg.replyTo ? 'video-reply' : ''}`}>
-            {msg.muxPlaybackIds.map((playbackId, idx) => (
-              msg.replyTo ? (
-                // Video reply - compact bubble with play button
-                <div key={idx} className='video-reply-bubble' onClick={(e) => {
-                  e.stopPropagation();
-                  // Collect all video replies to the SAME original message
-                  const repliestoSameMessage = messages
-                    .filter(m => m.muxPlaybackIds && m.muxPlaybackIds.length > 0 && m.replyTo?.msgId === msg.replyTo?.msgId)
-                    .flatMap(m => m.muxPlaybackIds.map(pid => ({
+      {/* Video replies - render OUTSIDE the message bubble for proper positioning */}
+      {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && msg.replyTo && (
+        <div className='message-videos video-reply'>
+          {msg.muxPlaybackIds.map((playbackId, idx) => (
+            <div
+              key={idx}
+              className='video-reply-bubble'
+              onClick={e => {
+                e.stopPropagation()
+                // Collect all video replies to the SAME original message
+                const repliestoSameMessage = messages
+                  .filter(
+                    m =>
+                      m.muxPlaybackIds &&
+                      m.muxPlaybackIds.length > 0 &&
+                      m.replyTo?.msgId === msg.replyTo?.msgId
+                  )
+                  .flatMap(m =>
+                    m.muxPlaybackIds.map(pid => ({
                       playbackId: pid,
                       sender: m.sender,
                       timestamp: m.timestamp,
-                      msgId: m.id
-                    })));
-                  // Find the index of the clicked video
-                  const currentIdx = repliestoSameMessage.findIndex(v => v.playbackId === playbackId);
-                  setStoriesVideos(repliestoSameMessage);
-                  setStoriesInitialIndex(currentIdx >= 0 ? currentIdx : 0);
-                  setStoriesOpen(true);
-                }}>
-                  <img 
-                    src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
-                    alt='Video reply'
-                    className='video-reply-thumbnail'
-                  />
-                  <div className='video-reply-play'>
-                    <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
-                      <path d='M8 5v14l11-7z'/>
-                    </svg>
-                  </div>
-                  <div className='video-reply-badge'>🎬</div>
-                </div>
-              ) : (
-                // Regular video - use native video for better mobile compatibility
-                <video
-                  key={idx}
-                  className='message-mux-video'
-                  controls
-                  playsInline
-                  preload='metadata'
-                  poster={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
-                  style={{ 
-                    width: '100%', 
-                    maxWidth: '300px',
-                    borderRadius: '12px',
-                    marginBottom: '8px'
-                  }}
-                >
-                  <source 
-                    src={`https://stream.mux.com/${playbackId}.m3u8`} 
-                    type='application/x-mpegURL' 
-                  />
-                  <source 
-                    src={`https://stream.mux.com/${playbackId}/high.mp4`} 
-                    type='video/mp4' 
-                  />
-                </video>
-              )
+                      msgId: m.id,
+                    }))
+                  )
+                // Find the index of the clicked video
+                const currentIdx = repliestoSameMessage.findIndex(v => v.playbackId === playbackId)
+                setStoriesVideos(repliestoSameMessage)
+                setStoriesInitialIndex(currentIdx >= 0 ? currentIdx : 0)
+                setStoriesOpen(true)
+              }}
+            >
+              <img
+                src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
+                alt='Video reply'
+                className='video-reply-thumbnail'
+              />
+              <div className='video-reply-play'>
+                <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
+                  <path d='M8 5v14l11-7z' />
+                </svg>
+              </div>
+              <div className='video-reply-badge'>🎬</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className='message'>
+        {/* Regular Mux videos (not replies) - inside the message bubble */}
+        {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
+          <div className='message-videos'>
+            {msg.muxPlaybackIds.map((playbackId, idx) => (
+              <video
+                key={idx}
+                className='message-mux-video'
+                controls
+                playsInline
+                preload='metadata'
+                poster={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
+                style={{
+                  width: '100%',
+                  maxWidth: '300px',
+                  borderRadius: '12px',
+                  marginBottom: '8px',
+                }}
+              >
+                <source
+                  src={`https://stream.mux.com/${playbackId}.m3u8`}
+                  type='application/x-mpegURL'
+                />
+                <source src={`https://stream.mux.com/${playbackId}/high.mp4`} type='video/mp4' />
+              </video>
             ))}
           </div>
         )}
@@ -463,18 +481,17 @@ export default function MessageItem({
             {(() => {
               const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
               return allImages.map((url, idx) => (
-                  <img
-                    key={idx}
-                    src={url}
-                    alt={`Shared image ${idx + 1}`}
-                    className='message-image'
-                    onClick={e => {
-                      e.stopPropagation()
-                      onImageClick(allImages, idx)
-                    }}
-                  />
-                )
-              )
+                <img
+                  key={idx}
+                  src={url}
+                  alt={`Shared image ${idx + 1}`}
+                  className='message-image'
+                  onClick={e => {
+                    e.stopPropagation()
+                    onImageClick(allImages, idx)
+                  }}
+                />
+              ))
             })()}
           </div>
         )}

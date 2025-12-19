@@ -2,7 +2,6 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import './mobile.css'
 import { AuthProvider } from './contexts/AuthContext'
-import OneSignalProvider from './components/providers/OneSignalProvider'
 import CapacitorProvider from './components/providers/CapacitorProvider'
 
 const geistSans = Geist({
@@ -35,8 +34,7 @@ export const metadata = {
   },
   openGraph: {
     title: 'Poppy Chat - Come vibe with the team lol',
-    description:
-      'Where work gets done and chaos is encouraged. Join the squad 🔥',
+    description: 'Where work gets done and chaos is encouraged. Join the squad 🔥',
     images: [
       {
         url: 'https://i.imgur.com/FW8HVnX.jpeg',
@@ -50,8 +48,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Poppy Chat - Come vibe with the team lol',
-    description:
-      'Where work gets done and chaos is encouraged. Join the squad 🔥',
+    description: 'Where work gets done and chaos is encouraged. Join the squad 🔥',
     images: ['https://i.imgur.com/FW8HVnX.jpeg'],
   },
 }
@@ -59,13 +56,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang='en'>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          <CapacitorProvider>
-            <OneSignalProvider>{children}</OneSignalProvider>
-          </CapacitorProvider>
+          <CapacitorProvider>{children}</CapacitorProvider>
         </AuthProvider>
       </body>
     </html>
