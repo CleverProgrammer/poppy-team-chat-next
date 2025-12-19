@@ -746,7 +746,11 @@ export default function ChatWindow() {
                 onClick={handleMessagesAreaClick}
                 style={{ height: '100%', position: 'relative' }}
               >
-                <input {...getInputProps()} />
+                <input 
+                  {...getInputProps()} 
+                  capture={replyingTo ? 'user' : undefined}
+                  accept={replyingTo ? 'video/*' : undefined}
+                />
                 {isDragActive && (
                   <div className='drag-overlay'>
                     <div className='drag-overlay-content'>

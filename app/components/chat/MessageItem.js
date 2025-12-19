@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
+import StoriesViewer from './StoriesViewer'
 import {
   linkifyText,
   isSingleEmoji,
@@ -35,6 +36,9 @@ export default function MessageItem({
   const [actionSheetReactionsOnly, setActionSheetReactionsOnly] = useState(false)
   const [actionSheetPosition, setActionSheetPosition] = useState(null)
   const [animatingEmoji, setAnimatingEmoji] = useState(null)
+  const [storiesOpen, setStoriesOpen] = useState(false)
+  const [storiesVideos, setStoriesVideos] = useState([])
+  const [storiesInitialIndex, setStoriesInitialIndex] = useState(0)
   const lastTapTime = useRef(0)
   const elementRef = useRef(null)
   const longPressTimer = useRef(null)
@@ -356,7 +360,20 @@ export default function MessageItem({
                 // Video reply - compact bubble with play button
                 <div key={idx} className='video-reply-bubble' onClick={(e) => {
                   e.stopPropagation();
-                  // TODO: Open Stories viewer
+                  // Collect all video replies to the SAME original message
+                  const repliestoSameMessage = messages
+                    .filter(m => m.muxPlaybackIds && m.muxPlaybackIds.length > 0 && m.replyTo?.msgId === msg.replyTo?.msgId)
+                    .flatMap(m => m.muxPlaybackIds.map(pid => ({
+                      playbackId: pid,
+                      sender: m.sender,
+                      timestamp: m.timestamp,
+                      msgId: m.id
+                    })));
+                  // Find the index of the clicked video
+                  const currentIdx = repliestoSameMessage.findIndex(v => v.playbackId === playbackId);
+                  setStoriesVideos(repliestoSameMessage);
+                  setStoriesInitialIndex(currentIdx >= 0 ? currentIdx : 0);
+                  setStoriesOpen(true);
                 }}>
                   <img 
                     src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
@@ -530,6 +547,14 @@ export default function MessageItem({
         onPromote={() => onPromote?.(msg.id)}
         onAddToTeamMemory={() => onAddToTeamMemory?.(msg)}
         reactionsOnly={actionSheetReactionsOnly}
+      />
+
+      {/* Stories Viewer for video replies */}
+      <StoriesViewer
+        isOpen={storiesOpen}
+        onClose={() => setStoriesOpen(false)}
+        videos={storiesVideos}
+        initialIndex={storiesInitialIndex}
       />
     </div>
   )

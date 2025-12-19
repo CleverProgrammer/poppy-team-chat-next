@@ -13,7 +13,8 @@ export async function POST() {
       cors_origin: '*',
       new_asset_settings: {
         playback_policy: ['public'],
-        encoding_tier: 'baseline', // Faster encoding, good for chat videos
+        encoding_tier: 'smart', // Better quality encoding
+        mp4_support: 'standard', // Enable MP4 for non-HLS browsers (Chrome)
       },
     })
 
