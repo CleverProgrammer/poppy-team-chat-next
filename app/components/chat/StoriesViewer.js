@@ -37,9 +37,18 @@ export default function StoriesViewer({
 
   if (!isOpen || videos.length === 0) return null
 
+  // Detect iOS/Safari for HLS native support
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+  const supportsHLS = isIOS || isSafari
+  
   // Transform videos to react-insta-stories format
+  // Use HLS for iOS/Safari (native support, ready immediately)
+  // Use MP4 for Chrome (takes longer to generate but no HLS.js needed)
   const stories = videos.map(video => ({
-    url: `https://stream.mux.com/${video.playbackId}/high.mp4`,
+    url: supportsHLS 
+      ? `https://stream.mux.com/${video.playbackId}.m3u8`
+      : `https://stream.mux.com/${video.playbackId}/high.mp4`,
     type: 'video',
     header: {
       heading: video.sender || 'Video Reply',

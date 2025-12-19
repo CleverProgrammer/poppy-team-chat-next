@@ -13,10 +13,7 @@ export async function GET(request) {
     const uploadId = searchParams.get('uploadId')
 
     if (!uploadId) {
-      return NextResponse.json(
-        { error: 'uploadId is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'uploadId is required' }, { status: 400 })
     }
 
     // Get the upload to find the asset ID
@@ -32,19 +29,19 @@ export async function GET(request) {
     // Get the asset details
     const asset = await mux.video.assets.retrieve(upload.asset_id)
 
+    // Check if MP4 static renditions are ready
+    const staticRenditionsReady = asset.static_renditions?.status === 'ready'
+
     return NextResponse.json({
       status: asset.status,
       ready: asset.status === 'ready',
+      mp4Ready: staticRenditionsReady,
       playbackId: asset.playback_ids?.[0]?.id || null,
       assetId: asset.id,
       duration: asset.duration,
     })
   } catch (error) {
     console.error('Error getting Mux asset:', error)
-    return NextResponse.json(
-      { error: 'Failed to get asset details' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to get asset details' }, { status: 500 })
   }
 }
-

@@ -52,10 +52,16 @@ export function useMuxUpload() {
 
       // 3. Poll for the asset to be ready
       let playbackId = null
+      let mp4Ready = false
       let attempts = 0
-      const maxAttempts = 60 // 60 seconds max wait
+      const maxAttempts = 120 // 120 seconds max wait (MP4 can take longer)
 
-      while (!playbackId && attempts < maxAttempts) {
+      // Detect if we need MP4 (Chrome/Firefox) or can use HLS (Safari/iOS)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      const needsMP4 = !isIOS && !isSafari
+
+      while (attempts < maxAttempts) {
         await new Promise(r => setTimeout(r, 1000))
         attempts++
         
@@ -64,12 +70,21 @@ export function useMuxUpload() {
         
         if (assetData.ready && assetData.playbackId) {
           playbackId = assetData.playbackId
+          mp4Ready = assetData.mp4Ready
+          
+          // For Safari/iOS, we can use HLS immediately
+          // For Chrome, we need MP4 - wait for it or timeout after 30 more seconds
+          if (!needsMP4 || mp4Ready || attempts > 90) {
+            break
+          }
         }
       }
 
       if (!playbackId) {
         throw new Error('Video processing timed out')
       }
+      
+      console.log(`📹 Video ready - playbackId: ${playbackId}, mp4Ready: ${mp4Ready}, attempts: ${attempts}`)
 
       setUploading(false)
       setProgress(100)
