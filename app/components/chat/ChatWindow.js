@@ -423,9 +423,13 @@ export default function ChatWindow() {
       return
     }
 
+    // Store reply context locally and IMMEDIATELY clear the reply state
+    // User has "replied" from their perspective the moment they hit Send
+    const replyContext = pendingVideoReplyRef.current
+    pendingVideoReplyRef.current = null
+    setReplyingTo(null)
+
     try {
-      // Set the reply context
-      setReplyingTo(pendingVideoReplyRef.current)
 
       // Get Mux upload URL
       console.log('📹 Getting Mux upload URL...')
@@ -498,21 +502,17 @@ export default function ChatWindow() {
       // Send the message with the video
       console.log('📹 Sending message with video...')
       setVideoUploadProgress({ percent: 100, status: 'sending' })
-      await sendVideoReply(playbackId, pendingVideoReplyRef.current)
+      await sendVideoReply(playbackId, replyContext)
 
       // Clear progress and show success briefly
       setVideoUploadProgress({ percent: 100, status: 'done' })
       setTimeout(() => setVideoUploadProgress(null), 2000)
 
-      pendingVideoReplyRef.current = null
-      setReplyingTo(null)
       console.log('📹 Video reply sent!')
     } catch (error) {
       console.error('Failed to process native video:', error)
       setVideoUploadProgress({ percent: 0, status: 'error' })
       setTimeout(() => setVideoUploadProgress(null), 3000)
-      pendingVideoReplyRef.current = null
-      setReplyingTo(null)
     }
   }
 
@@ -1072,7 +1072,11 @@ export default function ChatWindow() {
                       const currentScrollTop = e.target.scrollTop
                       // Blur on ANY upward scroll (like iMessage) - just 5px threshold
                       // But skip if we're doing programmatic scroll (after sending)
-                      if (!isAutoScrollingRef.current && currentScrollTop < lastScrollTopRef.current - 5 && inputRef.current) {
+                      if (
+                        !isAutoScrollingRef.current &&
+                        currentScrollTop < lastScrollTopRef.current - 5 &&
+                        inputRef.current
+                      ) {
                         inputRef.current.blur()
                       }
                       lastScrollTopRef.current = currentScrollTop
