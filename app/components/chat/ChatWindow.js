@@ -1051,13 +1051,17 @@ export default function ChatWindow() {
                     // Keep all 50 messages rendered to prevent image re-rendering jitter
                     overscan={{ main: 2000, reverse: 2000 }}
                     increaseViewportBy={{ top: 1500, bottom: 1500 }}
-                    // Add spacer at bottom for keyboard
+                    // Add spacer at bottom for keyboard + extra padding on mobile for read receipts
                     components={{
                       Footer: () => {
-                        if (keyboardHeight > 0) {
-                          console.log('⌨️ Footer height:', keyboardHeight)
+                        // On mobile (native), always add base padding for read receipts to not overlap input
+                        // When keyboard is open, add keyboard height on top of that
+                        const basePadding = Capacitor.isNativePlatform() ? 60 : 0
+                        const totalHeight = keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
+                        
+                        if (totalHeight > 0) {
                           return (
-                            <div style={{ height: keyboardHeight, background: 'transparent' }} />
+                            <div style={{ height: totalHeight, background: 'transparent' }} />
                           )
                         }
                         return null
