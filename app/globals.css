@@ -337,18 +337,31 @@ html {
 
 .message-wrapper {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
   max-width: 80%;
   position: relative;
   width: fit-content;
+  padding: 6px 0;
 }
 
 .message-wrapper.sent {
   align-self: flex-end;
+  flex-direction: row;
 }
 
 .message-wrapper.received {
   align-self: flex-start;
+  flex-direction: row;
+}
+
+/* Content wrapper holds all message content to the right of avatar */
+.message-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .message-sender {
@@ -366,6 +379,35 @@ html {
   width: 24px;
   height: 24px;
   border-radius: 50%;
+}
+
+/* Channel message avatar - positioned to the left of message, centered with message bubble */
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 20px; /* Offset for sender name to center with message bubble */
+}
+
+/* Fallback avatar with initial (iMessage style) */
+.message-avatar-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #8e8e93 0%, #636366 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  align-self: flex-start;
+  margin-top: 20px; /* Offset for sender name to center with message bubble */
 }
 
 .message-wrapper.sent .message-sender {

@@ -395,32 +395,51 @@ export default function MessageItem({
       onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchMove}
     >
-      {/* Reply quote - shows above the message bubble like iMessage */}
-      {msg.replyTo && (
-        <div className='reply-quote-container' onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
-          <div className='reply-quote'>
-            <div className='reply-quote-line'></div>
-            <div className='reply-quote-content'>
-              <div className='reply-quote-sender'>{msg.replyTo.sender}</div>
-              <div className='reply-quote-text'>{msg.replyTo.text}</div>
+      {/* Channel avatar - positioned to the left of the message like iMessage */}
+      {!isSent && currentChat.type === 'channel' && msg.senderId !== 'ai' && (() => {
+        const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
+        const initial = (msg.sender || '?')[0].toUpperCase()
+        return photoURL ? (
+          <img
+            src={photoURL}
+            alt={msg.sender}
+            className='message-avatar'
+          />
+        ) : (
+          <div className='message-avatar-fallback'>
+            {initial}
+          </div>
+        )
+      })()}
+
+      {/* Message content wrapper */}
+      <div className='message-content-wrapper'>
+        {/* Reply quote - shows above the message bubble like iMessage */}
+        {msg.replyTo && (
+          <div className='reply-quote-container' onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
+            <div className='reply-quote'>
+              <div className='reply-quote-line'></div>
+              <div className='reply-quote-content'>
+                <div className='reply-quote-sender'>{msg.replyTo.sender}</div>
+                <div className='reply-quote-text'>{msg.replyTo.text}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {!isSent && (
-        <div className='message-sender'>
-          {msg.senderId === 'ai' && (
-            <img
-              src='/poppy-icon.png'
-              alt='Poppy'
-              className='ai-sender-icon'
-              style={{ width: '24px', height: '24px', maxWidth: '24px', maxHeight: '24px' }}
-            />
-          )}
-          {msg.senderId === 'ai' ? msg.sender?.replace('🤖 ', '').replace('🤖', '') : msg.sender}
-          <MessageTimestamp timestamp={msg.timestamp} />
-        </div>
-      )}
+        )}
+        {!isSent && (
+          <div className='message-sender'>
+            {msg.senderId === 'ai' && (
+              <img
+                src='/poppy-icon.png'
+                alt='Poppy'
+                className='ai-sender-icon'
+                style={{ width: '24px', height: '24px', maxWidth: '24px', maxHeight: '24px' }}
+              />
+            )}
+            {msg.senderId === 'ai' ? msg.sender?.replace('🤖 ', '').replace('🤖', '') : msg.sender}
+            <MessageTimestamp timestamp={msg.timestamp} />
+          </div>
+        )}
       {/* Video replies - render OUTSIDE the message bubble for proper positioning */}
       {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && msg.replyTo && (
         <div className='message-videos video-reply'>
@@ -609,6 +628,8 @@ export default function MessageItem({
             </div>
           )
         })()}
+      </div>
+      {/* End message-content-wrapper */}
 
       {/* Mobile Action Sheet (vaul) */}
       <MessageActionSheet
