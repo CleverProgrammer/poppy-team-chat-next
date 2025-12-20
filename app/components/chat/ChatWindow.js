@@ -14,6 +14,7 @@ import ChatHeader from './ChatHeader'
 import ContextMenu from './ContextMenu'
 import PostsView from './PostsView'
 import PostPreview from './PostPreview'
+import VideoRecorder from './VideoRecorder'
 import { useAuth } from '../../contexts/AuthContext'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { useReactions } from '../../hooks/useReactions'
@@ -57,6 +58,7 @@ export default function ChatWindow() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [autoSendPending, setAutoSendPending] = useState(false) // Flag for auto-sending video replies
+  const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
@@ -366,14 +368,19 @@ export default function ChatWindow() {
     setReplyingTo(null)
   }
 
-  // Video reply - opens gallery picker with camera option
+  // Video reply - uses native camera on iOS, gallery picker on web
   const startVideoReply = async (messageId, sender, text) => {
     // Store the reply info for when video is selected
     pendingVideoReplyRef.current = { msgId: messageId, sender, text }
     setContextMenu(null)
 
-    // Open the file input - on iOS this shows "Take Photo or Video" at top
-    videoReplyInputRef.current?.click()
+    // Use native camera on iOS for high-quality video
+    if (Capacitor.isNativePlatform()) {
+      setVideoRecorderOpen(true)
+    } else {
+      // Fallback to file picker on web
+      videoReplyInputRef.current?.click()
+    }
   }
 
   // Handle when a video is selected for reply (from gallery picker)
@@ -398,6 +405,79 @@ export default function ChatWindow() {
 
     // Reset the input so the same file can be selected again
     e.target.value = ''
+  }
+
+  // Handle native video recorded (from VideoRecorder component)
+  const handleNativeVideoRecorded = async videoFilePath => {
+    console.log('📹 Native video recorded:', videoFilePath)
+    setVideoRecorderOpen(false)
+
+    if (!pendingVideoReplyRef.current) {
+      console.warn('No pending video reply context')
+      return
+    }
+
+    try {
+      // Set the reply context
+      setReplyingTo(pendingVideoReplyRef.current)
+
+      // Get Mux upload URL
+      console.log('📹 Getting Mux upload URL...')
+      const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' })
+      const { uploadUrl, uploadId } = await uploadResponse.json()
+      console.log('📹 Got Mux upload URL, uploadId:', uploadId)
+
+      // Convert file:// URL to capacitor:// URL that WebKit can access
+      const webViewUrl = Capacitor.convertFileSrc(videoFilePath)
+      console.log('📹 Converted URL:', webViewUrl)
+
+      // Fetch the video file
+      console.log('📹 Fetching video...')
+      const videoResponse = await fetch(webViewUrl)
+      const videoBlob = await videoResponse.blob()
+      console.log('📹 Video blob size:', videoBlob.size)
+
+      // Upload to Mux
+      console.log('📹 Uploading to Mux...')
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        body: videoBlob,
+        headers: { 'Content-Type': 'video/mp4' },
+      })
+      console.log('📹 Uploaded to Mux!')
+
+      // Poll for playback ID
+      console.log('📹 Polling for playback ID...')
+      let playbackId = null
+      for (let i = 0; i < 60; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
+        const assetData = await assetResponse.json()
+
+        if (assetData.playbackId) {
+          playbackId = assetData.playbackId
+          console.log('📹 Got playback ID:', playbackId)
+          break
+        }
+        console.log('📹 Waiting for playback ID, attempt', i + 1)
+      }
+
+      if (!playbackId) {
+        throw new Error('Failed to get Mux playback ID')
+      }
+
+      // Send the message with the video
+      console.log('📹 Sending message with video...')
+      await handleSend('', [], [playbackId], pendingVideoReplyRef.current)
+
+      pendingVideoReplyRef.current = null
+      setReplyingTo(null)
+      console.log('📹 Video reply sent!')
+    } catch (error) {
+      console.error('Failed to process native video:', error)
+      pendingVideoReplyRef.current = null
+      setReplyingTo(null)
+    }
   }
 
   // Auto-send when video is ready (triggered by imageFiles change when autoSendPending is true)
@@ -725,6 +805,16 @@ export default function ChatWindow() {
         open={lightboxData.open}
         onClose={() => setLightboxData({ open: false, images: [], startIndex: 0 })}
         startIndex={lightboxData.startIndex}
+      />
+
+      {/* Native Video Recorder (iOS) */}
+      <VideoRecorder
+        isOpen={videoRecorderOpen}
+        onClose={() => {
+          setVideoRecorderOpen(false)
+          pendingVideoReplyRef.current = null
+        }}
+        onVideoRecorded={handleNativeVideoRecorded}
       />
 
       <div className='app-container'>
