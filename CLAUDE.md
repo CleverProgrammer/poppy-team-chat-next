@@ -242,10 +242,43 @@ yarn start        # Start production server
 yarn lint         # Run ESLint
 ```
 
+## iOS Deployment
+
+### Build Number Location
+The iOS build number is stored in **two places** (keep them in sync):
+1. `ios/App/App/Info.plist` → `CFBundleVersion` (the main one)
+2. `ios/App/App.xcodeproj/project.pbxproj` → `CURRENT_PROJECT_VERSION`
+
+**Before each TestFlight upload, increment the build number!**
+
+### iOS Sync Commands
+```bash
+yarn ios:sync           # Sync for local development
+yarn ios:sync:prod      # Sync for production (TestFlight builds)
+```
+
+Both commands automatically run `scripts/restore-firebase-spm.js` which:
+- Removes SPM (Swift Package Manager) references
+- Keeps the project pure CocoaPods
+
+### TestFlight Deployment Steps
+1. Increment build number in `ios/App/App/Info.plist` (CFBundleVersion)
+2. Run `yarn ios:sync:prod`
+3. Run `cd ios/App && pod install`
+4. Open `ios/App/App.xcworkspace` in Xcode
+5. Product → Archive
+6. Distribute App → App Store Connect → Upload
+
+### Why Pure CocoaPods?
+We use CocoaPods exclusively (no SPM) because:
+- Capacitor 8 auto-generates SPM files on sync, causing conflicts
+- The cleanup script removes SPM after each sync
+- All native dependencies are in `ios/App/Podfile`
+
 ## Repository Etiquette
 - Branches: descriptive names (e.g., `posts`, `fix-toggle-ui`)
 - Merge strategy: Fast-forward when possible
 - Always wait for user approval before pushing
 
 ---
-Last updated: 2025-12-15
+Last updated: 2025-12-20

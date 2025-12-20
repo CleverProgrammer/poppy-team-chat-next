@@ -245,11 +245,6 @@
   resolved "https://registry.yarnpkg.com/@capgo/camera-preview/-/camera-preview-8.0.5.tgz#5bfc2ab295edd76ec5fbae05b3ecc7777188dd90"
   integrity sha512-IllTCEq9VjGwTvUALxtaukKTLKAi+KTA++l34KcisjOAVk8y96ldqrraYMwwa5CB+NpxK8JtZsGSM9TiM94Jkw==
 
-"@capgo/capacitor-updater@^8.0.0":
-  version "8.4.2"
-  resolved "https://registry.yarnpkg.com/@capgo/capacitor-updater/-/capacitor-updater-8.4.2.tgz#56062b0e091711fff1aee12d45f43023f88278cf"
-  integrity sha512-vWawfKJO95Td7xhTdMBMMbPHHq25mui7iSbSQJJXqRwIJLlzkkPu2W7IHoL87sk+AgAQp85QYwo3rWaOHrTK9Q==
-
 "@capgo/capacitor-uploader@^8.0.4":
   version "8.0.4"
   resolved "https://registry.yarnpkg.com/@capgo/capacitor-uploader/-/capacitor-uploader-8.0.4.tgz#3d41bb7c4326e80bd78ccdc167f56b77343e7b84"
