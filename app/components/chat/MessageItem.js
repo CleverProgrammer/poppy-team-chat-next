@@ -213,34 +213,8 @@ export default function MessageItem({
     [handleLongPress]
   )
 
-  // Mouse long-press for desktop (quick reactions)
-  const handleMouseDown = useCallback(
-    e => {
-      // Only handle left mouse button
-      if (e.button !== 0) return
-
-      isLongPressTriggered.current = false
-      longPressTimer.current = setTimeout(() => {
-        isLongPressTriggered.current = true
-        handleDoubleTap() // Show quick reactions on long-click
-      }, 500)
-    },
-    [handleDoubleTap]
-  )
-
-  const handleMouseUp = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }, [])
+  // Desktop uses right-click only (no long-press)
+  // Long-press is only for mobile touch interactions
 
   // Handle AI typing indicator
   if (msg.isTyping) {
@@ -305,9 +279,6 @@ export default function MessageItem({
           actionSheetOpen ? 'message-selected' : ''
         } ${msg.senderId === 'ai' ? 'ai-message' : ''}`}
         onContextMenu={handleContextMenuWrapper}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
@@ -387,9 +358,6 @@ export default function MessageItem({
           : ''
       } ${msg.senderId === 'ai' ? 'ai-message' : ''}`}
       onContextMenu={handleContextMenuWrapper}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}

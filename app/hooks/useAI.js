@@ -116,7 +116,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           setAiTypingStatus(status)
         }
 
-        const aiResponse = await callAI(userQuestion, messages.slice(-10), onStatus)
+        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
 
         // Remove typing indicator
         setAiTyping(false)
@@ -171,7 +171,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
       try {
         console.log('🤖 Poppy AI: Calling API for direct chat...')
-        const chatHistory = messages.slice(-10).map(m => ({
+        const chatHistory = messages.slice(-50).map(m => ({
           role: m.senderId === 'ai' ? 'assistant' : 'user',
           text: m.text,
         }))
