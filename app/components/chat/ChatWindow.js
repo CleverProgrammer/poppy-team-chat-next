@@ -64,6 +64,7 @@ export default function ChatWindow() {
   const virtuosoRef = useRef(null)
   const scrollerRef = useRef(null)
   const lastScrollTopRef = useRef(0)
+  const isAutoScrollingRef = useRef(false) // Flag to prevent blur during programmatic scroll
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
 
   // Swipe from left edge to open sidebar (mobile)
@@ -201,6 +202,7 @@ export default function ChatWindow() {
     currentChat,
     inputRef,
     virtuosoRef,
+    isAutoScrollingRef,
     imageFile,
     imagePreview,
     imageFiles,
@@ -1069,7 +1071,8 @@ export default function ChatWindow() {
                     onScroll={e => {
                       const currentScrollTop = e.target.scrollTop
                       // Blur on ANY upward scroll (like iMessage) - just 5px threshold
-                      if (currentScrollTop < lastScrollTopRef.current - 5 && inputRef.current) {
+                      // But skip if we're doing programmatic scroll (after sending)
+                      if (!isAutoScrollingRef.current && currentScrollTop < lastScrollTopRef.current - 5 && inputRef.current) {
                         inputRef.current.blur()
                       }
                       lastScrollTopRef.current = currentScrollTop

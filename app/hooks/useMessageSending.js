@@ -21,6 +21,7 @@ export function useMessageSending({
   currentChat,
   inputRef,
   virtuosoRef,
+  isAutoScrollingRef,
   imageFile,
   imagePreview,
   imageFiles = [],
@@ -145,6 +146,8 @@ export function useMessageSending({
     clearTypingIndicator();
 
     // Scroll to bottom using Virtuoso
+    // Set flag to prevent blur during auto-scroll
+    if (isAutoScrollingRef) isAutoScrollingRef.current = true;
     setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
         index: 'LAST',
@@ -152,7 +155,11 @@ export function useMessageSending({
         behavior: 'auto'
       });
       // Re-focus input to keep keyboard open on mobile
-      inputRef.current?.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+        // Clear flag after scroll completes
+        if (isAutoScrollingRef) isAutoScrollingRef.current = false;
+      }, 100);
     }, 0);
 
     setSending(true);
