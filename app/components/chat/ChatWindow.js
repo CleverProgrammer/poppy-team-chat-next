@@ -65,6 +65,7 @@ export default function ChatWindow() {
   const scrollerRef = useRef(null)
   const lastScrollTopRef = useRef(0)
   const isAutoScrollingRef = useRef(false) // Flag to prevent blur during programmatic scroll
+  const isTouchingRef = useRef(false) // Track if user is actively touching the screen
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
 
   // Swipe from left edge to open sidebar (mobile)
@@ -1070,14 +1071,27 @@ export default function ChatWindow() {
                     }}
                     scrollerRef={scroller => {
                       scrollerRef.current = scroller
+                      // Add touch event listeners to track when user is actually touching
+                      if (scroller && Capacitor.isNativePlatform()) {
+                        scroller.ontouchstart = () => {
+                          isTouchingRef.current = true
+                        }
+                        scroller.ontouchend = () => {
+                          // Small delay to catch the final scroll events from the touch
+                          setTimeout(() => {
+                            isTouchingRef.current = false
+                          }, 100)
+                        }
+                      }
                     }}
                     onScroll={e => {
                       const currentScrollTop = e.target.scrollTop
-                      // Blur on ANY upward scroll (like iMessage) - just 5px threshold
+                      // Blur on upward scroll ONLY when user is actively touching (dragging)
+                      // This prevents keyboard from closing when new messages arrive and auto-scroll
                       // ONLY on mobile - desktop should never lose focus from scrolling
-                      // Also skip if we're doing programmatic scroll (after sending)
                       if (
                         Capacitor.isNativePlatform() &&
+                        isTouchingRef.current && // Only blur if user is touching the screen
                         !isAutoScrollingRef.current &&
                         currentScrollTop < lastScrollTopRef.current - 5 &&
                         inputRef.current
