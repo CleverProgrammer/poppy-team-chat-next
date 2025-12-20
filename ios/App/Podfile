@@ -29,6 +29,9 @@ target 'App' do
   
   # Capgo Camera Preview for native video recording
   pod 'CapgoCameraPreview', :path => '../../node_modules/@capgo/camera-preview'
+  
+  # Capgo Uploader for native file uploads
+  pod 'CapgoCapacitorUploader', :path => '../../node_modules/@capgo/capacitor-uploader'
 end
 
 post_install do |installer|

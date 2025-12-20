@@ -189,6 +189,7 @@ export default function ChatWindow() {
     sending,
     handleSend,
     handleEdit,
+    sendVideoReply,
     updateTypingIndicator,
     clearTypingIndicator,
     typingTimeoutRef,
@@ -427,24 +428,36 @@ export default function ChatWindow() {
       const { uploadUrl, uploadId } = await uploadResponse.json()
       console.log('📹 Got Mux upload URL, uploadId:', uploadId)
 
-      // Convert file:// URL to capacitor:// URL that WebKit can access
-      const webViewUrl = Capacitor.convertFileSrc(videoFilePath)
-      console.log('📹 Converted URL:', webViewUrl)
+      // Use native Uploader to upload directly from file path
+      console.log('📹 Starting native upload to Mux...')
+      const { Uploader } = await import('@capgo/capacitor-uploader')
 
-      // Fetch the video file
-      console.log('📹 Fetching video...')
-      const videoResponse = await fetch(webViewUrl)
-      const videoBlob = await videoResponse.blob()
-      console.log('📹 Video blob size:', videoBlob.size)
-
-      // Upload to Mux
-      console.log('📹 Uploading to Mux...')
-      await fetch(uploadUrl, {
+      // Start native upload
+      const { id: uploadTaskId } = await Uploader.startUpload({
+        filePath: videoFilePath,
+        serverUrl: uploadUrl,
         method: 'PUT',
-        body: videoBlob,
-        headers: { 'Content-Type': 'video/mp4' },
+        headers: {
+          'Content-Type': 'video/mp4',
+        },
+        mimeType: 'video/mp4',
       })
-      console.log('📹 Uploaded to Mux!')
+      console.log('📹 Native upload started, task ID:', uploadTaskId)
+
+      // Wait for upload to complete
+      await new Promise((resolve, reject) => {
+        const listener = Uploader.addListener('events', event => {
+          console.log('📹 Upload event:', event.name, event.payload)
+          if (event.name === 'completed') {
+            listener.remove()
+            resolve()
+          } else if (event.name === 'failed') {
+            listener.remove()
+            reject(new Error(event.payload?.error || 'Upload failed'))
+          }
+        })
+      })
+      console.log('📹 Native upload completed!')
 
       // Poll for playback ID
       console.log('📹 Polling for playback ID...')
@@ -468,7 +481,7 @@ export default function ChatWindow() {
 
       // Send the message with the video
       console.log('📹 Sending message with video...')
-      await handleSend('', [], [playbackId], pendingVideoReplyRef.current)
+      await sendVideoReply(playbackId, pendingVideoReplyRef.current)
 
       pendingVideoReplyRef.current = null
       setReplyingTo(null)

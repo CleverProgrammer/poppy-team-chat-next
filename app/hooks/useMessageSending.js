@@ -291,10 +291,48 @@ export function useMessageSending({
     clearTypingIndicator
   ]);
 
+  // Send a video reply directly with mux playback ID
+  const sendVideoReply = useCallback(async (muxPlaybackId, replyTo) => {
+    if (!currentChat || !muxPlaybackId) return;
+
+    try {
+      if (currentChat.type === 'channel') {
+        await sendMessageWithMedia(currentChat.id, user, '', [], [muxPlaybackId], replyTo);
+        
+        // Mark as unread for all other users
+        setTimeout(() => {
+          allUsers.forEach(otherUser => {
+            if (otherUser.uid !== user.uid) {
+              markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
+                console.error('Failed to mark as unread:', err)
+              );
+            }
+          });
+        }, 0);
+      } else if (currentChat.type === 'dm') {
+        const dmId = getDMId(user.uid, currentChat.id);
+        const recipient = allUsers.find(u => u.uid === currentChat.id) || null;
+        
+        await sendMessageDMWithMedia(dmId, user, currentChat.id, '', recipient, [], [muxPlaybackId], replyTo);
+        
+        // Mark as unread for the recipient
+        setTimeout(() => {
+          markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
+            console.error('Failed to mark DM as unread:', err)
+          );
+        }, 0);
+      }
+    } catch (error) {
+      console.error('Error sending video reply:', error);
+      throw error;
+    }
+  }, [user, currentChat, allUsers]);
+
   return {
     sending,
     handleSend,
     handleEdit,
+    sendVideoReply,
     updateTypingIndicator,
     clearTypingIndicator,
     typingTimeoutRef
