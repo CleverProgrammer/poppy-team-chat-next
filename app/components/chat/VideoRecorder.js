@@ -289,15 +289,16 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       {!showPreview && isInitialized && (
         <div
           style={{
-            // Make it larger than the camera so border shows around edges
-            width: BUBBLE_WIDTH + 16,
-            height: BUBBLE_HEIGHT + 16,
-            borderRadius: '28px',
-            border: isRecording ? '4px solid #ff3b30' : '4px solid rgba(255,255,255,0.5)',
+            // Asymmetric padding: less on top, slightly less on bottom, little less on sides
+            width: BUBBLE_WIDTH + 10, // 5px each side (was 8px)
+            height: BUBBLE_HEIGHT + 8, // 3px top + 5px bottom (was 8px each)
+            borderRadius: '26px',
+            border: isRecording ? '3px solid #ff3b30' : '3px solid rgba(255,255,255,0.5)',
             boxShadow: isRecording
               ? '0 0 40px rgba(255,59,48,0.7), 0 0 80px rgba(255,59,48,0.3)'
               : '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(255,255,255,0.15)',
-            marginBottom: '12px',
+            marginBottom: '14px',
+            marginTop: '-2px', // Shift up slightly so less shows on top
             background: '#000',
           }}
         />
