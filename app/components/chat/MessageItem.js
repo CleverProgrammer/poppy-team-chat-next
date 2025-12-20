@@ -89,16 +89,36 @@ export default function MessageItem({
     setActionSheetOpen(true)
   }, [])
 
+  // Get the original message to reply to (if this message is already a reply, use its parent)
+  const getOriginalReplyTarget = useCallback(() => {
+    if (msg.replyTo?.msgId) {
+      // This message is a reply - reply to the ORIGINAL message instead
+      return {
+        msgId: msg.replyTo.msgId,
+        sender: msg.replyTo.sender,
+        text: msg.replyTo.text || ''
+      }
+    }
+    // This is an original message - reply to it directly
+    return {
+      msgId: msg.id,
+      sender: msg.sender,
+      text: msg.text || msg.content || ''
+    }
+  }, [msg.id, msg.sender, msg.text, msg.content, msg.replyTo])
+
   // Handle triple-tap: open video reply directly
   const handleTripleTap = useCallback(() => {
     hapticHeavy()
-    onVideoReply?.(msg.id, msg.sender, msg.text || msg.content || '')
-  }, [msg.id, msg.sender, msg.text, msg.content, onVideoReply])
+    const target = getOriginalReplyTarget()
+    onVideoReply?.(target.msgId, target.sender, target.text)
+  }, [getOriginalReplyTarget, onVideoReply])
 
   // Handle video reply from action sheet
   const handleVideoReply = useCallback(() => {
-    onVideoReply?.(msg.id, msg.sender, msg.text || msg.content || '')
-  }, [msg.id, msg.sender, msg.text, msg.content, onVideoReply])
+    const target = getOriginalReplyTarget()
+    onVideoReply?.(target.msgId, target.sender, target.text)
+  }, [getOriginalReplyTarget, onVideoReply])
 
   // Handle long-press/right-click: show full actions (centered)
   const handleLongPress = useCallback(() => {
@@ -333,7 +353,10 @@ export default function MessageItem({
           topReactions={topReactions}
           position={actionSheetPosition}
           onReaction={emoji => onAddReaction(msg.id, emoji)}
-          onReply={() => onReply(msg.id, msg.sender, msg.text)}
+          onReply={() => {
+            const target = getOriginalReplyTarget()
+            onReply(target.msgId, target.sender, target.text)
+          }}
           onVideoReply={handleVideoReply}
           onEdit={() => onEdit(msg.id, msg.text)}
           onDelete={() => onDelete?.(msg.id)}
@@ -597,7 +620,10 @@ export default function MessageItem({
         topReactions={topReactions}
         position={actionSheetPosition}
         onReaction={emoji => onAddReaction(msg.id, emoji)}
-        onReply={() => onReply(msg.id, msg.sender, msg.text)}
+        onReply={() => {
+          const target = getOriginalReplyTarget()
+          onReply(target.msgId, target.sender, target.text)
+        }}
         onVideoReply={handleVideoReply}
         onEdit={() => onEdit(msg.id, msg.text)}
         onDelete={() => onDelete?.(msg.id)}

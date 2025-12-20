@@ -59,13 +59,33 @@ export default function ContextMenu({
   const isOwnMessage = message.senderId === user?.uid;
   const isPost = message.isPost;
 
+  // Get the original message to reply to (if this message is already a reply, use its parent)
+  const getOriginalReplyTarget = () => {
+    if (message.replyTo?.msgId) {
+      // This message is a reply - reply to the ORIGINAL message instead
+      return {
+        msgId: message.replyTo.msgId,
+        sender: message.replyTo.sender,
+        text: message.replyTo.text || ''
+      }
+    }
+    // This is an original message - reply to it directly
+    return {
+      msgId: message.id,
+      sender: message.sender,
+      text: message.text || message.content || ''
+    }
+  };
+
   const handleReply = () => {
-    onReply(message.id, message.sender, message.text || message.content);
+    const target = getOriginalReplyTarget();
+    onReply(target.msgId, target.sender, target.text);
     setContextMenu(null);
   };
 
   const handleVideoReply = () => {
-    onVideoReply?.(message.id, message.sender, message.text || message.content || '');
+    const target = getOriginalReplyTarget();
+    onVideoReply?.(target.msgId, target.sender, target.text);
     setContextMenu(null);
   };
 
