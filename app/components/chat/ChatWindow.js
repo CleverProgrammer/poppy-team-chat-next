@@ -1068,8 +1068,8 @@ export default function ChatWindow() {
                     }}
                     onScroll={e => {
                       const currentScrollTop = e.target.scrollTop
-                      // Only blur when scrolling UP significantly (going back in history)
-                      if (currentScrollTop < lastScrollTopRef.current - 50 && inputRef.current) {
+                      // Blur on ANY upward scroll (like iMessage) - just 5px threshold
+                      if (currentScrollTop < lastScrollTopRef.current - 5 && inputRef.current) {
                         inputRef.current.blur()
                       }
                       lastScrollTopRef.current = currentScrollTop

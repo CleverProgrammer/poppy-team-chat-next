@@ -410,7 +410,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
 
       {/* Record / Stop button */}
       {isInitialized && !showPreview && (
-        <div 
+        <div
           onClick={e => e.stopPropagation()}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
         >
