@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Howl } from 'howler'
+import { Capacitor } from '@capacitor/core'
 import {
   subscribeToMessages,
   subscribeToMessagesDM,
@@ -266,9 +267,12 @@ export function useSubscriptions({
   //   messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   // }, [messagesRef.current, messagesEndRef]);
 
-  // Auto-focus input when switching chats
+  // Auto-focus input when switching chats (desktop only)
+  // On mobile, we don't auto-focus to avoid the keyboard popping up automatically
   useEffect(() => {
-    inputRef.current?.focus()
+    if (!Capacitor.isNativePlatform()) {
+      inputRef.current?.focus()
+    }
   }, [currentChat, inputRef])
 
   // Mark DM messages as read when viewing them
