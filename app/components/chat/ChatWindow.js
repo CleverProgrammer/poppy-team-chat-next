@@ -58,6 +58,7 @@ export default function ChatWindow() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [autoSendPending, setAutoSendPending] = useState(false) // Flag for auto-sending video replies
+  const [videoUploadProgress, setVideoUploadProgress] = useState(null) // { percent, status } for upload indicator
   const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
@@ -432,6 +433,9 @@ export default function ChatWindow() {
       console.log('📹 Starting native upload to Mux...')
       const { Uploader } = await import('@capgo/capacitor-uploader')
 
+      // Show upload progress indicator
+      setVideoUploadProgress({ percent: 0, status: 'uploading' })
+
       // Start native upload
       const { id: uploadTaskId } = await Uploader.startUpload({
         filePath: videoFilePath,
@@ -448,10 +452,17 @@ export default function ChatWindow() {
       await new Promise((resolve, reject) => {
         const listener = Uploader.addListener('events', event => {
           console.log('📹 Upload event:', event.name, event.payload)
-          if (event.name === 'completed') {
+          if (event.name === 'uploading') {
+            setVideoUploadProgress({
+              percent: Math.round(event.payload.percent),
+              status: 'uploading',
+            })
+          } else if (event.name === 'completed') {
+            setVideoUploadProgress({ percent: 100, status: 'processing' })
             listener.remove()
             resolve()
           } else if (event.name === 'failed') {
+            setVideoUploadProgress(null)
             listener.remove()
             reject(new Error(event.payload?.error || 'Upload failed'))
           }
@@ -481,13 +492,20 @@ export default function ChatWindow() {
 
       // Send the message with the video
       console.log('📹 Sending message with video...')
+      setVideoUploadProgress({ percent: 100, status: 'sending' })
       await sendVideoReply(playbackId, pendingVideoReplyRef.current)
+
+      // Clear progress and show success briefly
+      setVideoUploadProgress({ percent: 100, status: 'done' })
+      setTimeout(() => setVideoUploadProgress(null), 2000)
 
       pendingVideoReplyRef.current = null
       setReplyingTo(null)
       console.log('📹 Video reply sent!')
     } catch (error) {
       console.error('Failed to process native video:', error)
+      setVideoUploadProgress({ percent: 0, status: 'error' })
+      setTimeout(() => setVideoUploadProgress(null), 3000)
       pendingVideoReplyRef.current = null
       setReplyingTo(null)
     }
@@ -829,6 +847,119 @@ export default function ChatWindow() {
         }}
         onVideoRecorded={handleNativeVideoRecorded}
       />
+
+      {/* Video Upload Progress Toast */}
+      {videoUploadProgress && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '100px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background:
+              videoUploadProgress.status === 'error'
+                ? 'rgba(255, 59, 48, 0.95)'
+                : videoUploadProgress.status === 'done'
+                ? 'rgba(52, 199, 89, 0.95)'
+                : 'rgba(30, 30, 30, 0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '24px',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            zIndex: 10001,
+            minWidth: '200px',
+          }}
+        >
+          {/* Icon/Spinner */}
+          {videoUploadProgress.status === 'uploading' && (
+            <div
+              style={{
+                width: '20px',
+                height: '20px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTopColor: '#fff',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
+          )}
+          {videoUploadProgress.status === 'processing' && (
+            <div
+              style={{
+                width: '20px',
+                height: '20px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTopColor: '#7c3aed',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
+          )}
+          {videoUploadProgress.status === 'sending' && (
+            <svg width='20' height='20' viewBox='0 0 24 24' fill='#7c3aed'>
+              <path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
+            </svg>
+          )}
+          {videoUploadProgress.status === 'done' && (
+            <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
+              <path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' />
+            </svg>
+          )}
+          {videoUploadProgress.status === 'error' && (
+            <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
+              <path d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' />
+            </svg>
+          )}
+
+          {/* Text */}
+          <div style={{ flex: 1 }}>
+            <div style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>
+              {videoUploadProgress.status === 'uploading' &&
+                `Uploading... ${videoUploadProgress.percent}%`}
+              {videoUploadProgress.status === 'processing' && 'Processing video...'}
+              {videoUploadProgress.status === 'sending' && 'Sending...'}
+              {videoUploadProgress.status === 'done' && 'Video sent! ✨'}
+              {videoUploadProgress.status === 'error' && 'Upload failed'}
+            </div>
+          </div>
+
+          {/* Progress bar for uploading */}
+          {videoUploadProgress.status === 'uploading' && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '3px',
+                background: 'rgba(255,255,255,0.2)',
+                borderRadius: '0 0 24px 24px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${videoUploadProgress.percent}%`,
+                  background: '#7c3aed',
+                  transition: 'width 0.2s ease',
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      <style jsx global>{`
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
 
       <div className='app-container'>
         {/* Mobile Backdrop */}
