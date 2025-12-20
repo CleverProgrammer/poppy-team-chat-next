@@ -1906,14 +1906,9 @@ iframe[src*="vercel"] {
 
 .reply-quote {
   display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 1.5px solid #667eea;
-  border-radius: 18px;
-  padding: 6px 14px;
-  max-width: 90%;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 95%;
   transition: opacity 0.2s, transform 0.2s, background 0.2s;
   transform: scale(0.88);
   transform-origin: bottom right;
@@ -1924,7 +1919,6 @@ iframe[src*="vercel"] {
 }
 
 .reply-quote:hover {
-  background: rgba(102, 126, 234, 0.1);
   transform: scale(0.92);
 }
 
@@ -1934,22 +1928,26 @@ iframe[src*="vercel"] {
 }
 
 .reply-quote-content {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 6px;
+  background: transparent;
+  border: 1.5px solid #667eea;
+  border-radius: 16px;
+  padding: 6px 14px;
+}
+
+.reply-quote:hover .reply-quote-content {
+  background: rgba(102, 126, 234, 0.1);
 }
 
 .reply-quote-sender {
-  font-size: 12px;
-  font-weight: 600;
-  color: #667eea;
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(102, 126, 234, 0.7);
+  padding-left: 8px;
+  margin-bottom: 1px;
 }
 
 .reply-quote-sender::after {
-  content: ':';
+  content: none;
 }
 
 .reply-quote-text {
