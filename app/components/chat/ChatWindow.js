@@ -62,6 +62,8 @@ export default function ChatWindow() {
   const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
+  const scrollerRef = useRef(null)
+  const lastScrollTopRef = useRef(0)
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
 
   // Swipe from left edge to open sidebar (mobile)
@@ -478,12 +480,13 @@ export default function ChatWindow() {
         const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
         const assetData = await assetResponse.json()
 
-        if (assetData.playbackId) {
+        // Wait for BOTH playbackId AND ready status to ensure video is playable
+        if (assetData.playbackId && assetData.ready) {
           playbackId = assetData.playbackId
-          console.log('📹 Got playback ID:', playbackId)
+          console.log('📹 Got playback ID (asset ready):', playbackId)
           break
         }
-        console.log('📹 Waiting for playback ID, attempt', i + 1)
+        console.log('📹 Waiting for asset to be ready, attempt', i + 1, 'status:', assetData.status)
       }
 
       if (!playbackId) {
@@ -1059,6 +1062,17 @@ export default function ChatWindow() {
                       if (atTop) {
                         loadOlder()
                       }
+                    }}
+                    scrollerRef={scroller => {
+                      scrollerRef.current = scroller
+                    }}
+                    onScroll={e => {
+                      const currentScrollTop = e.target.scrollTop
+                      // Only blur when scrolling UP significantly (going back in history)
+                      if (currentScrollTop < lastScrollTopRef.current - 50 && inputRef.current) {
+                        inputRef.current.blur()
+                      }
+                      lastScrollTopRef.current = currentScrollTop
                     }}
                     itemContent={(index, item) => {
                       if (item.isPost) {

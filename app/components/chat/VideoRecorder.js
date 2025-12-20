@@ -227,6 +227,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
   return createPortal(
     <div
       ref={containerRef}
+      onClick={handleClose} // Click anywhere on overlay to close
       style={{
         position: 'fixed',
         inset: 0,
@@ -288,6 +289,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       {/* Border frame BEHIND the native camera - peeks out as a glowing border */}
       {!showPreview && isInitialized && (
         <div
+          onClick={e => e.stopPropagation()}
           style={{
             // Asymmetric padding: less on top, slightly less on bottom, little less on sides
             width: BUBBLE_WIDTH + 10, // 5px each side (was 8px)
@@ -341,6 +343,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       {/* Video preview after recording */}
       {showPreview && (
         <div
+          onClick={e => e.stopPropagation()}
           style={{
             width: BUBBLE_WIDTH,
             height: BUBBLE_HEIGHT,
@@ -356,7 +359,6 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
             src={Capacitor.convertFileSrc(videoPath)}
             autoPlay
             loop
-            muted
             playsInline
             style={{
               width: '100%',
@@ -408,7 +410,10 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
 
       {/* Record / Stop button */}
       {isInitialized && !showPreview && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div 
+          onClick={e => e.stopPropagation()}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+        >
           <button
             onClick={isRecording ? stopRecording : startRecording}
             style={{
@@ -454,6 +459,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       {/* Preview controls - Retake / Send */}
       {showPreview && (
         <div
+          onClick={e => e.stopPropagation()}
           style={{
             display: 'flex',
             gap: '32px',

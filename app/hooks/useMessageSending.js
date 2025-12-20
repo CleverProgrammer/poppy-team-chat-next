@@ -151,6 +151,8 @@ export function useMessageSending({
         align: 'end',
         behavior: 'auto'
       });
+      // Re-focus input to keep keyboard open on mobile
+      inputRef.current?.focus();
     }, 0);
 
     setSending(true);
