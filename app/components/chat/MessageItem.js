@@ -167,7 +167,7 @@ export default function MessageItem({
           handleDoubleTap()
           lastTapTime.current = 0
           secondLastTapTime.current = 0
-        }, 150) // 150ms window for third tap
+        }, 200) // 200ms window for third tap
       } else {
         secondLastTapTime.current = lastTapTime.current
         lastTapTime.current = now

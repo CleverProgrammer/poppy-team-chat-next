@@ -18,8 +18,14 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [error, setError] = useState(null)
-  const [videoPath, setVideoPath] = useState(null) // Recorded video path for preview
+  const [videoPath, setVideoPath] = useState(null)
   const timerRef = useRef(null)
+  const containerRef = useRef(null)
+
+  // Camera bubble dimensions - compact and light!
+  const BUBBLE_WIDTH = 200
+  const BUBBLE_HEIGHT = 280 // ~9:16 aspect ratio
+  const BUBBLE_BOTTOM = 180 // Above the record button
 
   // Initialize camera when opened
   useEffect(() => {
@@ -41,18 +47,28 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
           CameraPreview = mod.CameraPreview
         }
 
+        // Calculate exact position for camera bubble
+        // Bubble is centered horizontally, positioned above the record button
+        const screenWidth = window.innerWidth
+        const screenHeight = window.innerHeight
+        const x = Math.round((screenWidth - BUBBLE_WIDTH) / 2)
+        // Position: from bottom - padding(40) - button area(~100) - bubble height - margin
+        const y = Math.round(screenHeight - 40 - 100 - BUBBLE_HEIGHT - 20)
+
         await CameraPreview.start({
           position: 'front',
-          parent: 'camera-preview-container',
-          className: 'camera-preview',
-          toBack: false,
+          toBack: false, // Render on top of webview
           disableAudio: false,
           enableHighResolution: true,
           enableZoom: false,
+          width: BUBBLE_WIDTH,
+          height: BUBBLE_HEIGHT,
+          x: x,
+          y: y,
         })
         setIsInitialized(true)
         setError(null)
-        console.log('📹 Camera initialized')
+        console.log('📹 Camera initialized (compact bubble)')
       } catch (err) {
         console.error('Failed to initialize camera:', err)
         setError(err.message || 'Failed to open camera')
@@ -73,7 +89,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     }
   }, [isOpen])
 
-  // Start recording (tap to start)
+  // Start recording
   const startRecording = useCallback(async () => {
     if (!isInitialized || !CameraPreview || isRecording) return
 
@@ -82,8 +98,8 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       console.log('📹 Starting recording...')
       await CameraPreview.startRecordVideo({
         storeToFile: true,
-        width: 1920,
-        height: 1080,
+        width: 1080,
+        height: 1920,
         quality: 100,
       })
       setIsRecording(true)
@@ -100,7 +116,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     }
   }, [isInitialized, isRecording])
 
-  // Stop recording (tap to stop)
+  // Stop recording
   const stopRecording = useCallback(async () => {
     if (!isRecording || !CameraPreview) return
 
@@ -117,12 +133,10 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       console.log('📹 Recording stopped:', result)
       setIsRecording(false)
 
-      // Stop camera preview
       await CameraPreview.stop().catch(e => console.log('Error stopping camera:', e))
       setIsInitialized(false)
 
       if (result.videoFilePath) {
-        // Store the path for preview/send
         setVideoPath(result.videoFilePath)
       } else {
         setError('No video file received')
@@ -141,7 +155,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     onVideoRecorded(videoPath)
   }, [videoPath, onVideoRecorded])
 
-  // Retake - re-initialize camera
+  // Retake
   const retake = useCallback(async () => {
     setVideoPath(null)
     setError(null)
@@ -153,14 +167,22 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
         CameraPreview = mod.CameraPreview
       }
 
+      // Calculate exact position for camera bubble (same as init)
+      const screenWidth = window.innerWidth
+      const screenHeight = window.innerHeight
+      const x = Math.round((screenWidth - BUBBLE_WIDTH) / 2)
+      const y = Math.round(screenHeight - 40 - 100 - BUBBLE_HEIGHT - 20)
+
       await CameraPreview.start({
         position: 'front',
-        parent: 'camera-preview-container',
-        className: 'camera-preview',
         toBack: false,
         disableAudio: false,
         enableHighResolution: true,
         enableZoom: false,
+        width: BUBBLE_WIDTH,
+        height: BUBBLE_HEIGHT,
+        x: x,
+        y: y,
       })
       setIsInitialized(true)
       console.log('📹 Camera re-initialized for retake')
@@ -200,179 +222,197 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
 
   if (!isOpen) return null
 
-  // Show video preview after recording
   const showPreview = videoPath && !isRecording && !isInitialized
 
   return createPortal(
     <div
+      ref={containerRef}
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#000',
+        // Semi-transparent dim overlay - chat visible behind!
+        background: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(2px)',
         zIndex: 10000,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
         alignItems: 'center',
+        paddingBottom: '40px',
       }}
     >
-      {/* Camera preview container (hidden when showing video preview) */}
-      <div
-        id='camera-preview-container'
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: '#000',
-          display: showPreview ? 'none' : 'block',
-        }}
-      />
-
-      {/* Video preview after recording */}
-      {showPreview && (
-        <video
-          src={Capacitor.convertFileSrc(videoPath)}
-          autoPlay
-          loop
-          muted
-          playsInline
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-          }}
-        />
-      )}
-
-      {/* Close button */}
+      {/* Close button - top right */}
       <button
         onClick={handleClose}
         style={{
           position: 'absolute',
           top: '50px',
           right: '20px',
-          background: 'rgba(255, 255, 255, 0.2)',
+          background: 'rgba(255, 255, 255, 0.15)',
           border: 'none',
           borderRadius: '50%',
-          width: '44px',
-          height: '44px',
+          width: '40px',
+          height: '40px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 10001,
           cursor: 'pointer',
+          backdropFilter: 'blur(10px)',
         }}
       >
-        <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
+        <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
           <path d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' />
         </svg>
       </button>
 
-      {/* Loading/error state */}
-      {!isInitialized && !error && !showPreview && (
+      {/* Loading state - only show before camera initializes */}
+      {!showPreview && !isInitialized && !error && (
         <div
           style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: 'white',
-            fontSize: '18px',
-            zIndex: 10001,
+            width: BUBBLE_WIDTH,
+            height: BUBBLE_HEIGHT,
+            borderRadius: '24px',
+            border: '3px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#000',
           }}
         >
-          Opening camera...
+          <span style={{ color: 'white', fontSize: '14px', opacity: 0.8 }}>Opening camera...</span>
         </div>
       )}
 
-      {error && (
+      {/* Spacer for when camera is active (native camera renders at this position) */}
+      {!showPreview && isInitialized && (
         <div
           style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: '#ff6b6b',
-            fontSize: '16px',
-            textAlign: 'center',
-            padding: '20px',
-            zIndex: 10001,
+            width: BUBBLE_WIDTH,
+            height: BUBBLE_HEIGHT,
+            marginBottom: '20px',
           }}
-        >
-          {error}
-          <br />
-          <button
-            onClick={handleClose}
-            style={{
-              marginTop: '20px',
-              padding: '10px 20px',
-              background: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-            }}
-          >
-            Close
-          </button>
-        </div>
+        />
       )}
 
-      {/* Recording indicator */}
+      {/* Recording indicator - floats above the native camera */}
       {isRecording && (
         <div
           style={{
             position: 'absolute',
-            top: '60px',
+            // Position just below the top of where camera bubble would be
+            bottom: `${40 + 100 + BUBBLE_HEIGHT + 20 - 40}px`,
             left: '50%',
             transform: 'translateX(-50%)',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '8px 16px',
+            gap: '6px',
+            background: 'rgba(0,0,0,0.7)',
+            padding: '8px 14px',
             borderRadius: '20px',
-            zIndex: 10001,
+            backdropFilter: 'blur(10px)',
+            zIndex: 10002,
           }}
         >
           <div
             style={{
-              width: '12px',
-              height: '12px',
+              width: '10px',
+              height: '10px',
               background: '#ff3b30',
               borderRadius: '50%',
               animation: 'pulse 1s infinite',
             }}
           />
-          <span style={{ color: 'white', fontSize: '16px', fontWeight: 600 }}>
+          <span style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>
             {formatTime(recordingTime)}
           </span>
         </div>
       )}
 
-      {/* Record/Stop button - only when camera is active */}
-      {isInitialized && !showPreview && (
+      {/* Video preview after recording */}
+      {showPreview && (
         <div
           style={{
-            position: 'absolute',
-            bottom: '60px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 10001,
+            width: BUBBLE_WIDTH,
+            height: BUBBLE_HEIGHT,
+            borderRadius: '24px',
+            border: '3px solid #7c3aed',
+            boxShadow: '0 8px 32px rgba(124, 58, 237, 0.4)',
+            marginBottom: '20px',
+            overflow: 'hidden',
+            position: 'relative',
           }}
         >
+          <video
+            src={Capacitor.convertFileSrc(videoPath)}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+          {/* "Ready to send" badge */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(124, 58, 237, 0.9)',
+              padding: '6px 12px',
+              borderRadius: '16px',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <span style={{ color: 'white', fontSize: '12px', fontWeight: 600 }}>
+              Ready to send ✨
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && (
+        <div
+          style={{
+            width: BUBBLE_WIDTH,
+            height: BUBBLE_HEIGHT,
+            borderRadius: '24px',
+            border: '3px solid #ff6b6b',
+            marginBottom: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(10px)',
+            padding: '20px',
+          }}
+        >
+          <span style={{ color: '#ff6b6b', fontSize: '13px', textAlign: 'center' }}>{error}</span>
+        </div>
+      )}
+
+      {/* Record / Stop button */}
+      {isInitialized && !showPreview && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <button
             onClick={isRecording ? stopRecording : startRecording}
             style={{
-              width: '80px',
-              height: '80px',
+              width: '72px',
+              height: '72px',
               borderRadius: '50%',
               background: isRecording ? '#ff3b30' : 'white',
               border: '4px solid rgba(255,255,255,0.3)',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
               boxShadow: isRecording
-                ? '0 0 0 8px rgba(255,59,48,0.3)'
+                ? '0 0 0 6px rgba(255,59,48,0.3)'
                 : '0 4px 20px rgba(0,0,0,0.3)',
               display: 'flex',
               alignItems: 'center',
@@ -382,17 +422,16 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
             {isRecording && (
               <div
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '24px',
+                  height: '24px',
                   borderRadius: '4px',
                   background: 'white',
                 }}
               />
             )}
           </button>
-          <div
+          <span
             style={{
-              textAlign: 'center',
               marginTop: '12px',
               color: 'white',
               fontSize: '13px',
@@ -400,7 +439,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
             }}
           >
             {isRecording ? 'Tap to stop' : 'Tap to record'}
-          </div>
+          </span>
         </div>
       )}
 
@@ -408,14 +447,8 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       {showPreview && (
         <div
           style={{
-            position: 'absolute',
-            bottom: '60px',
-            left: 0,
-            right: 0,
             display: 'flex',
-            justifyContent: 'center',
-            gap: '40px',
-            zIndex: 10001,
+            gap: '32px',
           }}
         >
           {/* Retake button */}
@@ -433,20 +466,21 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
           >
             <div
               style={{
-                width: '60px',
-                height: '60px',
+                width: '56px',
+                height: '56px',
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(10px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <svg width='28' height='28' viewBox='0 0 24 24' fill='white'>
+              <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
                 <path d='M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z' />
               </svg>
             </div>
-            <span style={{ color: 'white', fontSize: '13px' }}>Retake</span>
+            <span style={{ color: 'white', fontSize: '12px', opacity: 0.8 }}>Retake</span>
           </button>
 
           {/* Send button */}
@@ -464,20 +498,21 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
           >
             <div
               style={{
-                width: '60px',
-                height: '60px',
+                width: '56px',
+                height: '56px',
                 borderRadius: '50%',
                 background: '#7c3aed',
+                boxShadow: '0 4px 20px rgba(124, 58, 237, 0.5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <svg width='28' height='28' viewBox='0 0 24 24' fill='white'>
+              <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
                 <path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
               </svg>
             </div>
-            <span style={{ color: 'white', fontSize: '13px' }}>Send</span>
+            <span style={{ color: 'white', fontSize: '12px', opacity: 0.8 }}>Send</span>
           </button>
         </div>
       )}
@@ -491,11 +526,6 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
           50% {
             opacity: 0.5;
           }
-        }
-        .camera-preview {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
         }
       `}</style>
     </div>,
