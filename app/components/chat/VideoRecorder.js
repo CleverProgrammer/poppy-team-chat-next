@@ -285,13 +285,20 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
         </div>
       )}
 
-      {/* Spacer for when camera is active (native camera renders at this position) */}
+      {/* Border frame BEHIND the native camera - peeks out as a glowing border */}
       {!showPreview && isInitialized && (
         <div
           style={{
-            width: BUBBLE_WIDTH,
-            height: BUBBLE_HEIGHT,
-            marginBottom: '20px',
+            // Make it larger than the camera so border shows around edges
+            width: BUBBLE_WIDTH + 16,
+            height: BUBBLE_HEIGHT + 16,
+            borderRadius: '28px',
+            border: isRecording ? '4px solid #ff3b30' : '4px solid rgba(255,255,255,0.5)',
+            boxShadow: isRecording
+              ? '0 0 40px rgba(255,59,48,0.7), 0 0 80px rgba(255,59,48,0.3)'
+              : '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(255,255,255,0.15)',
+            marginBottom: '12px',
+            background: '#000',
           }}
         />
       )}
