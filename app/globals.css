@@ -678,6 +678,35 @@ html {
   font-weight: 600;
 }
 
+/* Sidebar Search Bar - Mobile friendly */
+.sidebar-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 16px;
+  padding: 12px 16px;
+  background: var(--bg-hover);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.sidebar-search-bar:hover {
+  background: var(--bg-message-received);
+  color: var(--text-primary);
+}
+
+.sidebar-search-bar:active {
+  transform: scale(0.98);
+}
+
+.sidebar-search-bar svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
 .sidebar-section {
   padding: 15px 0;
 }
@@ -2379,7 +2408,7 @@ iframe[src*="vercel"] {
 
   .messages {
     padding: 15px;
-    padding-bottom: 80px;
+    padding-bottom: 120px;
   }
 
   .input-section {

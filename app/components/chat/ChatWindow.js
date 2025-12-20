@@ -979,6 +979,10 @@ export default function ChatWindow() {
           allUsers={allUsers}
           unreadChats={unreadChats}
           isOpen={isSidebarOpen}
+          onOpenSearch={() => {
+            setIsSidebarOpen(false)
+            setIsPaletteOpen(true)
+          }}
         />
 
         {/* Chat Container */}
