@@ -462,17 +462,6 @@ html {
     0 2px 10px var(--shadow-message);
 }
 
-/* AI Message accent indicator */
-.message-wrapper.ai-message .message::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-  border-radius: 3px 0 0 3px;
-}
 
 /* Subtle sparkle indicator next to AI sender name */
 .message-wrapper.ai-message .message-sender::after {
