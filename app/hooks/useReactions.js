@@ -20,10 +20,28 @@ export function useReactions(user, currentChat) {
 
   // Sort topReactions based on emoji usage
   useEffect(() => {
-    // Sort by usage count (descending)
+    // If no usage data, use defaults
+    const hasUsageData = Object.keys(emojiUsage).length > 0;
+    
+    if (!hasUsageData) {
+      setTopReactions(DEFAULT_EMOJIS);
+      return;
+    }
+
+    // Sort by usage count (descending), with DEFAULT_EMOJIS as tiebreaker
     const sortedEmojis = [...ALL_EMOJIS].sort((a, b) => {
       const countA = emojiUsage[a] || 0;
       const countB = emojiUsage[b] || 0;
+      
+      // If counts are equal, prefer emojis in DEFAULT_EMOJIS
+      if (countA === countB) {
+        const aInDefaults = DEFAULT_EMOJIS.includes(a);
+        const bInDefaults = DEFAULT_EMOJIS.includes(b);
+        if (aInDefaults && !bInDefaults) return -1;
+        if (!aInDefaults && bInDefaults) return 1;
+        return 0;
+      }
+      
       return countB - countA;
     });
 
