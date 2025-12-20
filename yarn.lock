@@ -158,6 +158,11 @@
     "@babel/helper-string-parser" "^7.27.1"
     "@babel/helper-validator-identifier" "^7.28.5"
 
+"@capacitor-firebase/messaging@^8.0.1":
+  version "8.0.1"
+  resolved "https://registry.yarnpkg.com/@capacitor-firebase/messaging/-/messaging-8.0.1.tgz#852721ba30223091d72a95fbe5ab35b8d40880c4"
+  integrity sha512-Jla5/yg0o/8gAaTl3Z33XDAyC9xwqRZctt3sSh1KBIzYwV3fZVP/ty/5HGn84qqoO2aBBBL28erL+tkgZZPt2Q==
+
 "@capacitor/action-sheet@^8.0.0":
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/@capacitor/action-sheet/-/action-sheet-8.0.0.tgz#be27152c08699885a022eb4b2baf90482e60393a"
@@ -167,6 +172,11 @@
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/@capacitor/browser/-/browser-8.0.0.tgz#2c8689b95d47d22bab394289a3bec171d6bfcec5"
   integrity sha512-xey7maszGABKuStvXDV4vXN+EzIyz0o7zlyzw4JKG6o/1GzqeqHqVuE+8Ux+Hks3DZji4LoriWZVgVF6mR6RGg==
+
+"@capacitor/camera@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/camera/-/camera-8.0.0.tgz#baa83e73ad6a45be5911cbd56c12eca3b549a215"
+  integrity sha512-Iu8j2oxoIhY2mLuoEckbL7PFgw1XFm1nqmeWdIkILpcT3H9A+BrSDUDlzWqM/EeaDKo6JnhR59tYHwUhOdXaUg==
 
 "@capacitor/cli@^8.0.0":
   version "8.0.0"
@@ -198,6 +208,13 @@
   dependencies:
     tslib "^2.1.0"
 
+"@capacitor/filesystem@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/filesystem/-/filesystem-8.0.0.tgz#752bdff67686940cb73459fd94c58cb114098ff7"
+  integrity sha512-RRGNLW9xEqvVVHGyGlfS4Oy0R3Na+bEefwZElKbex22S9eZr5cg8wc750BPPVwbcv5lf5fJymkY8x8y6UwKPyg==
+  dependencies:
+    "@capacitor/synapse" "^1.0.4"
+
 "@capacitor/haptics@^8.0.0":
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/@capacitor/haptics/-/haptics-8.0.0.tgz#84d7ce2f32e0d4193bca59c09ae914a8585269de"
@@ -218,10 +235,25 @@
   resolved "https://registry.yarnpkg.com/@capacitor/local-notifications/-/local-notifications-8.0.0.tgz#da276574e7a555913b0ac8adb8e9eb76048aa2ff"
   integrity sha512-Jn2IJs13vhRyOUtYni7PIPdMDYMILb4uI/rRAi7PmGg2lnaKbM5aWBmHZWt0laTYyVApYIbCWmdgBqWx/IH4dQ==
 
-"@capacitor/push-notifications@^8.0.0":
-  version "8.0.0"
-  resolved "https://registry.yarnpkg.com/@capacitor/push-notifications/-/push-notifications-8.0.0.tgz#031c25e4a61d0fc79ea3a557ceaf520fbc0fffae"
-  integrity sha512-xJWQLqAfC8b2ETqAPmwDnkKB4t/lVrbYc2D8VpA2fSu10JFSL/R722Vk0Lfl9Lo9WusmyIiQbVfILNQ3iFNGKw==
+"@capacitor/synapse@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@capacitor/synapse/-/synapse-1.0.4.tgz#c6beb33119d9656b1f04cb7783989fb78933ef6d"
+  integrity sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==
+
+"@capgo/camera-preview@^8.0.5":
+  version "8.0.5"
+  resolved "https://registry.yarnpkg.com/@capgo/camera-preview/-/camera-preview-8.0.5.tgz#5bfc2ab295edd76ec5fbae05b3ecc7777188dd90"
+  integrity sha512-IllTCEq9VjGwTvUALxtaukKTLKAi+KTA++l34KcisjOAVk8y96ldqrraYMwwa5CB+NpxK8JtZsGSM9TiM94Jkw==
+
+"@capgo/capacitor-updater@^8.0.0":
+  version "8.4.2"
+  resolved "https://registry.yarnpkg.com/@capgo/capacitor-updater/-/capacitor-updater-8.4.2.tgz#56062b0e091711fff1aee12d45f43023f88278cf"
+  integrity sha512-vWawfKJO95Td7xhTdMBMMbPHHq25mui7iSbSQJJXqRwIJLlzkkPu2W7IHoL87sk+AgAQp85QYwo3rWaOHrTK9Q==
+
+"@capgo/capacitor-uploader@^8.0.4":
+  version "8.0.4"
+  resolved "https://registry.yarnpkg.com/@capgo/capacitor-uploader/-/capacitor-uploader-8.0.4.tgz#3d41bb7c4326e80bd78ccdc167f56b77343e7b84"
+  integrity sha512-JqV18i17iVeJRHMN8Fz7nZLPXRSHEVxaL8xwg3EOW6JKE1F9YmFSc71uAUy5hlAjo6TnpJub2rnzTQmqzKoNNA==
 
 "@emnapi/core@^1.4.3", "@emnapi/core@^1.6.0", "@emnapi/core@^1.7.1":
   version "1.7.1"
@@ -5283,11 +5315,6 @@ react-is@^16.13.1:
   version "16.13.1"
   resolved "https://registry.npmjs.org/react-is/-/react-is-16.13.1.tgz"
   integrity sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==
-
-react-onesignal@^3.4.0:
-  version "3.4.0"
-  resolved "https://registry.npmjs.org/react-onesignal/-/react-onesignal-3.4.0.tgz"
-  integrity sha512-iUAUZVw4lCtQbT4FPxpTDYPrfdYJPDFZERnYSd2ho6aNf/76vBG1v6HLMhTCjtNkQ2ufAW9L97N/pZuNvjEEUw==
 
 react-remove-scroll-bar@^2.3.7:
   version "2.3.8"

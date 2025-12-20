@@ -71,7 +71,7 @@ export default function ChatWindow() {
     const SWIPE_THRESHOLD = 80 // px to complete swipe
     const VERTICAL_LIMIT = 50 // max vertical movement
 
-    const handleTouchStart = (e) => {
+    const handleTouchStart = e => {
       const touch = e.touches[0]
       // Swipe from left edge to open, or anywhere to close when open
       if ((touch.clientX < EDGE_THRESHOLD && !isSidebarOpen) || isSidebarOpen) {
@@ -81,7 +81,7 @@ export default function ChatWindow() {
       }
     }
 
-    const handleTouchMove = (e) => {
+    const handleTouchMove = e => {
       if (!isSwiping.current) return
 
       const touch = e.touches[0]
@@ -100,7 +100,7 @@ export default function ChatWindow() {
       }
     }
 
-    const handleTouchEnd = (e) => {
+    const handleTouchEnd = e => {
       if (!isSwiping.current) return
 
       const touch = e.changedTouches[0]
@@ -146,13 +146,8 @@ export default function ChatWindow() {
   const { getRootProps, getInputProps, isDragActive } = dropzoneProps
 
   // Reactions hook
-  const {
-    topReactions,
-    openEmojiPanel,
-    handleAddReaction,
-    toggleEmojiPanel,
-    setOpenEmojiPanel,
-  } = useReactions(user, currentChat)
+  const { topReactions, openEmojiPanel, handleAddReaction, toggleEmojiPanel, setOpenEmojiPanel } =
+    useReactions(user, currentChat)
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -170,8 +165,13 @@ export default function ChatWindow() {
   })
 
   // AI hook (must be after virtuosoRef is defined)
-  const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } =
-    useAI(user, currentChat, messages, setMessages, virtuosoRef)
+  const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } = useAI(
+    user,
+    currentChat,
+    messages,
+    setMessages,
+    virtuosoRef
+  )
 
   // Scroll to bottom helper (for mobile keyboard)
   const scrollToBottom = useCallback(() => {
@@ -309,51 +309,51 @@ export default function ChatWindow() {
         id: currentChat.id,
         // For DMs, also store the dmId format
         dmId: currentChat.type === 'dm' && user ? getDMId(user.uid, currentChat.id) : null,
-      };
+      }
     }
     return () => {
       if (typeof window !== 'undefined') {
-        window.__poppyActiveChat = null;
+        window.__poppyActiveChat = null
       }
-    };
-  }, [currentChat, user]);
+    }
+  }, [currentChat, user])
 
   // Expose navigation function globally for push notification tap handling
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__poppyNavigateToChat = (chatType, chatId, senderId, senderName) => {
-        console.log('🔔 [NAV] Navigating to chat:', chatType, chatId, senderId, senderName);
-        let chat;
+        console.log('🔔 [NAV] Navigating to chat:', chatType, chatId, senderId, senderName)
+        let chat
         if (chatType === 'channel') {
-          chat = { type: 'channel', id: chatId, name: chatId };
+          chat = { type: 'channel', id: chatId, name: chatId }
         } else if (chatType === 'dm') {
           // For DMs, we need the sender's user ID (who sent the message)
-          const dmUserId = senderId || chatId;
+          const dmUserId = senderId || chatId
           // Look up user name from allUsers, fallback to senderName from notification
-          const dmUser = allUsers.find(u => u.uid === dmUserId);
-          const userName = dmUser?.displayName || dmUser?.email || senderName || 'Unknown';
-          chat = { type: 'dm', id: dmUserId, name: userName };
+          const dmUser = allUsers.find(u => u.uid === dmUserId)
+          const userName = dmUser?.displayName || dmUser?.email || senderName || 'Unknown'
+          chat = { type: 'dm', id: dmUserId, name: userName }
         }
 
         if (chat) {
-          setCurrentChat(chat);
-          setIsSidebarOpen(false);
+          setCurrentChat(chat)
+          setIsSidebarOpen(false)
           if (user) {
-            markChatAsRead(user.uid, chat.type, chat.id);
+            markChatAsRead(user.uid, chat.type, chat.id)
             if (chat.type === 'dm') {
-              addActiveDM(user.uid, chat.id);
+              addActiveDM(user.uid, chat.id)
             }
-            saveCurrentChat(user.uid, chat);
+            saveCurrentChat(user.uid, chat)
           }
         }
-      };
+      }
     }
     return () => {
       if (typeof window !== 'undefined') {
-        window.__poppyNavigateToChat = null;
+        window.__poppyNavigateToChat = null
       }
-    };
-  }, [user, allUsers]);
+    }
+  }, [user, allUsers])
 
   // Reply handlers
   const startReply = (messageId, sender, text) => {
@@ -366,36 +366,40 @@ export default function ChatWindow() {
     setReplyingTo(null)
   }
 
-  // Video reply - opens camera directly and auto-sends
-  const startVideoReply = (messageId, sender, text) => {
+  // Video reply - opens gallery picker with camera option
+  const startVideoReply = async (messageId, sender, text) => {
     // Store the reply info for when video is selected
     pendingVideoReplyRef.current = { msgId: messageId, sender, text }
     setContextMenu(null)
-    // Trigger the hidden video input
+
+    // Open the file input - on iOS this shows "Take Photo or Video" at top
     videoReplyInputRef.current?.click()
   }
 
-  // Handle when a video is selected for reply
-  const handleVideoReplySelect = async (e) => {
+  // Handle when a video is selected for reply (from gallery picker)
+  const handleVideoReplySelect = async e => {
     const file = e.target.files?.[0]
     if (!file || !pendingVideoReplyRef.current) return
 
+    console.log('📹 Video selected for reply:', file.name, file.size)
+
     // Set the reply state
     setReplyingTo(pendingVideoReplyRef.current)
-    
+
     // Set auto-send flag BEFORE adding the file
     setAutoSendPending(true)
-    
+
     // Add the video to the upload queue
     await handleImageSelect(file)
 
-    // Clear the pending ref
+    // Clear the pending ref and input
     pendingVideoReplyRef.current = null
+    e.target.value = ''
 
     // Reset the input so the same file can be selected again
     e.target.value = ''
   }
-  
+
   // Auto-send when video is ready (triggered by imageFiles change when autoSendPending is true)
   useEffect(() => {
     if (autoSendPending && imageFiles.length > 0 && replyingTo) {
@@ -476,10 +480,7 @@ export default function ChatWindow() {
 
   // Promote message to post
   const handlePromoteMessage = async messageId => {
-    const chatId =
-      currentChat.type === 'dm'
-        ? getDMId(user.uid, currentChat.id)
-        : currentChat.id
+    const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
       await promoteMessageToPost(currentChat.type, chatId, messageId)
@@ -491,10 +492,7 @@ export default function ChatWindow() {
 
   // Demote post to message
   const handleDemotePost = async postId => {
-    const chatId =
-      currentChat.type === 'dm'
-        ? getDMId(user.uid, currentChat.id)
-        : currentChat.id
+    const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
       await demotePostToMessage(currentChat.type, chatId, postId)
@@ -509,8 +507,8 @@ export default function ChatWindow() {
   const handleAddToTeamMemory = async message => {
     try {
       // Get all image URLs (support both single and multiple)
-      const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : []);
-      
+      const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : [])
+
       const response = await fetch('/api/ragie/team-memory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -522,9 +520,7 @@ export default function ChatWindow() {
           sender: message.sender,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp:
-            message.timestamp?.toDate?.()?.toISOString() ||
-            new Date().toISOString(),
+          timestamp: message.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
         }),
       })
 
@@ -536,9 +532,7 @@ export default function ChatWindow() {
         } else if (data.type === 'image' || data.type === 'images') {
           typeMsg = imageUrls.length > 1 ? 'images' : 'image'
         }
-        alert(
-          `✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`
-        )
+        alert(`✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`)
       } else {
         throw new Error('Failed to add to team memory')
       }
@@ -553,13 +547,13 @@ export default function ChatWindow() {
     e.preventDefault()
     // Get the message wrapper element - for right-click, find from target
     const messageElement = e.messageElement || e.target.closest('.message-wrapper')
-    contextMenuOpenTime.current = Date.now()  // Track when menu opens to prevent immediate close
+    contextMenuOpenTime.current = Date.now() // Track when menu opens to prevent immediate close
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       message,
       messageElement,
-      reactionsOnly: e.reactionsOnly || false,  // Double-tap passes this flag
+      reactionsOnly: e.reactionsOnly || false, // Double-tap passes this flag
     })
   }
 
@@ -583,18 +577,11 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!currentChat) return
 
-    const chatId =
-      currentChat.type === 'dm'
-        ? getDMId(user.uid, currentChat.id)
-        : currentChat.id
+    const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
-    const unsubscribe = subscribeToPosts(
-      currentChat.type,
-      chatId,
-      loadedPosts => {
-        setPosts(loadedPosts)
-      }
-    )
+    const unsubscribe = subscribeToPosts(currentChat.type, chatId, loadedPosts => {
+      setPosts(loadedPosts)
+    })
 
     return () => unsubscribe()
   }, [currentChat, user])
@@ -631,14 +618,13 @@ export default function ChatWindow() {
 
     try {
       // Combine messages and posts to find the oldest item
-      const allItems = [
-        ...messages,
-        ...posts.map(post => ({ ...post, isPost: true })),
-      ].sort((a, b) => {
-        const aTime = a.timestamp?.seconds || 0
-        const bTime = b.timestamp?.seconds || 0
-        return aTime - bTime
-      })
+      const allItems = [...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
+        (a, b) => {
+          const aTime = a.timestamp?.seconds || 0
+          const bTime = b.timestamp?.seconds || 0
+          return aTime - bTime
+        }
+      )
 
       const oldestItem = allItems[0]
       console.log('📜 Oldest item timestamp:', oldestItem?.timestamp)
@@ -651,10 +637,7 @@ export default function ChatWindow() {
 
       let olderMessages = []
       if (currentChat.type === 'channel') {
-        olderMessages = await loadOlderMessages(
-          currentChat.id,
-          oldestItem.timestamp
-        )
+        olderMessages = await loadOlderMessages(currentChat.id, oldestItem.timestamp)
       } else if (currentChat.type === 'dm') {
         const dmId = getDMId(user.uid, currentChat.id)
         olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp)
@@ -667,9 +650,7 @@ export default function ChatWindow() {
         setHasMoreMessages(false)
       } else {
         // Prepend older messages
-        console.log(
-          `📜 Prepending ${olderMessages.length} messages, updating firstItemIndex`
-        )
+        console.log(`📜 Prepending ${olderMessages.length} messages, updating firstItemIndex`)
         setFirstItemIndex(prev => prev - olderMessages.length)
         setMessages(prev => [...olderMessages, ...prev])
       }
@@ -699,7 +680,7 @@ export default function ChatWindow() {
 
   // Close context menu on click outside
   const contextMenuOpenTime = useRef(0)
-  
+
   useEffect(() => {
     const handleClick = () => {
       // Don't close if menu was just opened (prevents gestures from immediately closing)
@@ -749,10 +730,7 @@ export default function ChatWindow() {
       <div className='app-container'>
         {/* Mobile Backdrop */}
         {isSidebarOpen && (
-          <div
-            className='sidebar-backdrop'
-            onClick={() => setIsSidebarOpen(false)}
-          />
+          <div className='sidebar-backdrop' onClick={() => setIsSidebarOpen(false)} />
         )}
 
         {/* Sidebar */}
@@ -789,25 +767,23 @@ export default function ChatWindow() {
                 onClick={handleMessagesAreaClick}
                 style={{ height: '100%', position: 'relative' }}
               >
-                <input 
-                  {...getInputProps()} 
+                <input
+                  {...getInputProps()}
                   capture={replyingTo ? 'user' : undefined}
                   accept={replyingTo ? 'video/*' : undefined}
                 />
                 {/* Hidden input for video replies - opens camera directly */}
                 <input
                   ref={videoReplyInputRef}
-                  type="file"
-                  accept="video/*"
-                  capture="user"
+                  type='file'
+                  accept='video/*'
+                  capture='user'
                   onChange={handleVideoReplySelect}
                   style={{ display: 'none' }}
                 />
                 {isDragActive && (
                   <div className='drag-overlay'>
-                    <div className='drag-overlay-content'>
-                      📎 Drop image or video here
-                    </div>
+                    <div className='drag-overlay-content'>📎 Drop image or video here</div>
                   </div>
                 )}
                 {messages.length === 0 && posts.length === 0 ? (
@@ -818,14 +794,13 @@ export default function ChatWindow() {
                   <Virtuoso
                     ref={virtuosoRef}
                     style={{ height: '100%' }}
-                    data={[
-                      ...messages,
-                      ...posts.map(post => ({ ...post, isPost: true })),
-                    ].sort((a, b) => {
-                      const aTime = a.timestamp?.seconds || 0
-                      const bTime = b.timestamp?.seconds || 0
-                      return aTime - bTime
-                    })}
+                    data={[...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
+                      (a, b) => {
+                        const aTime = a.timestamp?.seconds || 0
+                        const bTime = b.timestamp?.seconds || 0
+                        return aTime - bTime
+                      }
+                    )}
                     firstItemIndex={firstItemIndex}
                     initialTopMostItemIndex={999999}
                     followOutput='smooth'
@@ -838,10 +813,12 @@ export default function ChatWindow() {
                       Footer: () => {
                         if (keyboardHeight > 0) {
                           console.log('⌨️ Footer height:', keyboardHeight)
-                          return <div style={{ height: keyboardHeight, background: 'transparent' }} />
+                          return (
+                            <div style={{ height: keyboardHeight, background: 'transparent' }} />
+                          )
                         }
                         return null
-                      }
+                      },
                     }}
                     atTopStateChange={atTop => {
                       console.log('📜 atTopStateChange:', atTop)
@@ -863,9 +840,7 @@ export default function ChatWindow() {
                           />
                         )
                       } else {
-                        const msgIndex = messages.findIndex(
-                          m => m.id === item.id
-                        )
+                        const msgIndex = messages.findIndex(m => m.id === item.id)
                         return (
                           <MessageItem
                             key={item.id}
@@ -885,11 +860,11 @@ export default function ChatWindow() {
                             onPromote={handlePromoteMessage}
                             onAddToTeamMemory={handleAddToTeamMemory}
                             onAddReaction={handleAddReaction}
-                            onImageClick={(images, startIndex) => setLightboxData({ open: true, images, startIndex })}
-                            onScrollToMessage={scrollToMessage}
-                            messageRef={el =>
-                              (messageRefs.current[item.id] = el)
+                            onImageClick={(images, startIndex) =>
+                              setLightboxData({ open: true, images, startIndex })
                             }
+                            onScrollToMessage={scrollToMessage}
+                            messageRef={el => (messageRefs.current[item.id] = el)}
                           />
                         )
                       }
@@ -901,9 +876,7 @@ export default function ChatWindow() {
                 {otherUserTyping &&
                   currentChat?.type === 'dm' &&
                   (() => {
-                    const otherUser = allUsers.find(
-                      u => u.uid === currentChat.id
-                    )
+                    const otherUser = allUsers.find(u => u.uid === currentChat.id)
                     return (
                       <div className='typing-indicator'>
                         <img
@@ -929,15 +902,18 @@ export default function ChatWindow() {
                         width: '24px',
                         height: '24px',
                         borderRadius: '50%',
-                        background:
-                          'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         border: '2px solid var(--border-input)',
                       }}
                     >
-                      <img src="/poppy-icon.png" alt="Poppy" style={{ width: '20px', height: '20px' }} />
+                      <img
+                        src='/poppy-icon.png'
+                        alt='Poppy'
+                        style={{ width: '20px', height: '20px' }}
+                      />
                     </div>
                     <div
                       style={{

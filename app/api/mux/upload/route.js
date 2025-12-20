@@ -15,6 +15,7 @@ export async function POST() {
         playback_policy: ['public'],
         encoding_tier: 'smart', // Better quality encoding
         mp4_support: 'standard', // Enable MP4 for non-HLS browsers (Chrome)
+        max_resolution_tier: '2160p', // Up to 4K - Mux auto-adapts to best quality like YouTube
       },
     })
 
@@ -24,10 +25,6 @@ export async function POST() {
     })
   } catch (error) {
     console.error('Error creating Mux upload:', error)
-    return NextResponse.json(
-      { error: 'Failed to create upload URL' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create upload URL' }, { status: 500 })
   }
 }
-

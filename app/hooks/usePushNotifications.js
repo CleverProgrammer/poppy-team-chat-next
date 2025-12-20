@@ -1,144 +1,170 @@
-'use client';
+'use client'
 
-import { useEffect, useCallback } from 'react';
-import { PushNotifications } from '@capacitor/push-notifications';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { Capacitor } from '@capacitor/core';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { useEffect, useCallback } from 'react'
+import { FirebaseMessaging } from '@capacitor-firebase/messaging'
+import { LocalNotifications } from '@capacitor/local-notifications'
+import { Capacitor } from '@capacitor/core'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../lib/firebase'
 
-const LOG_PREFIX = '🔔 [PUSH]';
+const LOG_PREFIX = '🔔 [PUSH]'
 
 export function usePushNotifications(user) {
-  console.log(`${LOG_PREFIX} Hook called - user:`, user?.uid || 'null', '| platform:', Capacitor.getPlatform(), '| isNative:', Capacitor.isNativePlatform());
+  console.log(
+    `${LOG_PREFIX} Hook called - user:`,
+    user?.uid || 'null',
+    '| platform:',
+    Capacitor.getPlatform(),
+    '| isNative:',
+    Capacitor.isNativePlatform()
+  )
 
-  const savePushToken = useCallback(async (token) => {
-    console.log(`${LOG_PREFIX} savePushToken called with token:`, token?.substring(0, 20) + '...');
+  const savePushToken = useCallback(
+    async token => {
+      console.log(`${LOG_PREFIX} savePushToken called with token:`, token?.substring(0, 20) + '...')
 
-    if (!user?.uid) {
-      console.warn(`${LOG_PREFIX} No user ID available for saving push token`);
-      return;
-    }
+      if (!user?.uid) {
+        console.warn(`${LOG_PREFIX} No user ID available for saving push token`)
+        return
+      }
 
-    try {
-      console.log(`${LOG_PREFIX} Saving token to Firestore for user:`, user.uid);
-      await setDoc(
-        doc(db, 'users', user.uid),
-        {
-          pushToken: token,
-          pushTokenUpdatedAt: serverTimestamp(),
-          platform: 'ios',
-        },
-        { merge: true }
-      );
-      console.log(`${LOG_PREFIX} ✅ Token saved successfully to Firestore`);
-    } catch (error) {
-      console.error(`${LOG_PREFIX} ❌ Error saving token to Firestore:`, error);
-    }
-  }, [user?.uid]);
+      try {
+        console.log(`${LOG_PREFIX} Saving token to Firestore for user:`, user.uid)
+        await setDoc(
+          doc(db, 'users', user.uid),
+          {
+            pushToken: token,
+            pushTokenUpdatedAt: serverTimestamp(),
+            platform: 'ios',
+          },
+          { merge: true }
+        )
+        console.log(`${LOG_PREFIX} ✅ Token saved successfully to Firestore`)
+      } catch (error) {
+        console.error(`${LOG_PREFIX} ❌ Error saving token to Firestore:`, error)
+      }
+    },
+    [user?.uid]
+  )
 
   useEffect(() => {
-    console.log(`${LOG_PREFIX} useEffect triggered - user?.uid:`, user?.uid, '| isNative:', Capacitor.isNativePlatform());
+    console.log(
+      `${LOG_PREFIX} useEffect triggered - user?.uid:`,
+      user?.uid,
+      '| isNative:',
+      Capacitor.isNativePlatform()
+    )
 
     // Only run on native platforms
     if (!Capacitor.isNativePlatform()) {
-      console.log(`${LOG_PREFIX} ⏭️ Skipping - not native platform (platform: ${Capacitor.getPlatform()})`);
-      return;
+      console.log(
+        `${LOG_PREFIX} ⏭️ Skipping - not native platform (platform: ${Capacitor.getPlatform()})`
+      )
+      return
     }
 
     if (!user?.uid) {
-      console.log(`${LOG_PREFIX} ⏭️ Skipping - no user logged in yet`);
-      return;
+      console.log(`${LOG_PREFIX} ⏭️ Skipping - no user logged in yet`)
+      return
     }
 
-    console.log(`${LOG_PREFIX} ✅ Conditions met - initializing push notifications for user:`, user.uid);
+    console.log(
+      `${LOG_PREFIX} ✅ Conditions met - initializing push notifications for user:`,
+      user.uid
+    )
 
-    let cleanup = false;
+    let cleanup = false
 
     // Helper function to navigate to chat from notification data
     function navigateToChat(data) {
-      console.log(`${LOG_PREFIX} 🧭 navigateToChat called with:`, data);
+      console.log(`${LOG_PREFIX} 🧭 navigateToChat called with:`, data)
 
       if (typeof window === 'undefined' || !window.__poppyNavigateToChat) {
-        console.warn(`${LOG_PREFIX} ⚠️ Navigation function not available yet`);
-        return;
+        console.warn(`${LOG_PREFIX} ⚠️ Navigation function not available yet`)
+        return
       }
 
-      const { type, channelId, dmId, senderId, sender } = data;
+      const { type, channelId, dmId, senderId, sender } = data
 
       if (type === 'channel' && channelId) {
-        console.log(`${LOG_PREFIX} 🧭 Navigating to channel:`, channelId);
-        window.__poppyNavigateToChat('channel', channelId, null, null);
+        console.log(`${LOG_PREFIX} 🧭 Navigating to channel:`, channelId)
+        window.__poppyNavigateToChat('channel', channelId, null, null)
       } else if (type === 'dm' && dmId) {
-        console.log(`${LOG_PREFIX} 🧭 Navigating to DM:`, dmId, 'sender:', senderId, sender);
+        console.log(`${LOG_PREFIX} 🧭 Navigating to DM:`, dmId, 'sender:', senderId, sender)
         // For DMs, pass the senderId and sender name so we can navigate to the correct user
-        window.__poppyNavigateToChat('dm', dmId, senderId, sender);
+        window.__poppyNavigateToChat('dm', dmId, senderId, sender)
       } else {
-        console.warn(`${LOG_PREFIX} ⚠️ Unknown notification type or missing ID:`, data);
+        console.warn(`${LOG_PREFIX} ⚠️ Unknown notification type or missing ID:`, data)
       }
     }
 
     async function initializePushNotifications() {
       try {
-        console.log(`${LOG_PREFIX} Step 1: Checking permissions...`);
-        let permStatus = await PushNotifications.checkPermissions();
-        console.log(`${LOG_PREFIX} Current permission status:`, permStatus.receive);
+        console.log(`${LOG_PREFIX} Step 1: Checking permissions...`)
+        let permStatus = await FirebaseMessaging.checkPermissions()
+        console.log(`${LOG_PREFIX} Current permission status:`, permStatus.receive)
 
         if (permStatus.receive === 'prompt') {
-          console.log(`${LOG_PREFIX} Step 2: Requesting permissions (status was "prompt")...`);
-          permStatus = await PushNotifications.requestPermissions();
-          console.log(`${LOG_PREFIX} Permission after request:`, permStatus.receive);
+          console.log(`${LOG_PREFIX} Step 2: Requesting permissions (status was "prompt")...`)
+          permStatus = await FirebaseMessaging.requestPermissions()
+          console.log(`${LOG_PREFIX} Permission after request:`, permStatus.receive)
         }
 
         if (permStatus.receive !== 'granted') {
-          console.warn(`${LOG_PREFIX} ❌ Permission denied - status:`, permStatus.receive);
-          return;
+          console.warn(`${LOG_PREFIX} ❌ Permission denied - status:`, permStatus.receive)
+          return
         }
 
-        console.log(`${LOG_PREFIX} ✅ Permission granted - registering for push notifications...`);
+        console.log(`${LOG_PREFIX} ✅ Permission granted - setting up listeners...`)
 
-        // Set up listeners BEFORE calling register
-        console.log(`${LOG_PREFIX} Step 3: Setting up listeners...`);
+        // Set up listeners
+        console.log(`${LOG_PREFIX} Step 3: Setting up listeners...`)
 
-        await PushNotifications.addListener('registration', async (token) => {
-          console.log(`${LOG_PREFIX} 🎉 Registration SUCCESS! Token:`, token.value?.substring(0, 30) + '...');
+        // Listen for token updates
+        await FirebaseMessaging.addListener('tokenReceived', async event => {
+          console.log(`${LOG_PREFIX} 🎉 Token received:`, event.token?.substring(0, 30) + '...')
           if (cleanup) {
-            console.log(`${LOG_PREFIX} Cleanup flag set, skipping token save`);
-            return;
+            console.log(`${LOG_PREFIX} Cleanup flag set, skipping token save`)
+            return
           }
-          await savePushToken(token.value);
-        });
+          await savePushToken(event.token)
+        })
 
-        await PushNotifications.addListener('registrationError', (error) => {
-          console.error(`${LOG_PREFIX} ❌ Registration ERROR:`, JSON.stringify(error));
-        });
-
-        await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
-          console.log(`${LOG_PREFIX} 📬 Notification RECEIVED (foreground):`, JSON.stringify(notification));
+        // Listen for notifications in foreground
+        await FirebaseMessaging.addListener('notificationReceived', async event => {
+          const notification = event.notification
+          console.log(
+            `${LOG_PREFIX} 📬 Notification RECEIVED (foreground):`,
+            JSON.stringify(notification)
+          )
 
           // Check if this notification is for the chat the user is currently viewing
-          const activeChat = typeof window !== 'undefined' ? window.__poppyActiveChat : null;
-          const notifData = notification.data || {};
+          const activeChat = typeof window !== 'undefined' ? window.__poppyActiveChat : null
+          const notifData = notification.data || {}
 
-          let shouldSuppress = false;
+          let shouldSuppress = false
 
           if (activeChat) {
             if (notifData.type === 'dm' && activeChat.type === 'dm') {
               // For DMs, compare the dmId
-              shouldSuppress = activeChat.dmId === notifData.dmId;
+              shouldSuppress = activeChat.dmId === notifData.dmId
             } else if (notifData.type === 'channel' && activeChat.type === 'channel') {
               // For channels, compare the channelId
-              shouldSuppress = activeChat.id === notifData.channelId;
+              shouldSuppress = activeChat.id === notifData.channelId
             }
           }
 
-          console.log(`${LOG_PREFIX} Active chat:`, activeChat);
-          console.log(`${LOG_PREFIX} Notification for:`, notifData.type, notifData.dmId || notifData.channelId);
-          console.log(`${LOG_PREFIX} Should suppress:`, shouldSuppress);
+          console.log(`${LOG_PREFIX} Active chat:`, activeChat)
+          console.log(
+            `${LOG_PREFIX} Notification for:`,
+            notifData.type,
+            notifData.dmId || notifData.channelId
+          )
+          console.log(`${LOG_PREFIX} Should suppress:`, shouldSuppress)
 
           if (shouldSuppress) {
-            console.log(`${LOG_PREFIX} ⏭️ Suppressing notification - user is viewing this chat`);
-            return;
+            console.log(`${LOG_PREFIX} ⏭️ Suppressing notification - user is viewing this chat`)
+            return
           }
 
           // Show local notification since we disabled auto-alert in capacitor config
@@ -154,48 +180,57 @@ export function usePushNotifications(user) {
                   extra: notifData,
                 },
               ],
-            });
-            console.log(`${LOG_PREFIX} ✅ Local notification scheduled`);
+            })
+            console.log(`${LOG_PREFIX} ✅ Local notification scheduled`)
           } catch (error) {
-            console.error(`${LOG_PREFIX} ❌ Error scheduling local notification:`, error);
+            console.error(`${LOG_PREFIX} ❌ Error scheduling local notification:`, error)
           }
-        });
+        })
 
-        await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          console.log(`${LOG_PREFIX} 👆 Push Notification TAPPED:`, JSON.stringify(notification));
+        // Listen for notification taps
+        await FirebaseMessaging.addListener('notificationActionPerformed', event => {
+          console.log(`${LOG_PREFIX} 👆 Push Notification TAPPED:`, JSON.stringify(event))
 
           // Navigate to the chat when notification is tapped
-          const data = notification.notification?.data || {};
-          navigateToChat(data);
-        });
+          const data = event.notification?.data || {}
+          navigateToChat(data)
+        })
 
         // Also listen for local notification taps (for foreground notifications we manually showed)
-        await LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-          console.log(`${LOG_PREFIX} 👆 Local Notification TAPPED:`, JSON.stringify(notification));
+        await LocalNotifications.addListener('localNotificationActionPerformed', notification => {
+          console.log(`${LOG_PREFIX} 👆 Local Notification TAPPED:`, JSON.stringify(notification))
 
           // Navigate to the chat when notification is tapped
-          const data = notification.notification?.extra || {};
-          navigateToChat(data);
-        });
+          const data = notification.notification?.extra || {}
+          navigateToChat(data)
+        })
 
-        console.log(`${LOG_PREFIX} Step 4: Calling register()...`);
-        await PushNotifications.register();
-        console.log(`${LOG_PREFIX} ✅ register() completed - waiting for registration callback...`);
+        // Get the FCM token
+        console.log(`${LOG_PREFIX} Step 4: Getting FCM token...`)
+        const result = await FirebaseMessaging.getToken()
+        console.log(`${LOG_PREFIX} ✅ FCM token received:`, result.token?.substring(0, 30) + '...')
 
+        if (!cleanup) {
+          await savePushToken(result.token)
+        }
       } catch (error) {
-        console.error(`${LOG_PREFIX} ❌ Error in initializePushNotifications:`, error.message, error);
+        console.error(
+          `${LOG_PREFIX} ❌ Error in initializePushNotifications:`,
+          error.message,
+          error
+        )
       }
     }
 
-    initializePushNotifications();
+    initializePushNotifications()
 
     return () => {
-      console.log(`${LOG_PREFIX} 🧹 Cleanup - removing listeners`);
-      cleanup = true;
-      PushNotifications.removeAllListeners();
-      LocalNotifications.removeAllListeners();
-    };
-  }, [user?.uid, savePushToken]);
+      console.log(`${LOG_PREFIX} 🧹 Cleanup - removing listeners`)
+      cleanup = true
+      FirebaseMessaging.removeAllListeners()
+      LocalNotifications.removeAllListeners()
+    }
+  }, [user?.uid, savePushToken])
 
-  return { savePushToken };
+  return { savePushToken }
 }
