@@ -430,7 +430,6 @@ export default function ChatWindow() {
     setReplyingTo(null)
 
     try {
-
       // Get Mux upload URL
       console.log('📹 Getting Mux upload URL...')
       const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' })
