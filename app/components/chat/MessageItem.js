@@ -303,7 +303,7 @@ export default function MessageItem({
         data-msg-id={msg.id}
         className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper ${
           actionSheetOpen ? 'message-selected' : ''
-        }`}
+        } ${msg.senderId === 'ai' ? 'ai-message' : ''}`}
         onContextMenu={handleContextMenuWrapper}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -385,7 +385,7 @@ export default function MessageItem({
         !msg.imageUrls?.length
           ? 'video-only-reply'
           : ''
-      }`}
+      } ${msg.senderId === 'ai' ? 'ai-message' : ''}`}
       onContextMenu={handleContextMenuWrapper}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
