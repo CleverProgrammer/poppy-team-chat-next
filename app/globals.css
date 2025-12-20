@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* LOCK horizontal scroll/gestures globally */
+* {
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 :root {
   /* Dark mode colors */
   --bg-body-start: #1a1a2e;
