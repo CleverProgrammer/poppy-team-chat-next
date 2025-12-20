@@ -140,27 +140,31 @@ export function useMessageSending({
     if (inputRef.current) {
       inputRef.current.value = '';
       inputRef.current.style.height = 'auto';
+      // Keep focus immediately after clearing
+      inputRef.current.focus();
     }
 
     // Clear typing indicator for DMs
     clearTypingIndicator();
 
     // Scroll to bottom using Virtuoso
-    // Set flag to prevent blur during auto-scroll
+    // Set flag to prevent blur during auto-scroll (keep it set longer to survive re-renders)
     if (isAutoScrollingRef) isAutoScrollingRef.current = true;
+    
+    // Scroll after a tiny delay to let the optimistic message render
     setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
         index: 'LAST',
         align: 'end',
         behavior: 'auto'
       });
-      // Re-focus input to keep keyboard open on mobile
-      setTimeout(() => {
-        inputRef.current?.focus();
-        // Clear flag after scroll completes
-        if (isAutoScrollingRef) isAutoScrollingRef.current = false;
-      }, 100);
-    }, 0);
+    }, 10);
+    
+    // Clear the auto-scroll flag and ensure focus after everything settles
+    setTimeout(() => {
+      if (isAutoScrollingRef) isAutoScrollingRef.current = false;
+      inputRef.current?.focus();
+    }, 300);
 
     setSending(true);
     try {
@@ -278,6 +282,8 @@ export function useMessageSending({
     } finally {
       setSending(false);
       setUploading(false);
+      // Ensure input stays focused after send completes
+      inputRef.current?.focus();
     }
   }, [
     user,

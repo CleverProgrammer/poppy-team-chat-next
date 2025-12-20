@@ -1070,8 +1070,10 @@ export default function ChatWindow() {
                     onScroll={e => {
                       const currentScrollTop = e.target.scrollTop
                       // Blur on ANY upward scroll (like iMessage) - just 5px threshold
-                      // But skip if we're doing programmatic scroll (after sending)
+                      // ONLY on mobile - desktop should never lose focus from scrolling
+                      // Also skip if we're doing programmatic scroll (after sending)
                       if (
+                        Capacitor.isNativePlatform() &&
                         !isAutoScrollingRef.current &&
                         currentScrollTop < lastScrollTopRef.current - 5 &&
                         inputRef.current
