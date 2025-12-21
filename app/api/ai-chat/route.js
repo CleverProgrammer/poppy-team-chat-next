@@ -102,7 +102,39 @@ IMPORTANT FORMATTING RULES:
 - Use emojis sparingly if it fits the vibe
 - NEVER prefix your messages with "Poppy:" or your name - just respond directly
 
-HOW TO FIND INFORMATION (in this order!):
+=== FOLLOW CONVERSATIONAL CONTEXT (CRITICAL!) ===
+
+You have the last 50 messages - USE THEM to understand follow-up questions!
+- "what about last week?" after discussing feature requests = "feature requests from last week"
+- "any from yesterday?" = same topic, different time
+- "what about X?" or "and Y?" = they're referring to the PREVIOUS topic
+- NEVER ask for clarification on obvious follow-ups - just do it
+- SHORT responses ≠ DUMB responses. Be concise AND smart.
+
+=== TIME-AWARE SEARCH (CRITICAL!) ===
+
+When users ask about ANYTHING with a time reference (this week, yesterday, last month, recent, latest, etc.):
+
+1. ALWAYS PRIORITIZE search_chat_history FIRST with date filters!
+   - Use the startDate and endDate parameters to filter by time
+   - "this week" = startDate: Monday of this week, endDate: today
+   - "yesterday" = startDate: yesterday 00:00, endDate: yesterday 23:59
+   - "last month" = startDate: first of last month, endDate: last day of last month
+   - "today" = startDate: today 00:00, endDate: now
+   - "recent" or "latest" = last 7 days
+
+2. If you MUST use Notion for time-bound queries:
+   - ALWAYS filter by last_edited_time or created_time
+   - Use sorts: [{ "timestamp": "last_edited_time", "direction": "descending" }]
+   - NEVER return old Notion content for recent queries
+   - If the Notion item wasn't updated within the time frame, DON'T include it
+
+3. BE STRICT about dates:
+   - "feature requests this week" = ONLY things from THIS calendar week
+   - Don't return 2-year-old Notion pages just because they're related
+   - The timestamp/date MUST match the user's time reference
+
+=== HOW TO FIND INFORMATION ===
 
 1. FIRST: CHECK THE CHAT CONTEXT PROVIDED
    - You have the last 50 messages from this conversation right here
@@ -113,16 +145,19 @@ HOW TO FIND INFORMATION (in this order!):
    - If you can't find it in the immediate context, search ALL past chat messages
    - This is your MEMORY system - it contains everything ever said
    - Use it for: "do you remember...", "what did I say about...", past conversations, preferences, facts shared before
+   - FOR TIME-BOUND QUERIES: Use startDate and endDate parameters!
 
 3. THIRD: USE CLAVIS AI TOOLS
    - These give you access to external systems: Google Calendar, Notion, etc.
    - Use for: calendar events, Notion documents, external data
    - IMPORTANT: When using Google Calendar, use the EXACT date format from the timestamp above
+   - FOR NOTION: Always filter/sort by last_edited_time for time-bound queries!
 
 CRITICAL DATE HANDLING:
 - ALWAYS use the current date/time provided above - never guess!
 - For "today", "tomorrow", "yesterday" - calculate from the date above
 - When scheduling or checking calendar: use ISO format (YYYY-MM-DD)
+- TIME-BOUND SEARCHES: Calculate exact date ranges and pass them to tools!
 
 Be persistent and exhaustive in trying to find information.
 Only say "I don't know" as an ABSOLUTE LAST RESORT after trying everything.
@@ -180,17 +215,25 @@ Don't ask permission to search or remember things - just do it.
     input_schema: tool.inputSchema,
   }))
 
-  // Add Ragie chat history search tool
+  // Add Ragie chat history search tool with date filtering
   tools.push({
     name: 'search_chat_history',
     description:
-      'Search through past chat messages to find relevant conversations. Use this when users ask about things discussed before, personal info shared in past chats, or any historical context from previous conversations.',
+      'Search through past chat messages to find relevant conversations. Use this when users ask about things discussed before, personal info shared in past chats, or any historical context from previous conversations. IMPORTANT: For time-bound queries (this week, yesterday, last month, etc.), ALWAYS use startDate and endDate to filter results!',
     input_schema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
           description: 'The search query to find relevant past messages',
+        },
+        startDate: {
+          type: 'string',
+          description: 'ISO date string for the start of the time range (e.g., "2025-12-16T00:00:00Z"). Use this for time-bound queries like "this week", "yesterday", "last month".',
+        },
+        endDate: {
+          type: 'string',
+          description: 'ISO date string for the end of the time range (e.g., "2025-12-20T23:59:59Z"). Use this for time-bound queries.',
         },
       },
       required: ['query'],
@@ -318,7 +361,16 @@ Don't ask permission to search or remember things - just do it.
         if (toolUse.name === 'search_chat_history') {
           console.log(`🔍 RAGIE: Searching chat history for: "${toolUse.input.query}"`)
           console.log(`🔍 RAGIE: Current chat context:`, currentChat)
-          const results = await searchChatHistory(userId, toolUse.input.query, currentChat)
+          if (toolUse.input.startDate || toolUse.input.endDate) {
+            console.log(`🔍 RAGIE: Date filter - from: ${toolUse.input.startDate || 'any'} to: ${toolUse.input.endDate || 'any'}`)
+          }
+          const results = await searchChatHistory(
+            userId, 
+            toolUse.input.query, 
+            currentChat,
+            toolUse.input.startDate,
+            toolUse.input.endDate
+          )
           toolResponse = { content: results }
           console.log(`🔍 RAGIE: Found ${results.length} results`)
           if (results.length > 0) {
