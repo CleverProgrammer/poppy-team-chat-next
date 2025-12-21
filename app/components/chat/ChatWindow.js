@@ -15,6 +15,7 @@ import ContextMenu from './ContextMenu'
 import PostsView from './PostsView'
 import PostPreview from './PostPreview'
 import VideoRecorder from './VideoRecorder'
+import WebVideoRecorder from './WebVideoRecorder'
 import { useAuth } from '../../contexts/AuthContext'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { useReactions } from '../../hooks/useReactions'
@@ -59,7 +60,8 @@ export default function ChatWindow() {
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [autoSendPending, setAutoSendPending] = useState(false) // Flag for auto-sending video replies
   const [videoUploadProgress, setVideoUploadProgress] = useState(null) // { percent, status } for upload indicator
-  const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder
+  const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder (iOS)
+  const [webVideoRecorderOpen, setWebVideoRecorderOpen] = useState(false) // Web video recorder (desktop)
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -375,18 +377,18 @@ export default function ChatWindow() {
     setReplyingTo(null)
   }
 
-  // Video reply - uses native camera on iOS, gallery picker on web
+  // Video reply - uses native camera on iOS, webcam recorder on desktop
   const startVideoReply = async (messageId, sender, text) => {
     // Store the reply info for when video is selected
     pendingVideoReplyRef.current = { msgId: messageId, sender, text }
     setContextMenu(null)
 
-    // Use native camera on iOS for high-quality video
+    // Use native camera on iOS, web video recorder on desktop
     if (Capacitor.isNativePlatform()) {
       setVideoRecorderOpen(true)
     } else {
-      // Fallback to file picker on web
-      videoReplyInputRef.current?.click()
+      // Use webcam recorder on desktop
+      setWebVideoRecorderOpen(true)
     }
   }
 
@@ -513,6 +515,33 @@ export default function ChatWindow() {
       console.error('Failed to process native video:', error)
       setVideoUploadProgress({ percent: 0, status: 'error' })
       setTimeout(() => setVideoUploadProgress(null), 3000)
+    }
+  }
+
+  // Handle web video recorded (from WebVideoRecorder component - desktop)
+  // WebVideoRecorder already handles Mux upload and returns playbackId
+  const handleWebVideoRecorded = async playbackId => {
+    console.log('📹 Web video recorded, playbackId:', playbackId)
+    setWebVideoRecorderOpen(false)
+
+    if (!pendingVideoReplyRef.current) {
+      console.warn('No pending video reply context')
+      return
+    }
+
+    // Store reply context locally and clear the reply state
+    const replyContext = pendingVideoReplyRef.current
+    pendingVideoReplyRef.current = null
+    setReplyingTo(null)
+
+    try {
+      // Send the message with the video
+      console.log('📹 Sending message with video...')
+      await sendVideoReply(playbackId, replyContext)
+      console.log('📹 Web video reply sent!')
+    } catch (error) {
+      console.error('Failed to send web video reply:', error)
+      alert('Failed to send video. Please try again.')
     }
   }
 
@@ -851,6 +880,16 @@ export default function ChatWindow() {
           pendingVideoReplyRef.current = null
         }}
         onVideoRecorded={handleNativeVideoRecorded}
+      />
+
+      {/* Web Video Recorder (Desktop) */}
+      <WebVideoRecorder
+        isOpen={webVideoRecorderOpen}
+        onClose={() => {
+          setWebVideoRecorderOpen(false)
+          pendingVideoReplyRef.current = null
+        }}
+        onVideoRecorded={handleWebVideoRecorded}
       />
 
       {/* Video Upload Progress Toast */}
