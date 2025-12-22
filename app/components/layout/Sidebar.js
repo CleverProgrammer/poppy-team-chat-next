@@ -125,8 +125,8 @@ export default function Sidebar({
     }
   }
 
-  const handleChannelClick = channelId => {
-    onSelectChat({ type: 'channel', id: channelId, name: channelId })
+  const handleChannelClick = (channelId, channelName) => {
+    onSelectChat({ type: 'channel', id: channelId, name: channelName || channelId })
   }
 
   const handleDMClick = dmUser => {
@@ -229,7 +229,12 @@ export default function Sidebar({
         <div className="collapsed-divider" />
         
         {/* Channels */}
-        {['general', 'test'].map(channelId => {
+        {[
+          { id: 'general', name: 'general' },
+          { id: 'dev-gang', name: 'Dev Gang 💯' },
+          { id: 'test', name: 'test' }
+        ].map(channel => {
+          const channelId = channel.id
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
           
@@ -237,7 +242,7 @@ export default function Sidebar({
             <div
               key={`channel-${channelId}`}
               className={`collapsed-item ${isActive ? 'active' : ''}`}
-              onClick={() => handleChannelClick(channelId)}
+              onClick={() => handleChannelClick(channelId, channel.name)}
             >
               {isUnread && <div className="collapsed-unread-dot" />}
               <div className='collapsed-avatar-fallback channel-avatar'>
@@ -342,7 +347,12 @@ export default function Sidebar({
       {/* All Conversations - iMessage Style */}
       <div className='sidebar-section dm-section'>
         {/* Channels */}
-        {['general', 'test'].map(channelId => {
+        {[
+          { id: 'general', name: 'general' },
+          { id: 'dev-gang', name: 'Dev Gang 💯' },
+          { id: 'test', name: 'test' }
+        ].map(channel => {
+          const channelId = channel.id
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
           const lastMsg = channelLastMessages[channelId]
@@ -351,7 +361,7 @@ export default function Sidebar({
             <div
               key={`channel-${channelId}`}
               className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
-              onClick={() => handleChannelClick(channelId)}
+              onClick={() => handleChannelClick(channelId, channel.name)}
             >
               <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
               
@@ -363,7 +373,7 @@ export default function Sidebar({
               
               <div className='dm-content'>
                 <div className='dm-header-row'>
-                  <span className='dm-name'>#{channelId}</span>
+                  <span className='dm-name'>#{channel.name}</span>
                   <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
                 </div>
                 <div className='dm-preview'>

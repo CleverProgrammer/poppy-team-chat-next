@@ -122,7 +122,7 @@ export function useSubscriptions({
 
   // Subscribe to last messages for channels
   useEffect(() => {
-    const channels = ['general', 'test']
+    const channels = ['general', 'dev-gang', 'test']
     const unsubscribe = subscribeToChannelLastMessages(channels, messages => {
       setChannelLastMessages(messages)
     })
@@ -149,7 +149,7 @@ export function useSubscriptions({
     const unsubscribers = []
 
     // Subscribe to channels (only notify on mentions) - load only 1 message for performance
-    const channels = ['general', 'test']
+    const channels = ['general', 'dev-gang', 'test']
     channels.forEach(channelId => {
       const channelUnsub = subscribeToMessages(
         channelId,
