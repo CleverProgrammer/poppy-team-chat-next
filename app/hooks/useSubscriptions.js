@@ -44,20 +44,41 @@ export function useSubscriptions({
   const isInitialLoadRef = useRef(true)
   const globalMessageCountsRef = useRef({})
 
-  // Load saved chat on mount
+  // Load saved chat on mount - check localStorage first for instant load
   useEffect(() => {
     if (!user) return
 
+    // Check localStorage cache first for INSTANT load
+    const cachedChat = localStorage.getItem('poppy_current_chat')
+    if (cachedChat) {
+      try {
+        const chat = JSON.parse(cachedChat)
+        console.log('⚡ Instant chat load from cache:', chat.id)
+        setCurrentChat(chat)
+        if (chat.type === 'dm') {
+          addActiveDM(user.uid, chat.id)
+        }
+      } catch (e) {
+        console.warn('Failed to parse cached chat:', e)
+      }
+    }
+
+    // Also fetch from Firestore in background (will update if different)
     getCurrentChat(user.uid).then(savedChat => {
       console.log('📌 Loaded saved chat from Firestore:', savedChat)
       if (savedChat) {
         setCurrentChat(savedChat)
+        // Update cache
+        localStorage.setItem('poppy_current_chat', JSON.stringify(savedChat))
         if (savedChat.type === 'dm') {
           addActiveDM(user.uid, savedChat.id)
         }
-      } else {
+      } else if (!cachedChat) {
+        // Only default to general if no cache AND no saved chat
         console.log('📌 No saved chat found, defaulting to general')
-        setCurrentChat({ type: 'channel', id: 'general', name: 'general' })
+        const defaultChat = { type: 'channel', id: 'general', name: 'general' }
+        setCurrentChat(defaultChat)
+        localStorage.setItem('poppy_current_chat', JSON.stringify(defaultChat))
       }
     })
   }, [user, setCurrentChat])
@@ -236,6 +257,34 @@ export function useSubscriptions({
     // Mark chat as read immediately when entering it
     markChatAsRead(user.uid, currentChat.type, currentChat.id)
 
+    // Generate cache key for this chat
+    const cacheKey = `poppy_messages_${currentChat.type}_${currentChat.id}`
+
+    // Load cached messages INSTANTLY while Firestore fetches fresh data
+    try {
+      const cachedMessages = localStorage.getItem(cacheKey)
+      if (cachedMessages) {
+        const parsed = JSON.parse(cachedMessages)
+        console.log(`⚡ Instant messages from cache: ${parsed.length} messages`)
+        setMessages(parsed)
+        messagesRef.current = parsed
+        setCurrentMessages(parsed)
+      }
+    } catch (e) {
+      console.warn('Failed to load cached messages:', e)
+    }
+
+    // Helper to cache messages (last 30 for quick load)
+    const cacheMessages = messages => {
+      try {
+        // Only cache the last 30 messages to keep localStorage small
+        const toCache = messages.slice(-30)
+        localStorage.setItem(cacheKey, JSON.stringify(toCache))
+      } catch (e) {
+        console.warn('Failed to cache messages:', e)
+      }
+    }
+
     if (currentChat.type === 'channel') {
       unsubscribe = subscribeToMessages(
         currentChat.id,
@@ -243,6 +292,7 @@ export function useSubscriptions({
           setMessages(newMessages)
           messagesRef.current = newMessages
           setCurrentMessages(newMessages)
+          cacheMessages(newMessages) // Cache for instant load
           // Mark as read whenever new messages arrive while viewing this chat
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
@@ -256,6 +306,7 @@ export function useSubscriptions({
           setMessages(newMessages)
           messagesRef.current = newMessages
           setCurrentMessages(newMessages)
+          cacheMessages(newMessages) // Cache for instant load
           // Mark as read whenever new messages arrive while viewing this chat
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
@@ -266,6 +317,7 @@ export function useSubscriptions({
         setMessages(newMessages)
         messagesRef.current = newMessages
         setCurrentMessages(newMessages)
+        cacheMessages(newMessages) // Cache for instant load
       })
     }
 

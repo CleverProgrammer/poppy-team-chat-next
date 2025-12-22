@@ -296,6 +296,9 @@ export default function ChatWindow() {
     setCurrentChat(chat)
     setIsSidebarOpen(false) // Close sidebar on mobile after selecting chat
 
+    // Cache current chat for instant load on next visit
+    localStorage.setItem('poppy_current_chat', JSON.stringify(chat))
+
     // Mark this chat as read in Firestore
     if (user) {
       markChatAsRead(user.uid, chat.type, chat.id)
@@ -349,6 +352,8 @@ export default function ChatWindow() {
         if (chat) {
           setCurrentChat(chat)
           setIsSidebarOpen(false)
+          // Cache for instant load
+          localStorage.setItem('poppy_current_chat', JSON.stringify(chat))
           if (user) {
             markChatAsRead(user.uid, chat.type, chat.id)
             if (chat.type === 'dm') {
@@ -850,9 +855,10 @@ export default function ChatWindow() {
     }
   }, [])
 
-  // Show loading state while currentChat is being loaded
+  // Wait for currentChat to be loaded from cache/Firestore
+  // Return null instead of loading text to avoid hydration mismatch
   if (!currentChat) {
-    return <div className='loading-state'>Loading...</div>
+    return null
   }
 
   return (

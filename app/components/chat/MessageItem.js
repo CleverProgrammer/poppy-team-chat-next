@@ -553,13 +553,23 @@ export default function MessageItem({
                 <div className='reaction-tooltip'>
                   <div className='reaction-tooltip-avatars'>
                     {reactedUsers.map(reactedUser => (
-                      <img
-                        key={reactedUser.uid}
-                        src={reactedUser.photoURL || ''}
-                        alt={reactedUser.displayName}
-                        className='reaction-tooltip-avatar'
-                        title={reactedUser.displayName || reactedUser.email}
-                      />
+                      reactedUser.photoURL ? (
+                        <img
+                          key={reactedUser.uid}
+                          src={reactedUser.photoURL}
+                          alt={reactedUser.displayName}
+                          className='reaction-tooltip-avatar'
+                          title={reactedUser.displayName || reactedUser.email}
+                        />
+                      ) : (
+                        <div
+                          key={reactedUser.uid}
+                          className='reaction-tooltip-avatar-fallback'
+                          title={reactedUser.displayName || reactedUser.email}
+                        >
+                          {(reactedUser.displayName || reactedUser.email || '?')[0].toUpperCase()}
+                        </div>
+                      )
                     ))}
                   </div>
                   <div className='reaction-tooltip-names'>

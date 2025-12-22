@@ -20,7 +20,42 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const AuthContext = createContext({});
 
+// Cache key for localStorage
+const USER_CACHE_KEY = 'poppy_cached_user';
+
+// Helper to get cached user from localStorage
+function getCachedUser() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(USER_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    console.warn('Failed to parse cached user:', e);
+  }
+  return null;
+}
+
+// Helper to cache user to localStorage
+function cacheUser(user) {
+  if (typeof window === 'undefined') return;
+  if (user) {
+    // Only cache essential user data (not the full Firebase user object)
+    const userData = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+    };
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(userData));
+  } else {
+    localStorage.removeItem(USER_CACHE_KEY);
+  }
+}
+
 export function AuthProvider({ children }) {
+  // Always start with null/true for consistent SSR hydration
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,6 +63,14 @@ export function AuthProvider({ children }) {
   usePushNotifications(user);
 
   useEffect(() => {
+    // IMMEDIATELY check cache on mount - before Firebase responds
+    const cachedUser = getCachedUser();
+    if (cachedUser) {
+      console.log('⚡ Instant load from cache:', cachedUser.email);
+      setUser(cachedUser);
+      setLoading(false); // Immediately stop loading!
+    }
+
     // Check for redirect result (for Capacitor/mobile)
     getRedirectResult(auth)
       .then(async (result) => {
@@ -40,12 +83,18 @@ export function AuthProvider({ children }) {
         console.error('Redirect result error:', error);
       });
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        console.log('🔵 User logged in, saving to Firestore:', user.email);
-        await saveUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        console.log('🔵 Firebase confirmed user:', firebaseUser.email);
+        await saveUser(firebaseUser);
+        // Cache user for instant load on next visit
+        cacheUser(firebaseUser);
+        setUser(firebaseUser);
+      } else {
+        // User signed out - clear cache
+        cacheUser(null);
+        setUser(null);
       }
-      setUser(user);
       setLoading(false);
     });
 
@@ -87,6 +136,8 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     try {
+      // Clear cache BEFORE signing out for instant feedback
+      cacheUser(null);
       await firebaseSignOut(auth);
     } catch (error) {
       console.error('Sign out error:', error);
