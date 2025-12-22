@@ -185,12 +185,15 @@ export default function Sidebar({
   }
 
   // Sort DMs by most recent message
+  // Use Date.now() / 1000 as fallback for messages without timestamp (being sent)
+  const nowSeconds = Math.floor(Date.now() / 1000)
   const sortedDMs = [...activeDMs].sort((a, b) => {
     const msgA = lastMessages[a]
     const msgB = lastMessages[b]
     
-    const timeA = msgA?.timestamp?.seconds || 0
-    const timeB = msgB?.timestamp?.seconds || 0
+    // If no timestamp yet (message being sent), treat as "right now"
+    const timeA = msgA?.timestamp?.seconds ?? (msgA ? nowSeconds : 0)
+    const timeB = msgB?.timestamp?.seconds ?? (msgB ? nowSeconds : 0)
     
     return timeB - timeA // Most recent first
   })
