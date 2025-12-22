@@ -360,6 +360,76 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
   }
 }
 
+// Subscribe to last message for channels (for sidebar previews)
+export function subscribeToChannelLastMessages(channelIds, callback) {
+  if (!channelIds || channelIds.length === 0) {
+    callback({})
+    return () => {}
+  }
+
+  const unsubscribes = []
+  const lastMessages = {}
+
+  channelIds.forEach(channelId => {
+    const messagesRef = collection(db, 'channels', channelId, 'messages')
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+
+    const unsubscribe = onSnapshot(
+      q,
+      snapshot => {
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0]
+          lastMessages[channelId] = {
+            id: doc.id,
+            ...doc.data(),
+          }
+        } else {
+          lastMessages[channelId] = null
+        }
+        callback({ ...lastMessages })
+      },
+      error => {
+        console.error(`Error loading last message for channel ${channelId}:`, error)
+      }
+    )
+    unsubscribes.push(unsubscribe)
+  })
+
+  return () => {
+    unsubscribes.forEach(unsub => unsub())
+  }
+}
+
+// Subscribe to last AI message (for sidebar preview)
+export function subscribeToAILastMessage(userId, callback) {
+  if (!userId) {
+    callback(null)
+    return () => {}
+  }
+
+  const messagesRef = collection(db, 'users', userId, 'ai-chat')
+  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0]
+        callback({
+          id: doc.id,
+          ...doc.data(),
+        })
+      } else {
+        callback(null)
+      }
+    },
+    error => {
+      console.error('Error loading last AI message:', error)
+      callback(null)
+    }
+  )
+}
+
 export async function discoverExistingDMs(userId) {
   if (!userId) return
 

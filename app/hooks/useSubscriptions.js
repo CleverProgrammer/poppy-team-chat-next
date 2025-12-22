@@ -11,6 +11,8 @@ import {
   subscribeToAIMessages,
   subscribeToTypingStatus,
   subscribeToLastMessages,
+  subscribeToChannelLastMessages,
+  subscribeToAILastMessage,
   discoverExistingDMs,
   getCurrentChat,
   addActiveDM,
@@ -30,6 +32,8 @@ export function useSubscriptions({
   const [allUsers, setAllUsers] = useState([])
   const [activeDMs, setActiveDMs] = useState([])
   const [lastMessages, setLastMessages] = useState({})
+  const [channelLastMessages, setChannelLastMessages] = useState({})
+  const [aiLastMessage, setAILastMessage] = useState(null)
   const [otherUserTyping, setOtherUserTyping] = useState(false)
   const [currentMessages, setCurrentMessages] = useState([])
 
@@ -82,7 +86,7 @@ export function useSubscriptions({
     return () => unsubscribe()
   }, [user])
 
-  // Subscribe to last messages for sidebar previews
+  // Subscribe to last messages for sidebar previews (DMs)
   useEffect(() => {
     if (!user || activeDMs.length === 0) {
       setLastMessages({})
@@ -94,6 +98,28 @@ export function useSubscriptions({
     })
     return () => unsubscribe()
   }, [user, activeDMs])
+
+  // Subscribe to last messages for channels
+  useEffect(() => {
+    const channels = ['general', 'test']
+    const unsubscribe = subscribeToChannelLastMessages(channels, messages => {
+      setChannelLastMessages(messages)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Subscribe to last AI message
+  useEffect(() => {
+    if (!user) {
+      setAILastMessage(null)
+      return
+    }
+
+    const unsubscribe = subscribeToAILastMessage(user.uid, message => {
+      setAILastMessage(message)
+    })
+    return () => unsubscribe()
+  }, [user])
 
   // Global sound notifications - listen to ALL chats for notifications
   useEffect(() => {
@@ -317,6 +343,8 @@ export function useSubscriptions({
     allUsers,
     activeDMs,
     lastMessages,
+    channelLastMessages,
+    aiLastMessage,
     otherUserTyping,
   }
 }
