@@ -164,7 +164,7 @@ export default function ChatWindow() {
   const pendingVideoReplyRef = useRef(null) // Store the message we're replying to
 
   // Subscriptions hook (handles all Firebase subscriptions) - must be early for allUsers
-  const { allUsers, activeDMs, otherUserTyping } = useSubscriptions({
+  const { allUsers, activeDMs, lastMessages, otherUserTyping } = useSubscriptions({
     user,
     currentChat,
     setCurrentChat,
@@ -1018,6 +1018,7 @@ export default function ChatWindow() {
           activeDMs={activeDMs}
           allUsers={allUsers}
           unreadChats={unreadChats}
+          lastMessages={lastMessages}
           isOpen={isSidebarOpen}
           onOpenSearch={() => {
             setIsSidebarOpen(false)

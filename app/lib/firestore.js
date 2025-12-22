@@ -317,6 +317,49 @@ export function subscribeToActiveDMs(userId, callback) {
   )
 }
 
+// Subscribe to last message for each DM (for sidebar previews)
+export function subscribeToLastMessages(userId, dmUserIds, callback) {
+  if (!userId || !dmUserIds || dmUserIds.length === 0) {
+    callback({})
+    return () => {}
+  }
+
+  const unsubscribes = []
+  const lastMessages = {}
+
+  dmUserIds.forEach(otherUserId => {
+    const dmId = getDMId(userId, otherUserId)
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+
+    const unsubscribe = onSnapshot(
+      q,
+      snapshot => {
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0]
+          lastMessages[otherUserId] = {
+            id: doc.id,
+            ...doc.data(),
+          }
+        } else {
+          lastMessages[otherUserId] = null
+        }
+        // Callback with updated lastMessages object
+        callback({ ...lastMessages })
+      },
+      error => {
+        console.error(`Error loading last message for DM ${dmId}:`, error)
+      }
+    )
+    unsubscribes.push(unsubscribe)
+  })
+
+  // Return cleanup function
+  return () => {
+    unsubscribes.forEach(unsub => unsub())
+  }
+}
+
 export async function discoverExistingDMs(userId) {
   if (!userId) return
 

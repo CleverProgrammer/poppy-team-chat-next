@@ -10,6 +10,7 @@ import {
   subscribeToActiveDMs,
   subscribeToAIMessages,
   subscribeToTypingStatus,
+  subscribeToLastMessages,
   discoverExistingDMs,
   getCurrentChat,
   addActiveDM,
@@ -28,6 +29,7 @@ export function useSubscriptions({
 }) {
   const [allUsers, setAllUsers] = useState([])
   const [activeDMs, setActiveDMs] = useState([])
+  const [lastMessages, setLastMessages] = useState({})
   const [otherUserTyping, setOtherUserTyping] = useState(false)
   const [currentMessages, setCurrentMessages] = useState([])
 
@@ -79,6 +81,19 @@ export function useSubscriptions({
     })
     return () => unsubscribe()
   }, [user])
+
+  // Subscribe to last messages for sidebar previews
+  useEffect(() => {
+    if (!user || activeDMs.length === 0) {
+      setLastMessages({})
+      return
+    }
+
+    const unsubscribe = subscribeToLastMessages(user.uid, activeDMs, messages => {
+      setLastMessages(messages)
+    })
+    return () => unsubscribe()
+  }, [user, activeDMs])
 
   // Global sound notifications - listen to ALL chats for notifications
   useEffect(() => {
@@ -301,6 +316,7 @@ export function useSubscriptions({
   return {
     allUsers,
     activeDMs,
+    lastMessages,
     otherUserTyping,
   }
 }

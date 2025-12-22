@@ -10,6 +10,7 @@ export default function Sidebar({
   activeDMs = [],
   allUsers = [],
   unreadChats = [],
+  lastMessages = {},
   isOpen = false,
   onOpenSearch,
 }) {
@@ -21,7 +22,35 @@ export default function Sidebar({
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [settingPassword, setSettingPassword] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(320)
+  const [isResizing, setIsResizing] = useState(false)
   const menuRef = useRef(null)
+  const sidebarRef = useRef(null)
+
+  // Handle sidebar resize
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return
+      const newWidth = e.clientX
+      if (newWidth >= 260 && newWidth <= 500) {
+        setSidebarWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -83,8 +112,74 @@ export default function Sidebar({
     })
   }
 
+  // Format timestamp for sidebar (iMessage style)
+  const formatTimestamp = timestamp => {
+    if (!timestamp) return ''
+    
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    const now = new Date()
+    const diffMs = now - date
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) {
+      // Today - show time
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    } else if (diffDays === 1) {
+      return 'Yesterday'
+    } else if (diffDays < 7) {
+      // Within a week - show day name
+      return date.toLocaleDateString([], { weekday: 'short' })
+    } else {
+      // Older - show date
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    }
+  }
+
+  // Get preview text for a message (allow 2 lines worth)
+  const getPreviewText = (message, dmUserId) => {
+    if (!message) return 'No messages yet'
+    
+    const dmUser = allUsers.find(u => u.uid === dmUserId)
+    const isSentByMe = message.senderId === user?.uid
+    const prefix = isSentByMe ? 'You: ' : ''
+    
+    if (message.imageUrl || message.imageUrls?.length > 0) {
+      const imageCount = message.imageUrls?.length || 1
+      return `${prefix}Attachments: ${imageCount} Photo${imageCount > 1 ? 's' : ''}`
+    }
+    
+    if (message.muxPlaybackIds?.length > 0) {
+      return `${prefix}Video message`
+    }
+    
+    const text = message.text || ''
+    const maxLength = 80 // Allow more text for 2 lines
+    const truncated = text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+    return prefix + truncated
+  }
+
+  // Sort DMs by most recent message
+  const sortedDMs = [...activeDMs].sort((a, b) => {
+    const msgA = lastMessages[a]
+    const msgB = lastMessages[b]
+    
+    const timeA = msgA?.timestamp?.seconds || 0
+    const timeB = msgB?.timestamp?.seconds || 0
+    
+    return timeB - timeA // Most recent first
+  })
+
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <div 
+      ref={sidebarRef}
+      className={`sidebar ${isOpen ? 'open' : ''} ${isResizing ? 'resizing' : ''}`}
+      style={{ width: `${sidebarWidth}px` }}
+    >
+      {/* Resize Handle */}
+      <div 
+        className="sidebar-resize-handle"
+        onMouseDown={() => setIsResizing(true)}
+      />
       {/* Sidebar Header - User Profile */}
       <div className='sidebar-header' ref={menuRef}>
         <div
@@ -178,29 +273,48 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Direct Messages Section */}
+      {/* Direct Messages Section - iMessage Style */}
       {activeDMs.length > 0 && (
-        <div className='sidebar-section'>
-          <div className='sidebar-section-title'>Direct Messages</div>
-          {activeDMs.map(dmUserId => {
+        <div className='sidebar-section dm-section'>
+          <div className='sidebar-section-title'>Messages</div>
+          {sortedDMs.map(dmUserId => {
             const dmUser = allUsers.find(u => u.uid === dmUserId)
             if (!dmUser) return null
 
-            const isActive =
-              currentChat?.type === 'dm' && currentChat?.id === dmUserId
+            const isActive = currentChat?.type === 'dm' && currentChat?.id === dmUserId
+            const isUnread = unreadChats.includes(`dm:${dmUserId}`)
+            const lastMsg = lastMessages[dmUserId]
+            
             return (
               <div
                 key={dmUserId}
-                className={`dm-item ${isActive ? 'active' : ''}`}
+                className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
                 onClick={() => handleDMClick(dmUser)}
               >
-                {dmUser.photoURL && (
-                  <img src={dmUser.photoURL} alt={dmUser.displayName} />
-                )}
-                <span>{dmUser.displayName || dmUser.email}</span>
-                {unreadChats.includes(`dm:${dmUserId}`) && (
-                  <div className='unread-badge' />
-                )}
+                {/* Unread indicator - LEFT of avatar */}
+                <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
+                
+                {/* Avatar */}
+                <div className='dm-avatar-container'>
+                  {dmUser.photoURL ? (
+                    <img src={dmUser.photoURL} alt={dmUser.displayName} className='dm-avatar' />
+                  ) : (
+                    <div className='dm-avatar-fallback'>
+                      {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Content - Name and Preview */}
+                <div className='dm-content'>
+                  <div className='dm-header-row'>
+                    <span className='dm-name'>{dmUser.displayName || dmUser.email}</span>
+                    <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
+                  </div>
+                  <div className='dm-preview'>
+                    {getPreviewText(lastMsg, dmUserId)}
+                  </div>
+                </div>
               </div>
             )
           })}
