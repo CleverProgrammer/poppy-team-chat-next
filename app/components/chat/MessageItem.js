@@ -255,6 +255,9 @@ export default function MessageItem({
     }
   })
 
+  // Count replies to this message
+  const replyCount = messages.filter(m => m.replyTo?.msgId === msg.id).length
+
   const isReplyTarget = replyingTo?.msgId === msg.id
   const isLastMessage = index === totalMessages - 1
 
@@ -397,7 +400,11 @@ export default function MessageItem({
               )
             })()}
             <div className='reply-quote'>
-              <div className='reply-quote-text'>{msg.replyTo.text}</div>
+              <div className='reply-quote-text'>
+                {msg.replyTo.text?.length > 500 
+                  ? `${msg.replyTo.text.slice(0, 500)}...` 
+                  : msg.replyTo.text}
+              </div>
             </div>
           </div>
         )}
@@ -562,6 +569,13 @@ export default function MessageItem({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Reply Count Indicator */}
+      {replyCount > 0 && (
+        <div className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}>
+          {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
         </div>
       )}
 

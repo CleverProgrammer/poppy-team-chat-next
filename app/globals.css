@@ -2004,6 +2004,27 @@ iframe[src*="vercel"] {
   justify-content: flex-end;
 }
 
+/* Reply Count Indicator - iMessage style */
+.reply-count-indicator {
+  font-size: 12px;
+  font-weight: 500;
+  color: #007AFF;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.reply-count-indicator:hover {
+  text-decoration: underline;
+}
+
+.reply-count-indicator.sent {
+  text-align: right;
+}
+
+.reply-count-indicator.received {
+  text-align: left;
+}
+
 .read-receipt {
   font-size: 11px;
   color: var(--text-secondary);
@@ -2371,7 +2392,8 @@ iframe[src*="vercel"] {
 .reply-quote {
   display: inline-flex;
   align-items: flex-start;
-  max-width: 75%;
+  width: fit-content;
+  max-width: 90%;
   background: transparent;
   border: 1px solid #667eea;
   border-radius: 12px;
@@ -2387,11 +2409,6 @@ iframe[src*="vercel"] {
   font-size: 11px;
   color: #667eea;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  word-break: break-word;
 }
 
 .reply-bar {
