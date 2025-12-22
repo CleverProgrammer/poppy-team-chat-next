@@ -195,8 +195,9 @@ export default function Sidebar({
     return timeB - timeA // Most recent first
   })
 
-  // Collapsed view - only show avatars
-  if (isCollapsed) {
+  // Collapsed view - only show avatars (but NOT on mobile when sidebar is open)
+  // On mobile, isOpen means full-screen sidebar, so never show collapsed
+  if (isCollapsed && !isOpen) {
     return (
       <div 
         ref={sidebarRef}
@@ -284,7 +285,7 @@ export default function Sidebar({
     <div 
       ref={sidebarRef}
       className={`sidebar ${isOpen ? 'open' : ''} ${isResizing ? 'resizing' : ''}`}
-      style={{ width: `${sidebarWidth}px` }}
+      style={isOpen ? {} : { width: `${sidebarWidth}px` }}
     >
       {/* Resize Handle */}
       <div 

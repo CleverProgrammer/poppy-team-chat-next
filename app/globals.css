@@ -2624,6 +2624,8 @@ iframe[src*="vercel"] {
     left: -100%;
     top: 0;
     width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
     height: 100vh;
     z-index: 1000;
     transition: left 0.3s ease;
@@ -2634,6 +2636,11 @@ iframe[src*="vercel"] {
     left: 0;
   }
 
+  /* On mobile, collapsed sidebar should also be full width when open */
+  .sidebar-collapsed.open {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
 
   .chat-container {
     width: 100%;
