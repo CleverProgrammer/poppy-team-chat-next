@@ -1779,6 +1779,25 @@ iframe[src*="vercel"] {
   height: 100% !important;
 }
 
+/* Ensure WaveSurfer progress is visible */
+.voice-waveform-container wave > wave {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Style the progress overlay to fill bars */
+.voice-waveform-container [data-name="waveform-progress"] {
+  mix-blend-mode: normal;
+}
+
+.voice-message.sent .voice-waveform-container [data-name="waveform-progress"] {
+  background: rgba(255, 255, 255, 1) !important;
+}
+
+.voice-message.received .voice-waveform-container [data-name="waveform-progress"] {
+  background: #ff3b30 !important;
+}
+
 .voice-duration {
   font-size: 14px;
   font-weight: 500;

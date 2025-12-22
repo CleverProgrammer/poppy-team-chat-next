@@ -42,12 +42,13 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
         <WaveSurfer
           url={audioUrl}
           height={40}
-          waveColor={isSent ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.4)"}
-          progressColor={isSent ? "#fff" : "#ff3b30"}
+          waveColor={isSent ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}
+          progressColor={isSent ? "rgba(255,255,255,1)" : "rgba(255,59,48,1)"}
           barWidth={3}
           barGap={1.5}
           cursorWidth={0}
           normalize={true}
+          fillParent={true}
           onReady={(ws) => {
             wavesurferRef.current = ws
           }}
