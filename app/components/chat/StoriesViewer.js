@@ -290,7 +290,8 @@ export default function StoriesViewer({
             height: isHorizontal ? 'auto' : '100%',
             maxHeight: '100%',
             '--controls': 'none',
-            '--media-object-fit': 'contain', // Always contain to preserve aspect ratio
+            // Vertical: cover to fill screen like stories, Horizontal: contain to show full video
+            '--media-object-fit': isHorizontal ? 'contain' : 'cover',
           }}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}

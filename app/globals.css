@@ -1446,17 +1446,34 @@ iframe[src*="vercel"] {
   }
 }
 
-/* Video Reply Bubble - Special compact style for video replies */
+/* Video Reply Bubble - Adaptive thumbnail for video replies */
 .video-reply-bubble {
   position: relative;
-  width: 180px;
-  height: 100px;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
   border: 3px solid rgba(124, 58, 237, 0.6);
   transition: all 0.2s ease;
+  background: #1a1a2e;
+}
+
+/* Vertical video reply - tall & narrow (story-style) */
+.video-reply-bubble.vertical {
+  width: 90px;
+  height: 160px;
+}
+
+/* Horizontal video reply - wider & shorter */
+.video-reply-bubble.horizontal {
+  width: 160px;
+  height: 100px;
+}
+
+/* Loading state */
+.video-reply-bubble.loading {
+  width: 90px;
+  height: 160px;
 }
 
 .video-reply-bubble:hover {
@@ -1520,23 +1537,72 @@ iframe[src*="vercel"] {
   justify-content: flex-start;
 }
 
-/* Video Thumbnail Bubble - Clickable thumbnail for regular video messages */
+/* Video Thumbnail Bubble - Adaptive thumbnail for regular video messages */
 .video-thumbnail-bubble {
   position: relative;
-  width: 280px;
-  max-width: 100%;
-  height: 160px;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
   margin-bottom: 8px;
+  background: #1a1a2e;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+/* Vertical video - tall & narrow (story-style) */
+.video-thumbnail-bubble.vertical {
+  width: 120px;
+  height: 200px;
+}
+
+/* Horizontal video - wider & shorter */
+.video-thumbnail-bubble.horizontal {
+  width: 220px;
+  height: 130px;
+}
+
+/* Loading state */
+.video-thumbnail-bubble.loading {
+  width: 120px;
+  height: 200px;
 }
 
 .video-thumbnail-bubble:hover {
-  transform: scale(1.02);
-  box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+  transform: scale(1.03);
+  box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+  border-color: rgba(102, 126, 234, 0.6);
+}
+
+/* Loading shimmer for video thumbnails */
+.video-thumbnail-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-shimmer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(102, 126, 234, 0.2) 50%,
+    rgba(102, 126, 234, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .video-thumbnail-img {
@@ -1550,8 +1616,8 @@ iframe[src*="vercel"] {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50%;
   display: flex;

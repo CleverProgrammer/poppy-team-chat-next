@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
 import StoriesViewer from './StoriesViewer'
+import VideoThumbnail from './VideoThumbnail'
 import {
   linkifyText,
   isSingleEmoji,
@@ -412,9 +413,10 @@ export default function MessageItem({
       {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && msg.replyTo && (
         <div className='message-videos video-reply'>
           {msg.muxPlaybackIds.map((playbackId, idx) => (
-            <div
+            <VideoThumbnail
               key={idx}
-              className='video-reply-bubble'
+              playbackId={playbackId}
+              isReply={true}
               onClick={e => {
                 e.stopPropagation()
                 // Collect all video replies to the SAME original message
@@ -439,19 +441,7 @@ export default function MessageItem({
                 setStoriesInitialIndex(currentIdx >= 0 ? currentIdx : 0)
                 setStoriesOpen(true)
               }}
-            >
-              <img
-                src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
-                alt='Video reply'
-                className='video-reply-thumbnail'
-              />
-              <div className='video-reply-play'>
-                <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
-                  <path d='M8 5v14l11-7z' />
-                </svg>
-              </div>
-              <div className='video-reply-badge'>🎬</div>
-            </div>
+            />
           ))}
         </div>
       )}
@@ -460,9 +450,10 @@ export default function MessageItem({
         {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
           <div className='message-videos'>
             {msg.muxPlaybackIds.map((playbackId, idx) => (
-              <div
+              <VideoThumbnail
                 key={idx}
-                className='video-thumbnail-bubble'
+                playbackId={playbackId}
+                isReply={false}
                 onClick={e => {
                   e.stopPropagation()
                   // Create video data for StoriesViewer
@@ -476,18 +467,7 @@ export default function MessageItem({
                   setStoriesInitialIndex(idx)
                   setStoriesOpen(true)
                 }}
-              >
-                <img
-                  src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
-                  alt='Video'
-                  className='video-thumbnail-img'
-                />
-                <div className='video-thumbnail-play'>
-                  <svg width='40' height='40' viewBox='0 0 24 24' fill='white'>
-                    <path d='M8 5v14l11-7z' />
-                  </svg>
-                </div>
-              </div>
+              />
             ))}
           </div>
         )}
