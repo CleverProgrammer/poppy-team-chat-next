@@ -14,6 +14,7 @@ export default function StoriesViewer({
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isSpeedUp, setIsSpeedUp] = useState(false)
+  const [isHorizontal, setIsHorizontal] = useState(false)
   const playerRef = useRef(null)
   const touchStartY = useRef(0)
   const speedZoneRef = useRef(null)
@@ -23,8 +24,14 @@ export default function StoriesViewer({
     if (isOpen) {
       setCurrentIndex(initialIndex)
       setProgress(0)
+      setIsHorizontal(false)
     }
   }, [isOpen, initialIndex])
+
+  // Reset horizontal state when changing videos
+  useEffect(() => {
+    setIsHorizontal(false)
+  }, [currentIndex])
 
   // Lock body scroll when open
   useEffect(() => {
@@ -80,6 +87,22 @@ export default function StoriesViewer({
     const player = playerRef.current
     if (player) {
       setDuration(player.duration || 0)
+      
+      // Detect if video is horizontal (landscape) or vertical (portrait)
+      // MuxPlayer wraps the video - need to find the actual video element
+      setTimeout(() => {
+        const videoEl = player.shadowRoot?.querySelector('video') || 
+                        player.querySelector?.('video') || 
+                        player.media
+        
+        if (videoEl) {
+          const vw = videoEl.videoWidth
+          const vh = videoEl.videoHeight
+          if (vw && vh && vw > vh) {
+            setIsHorizontal(true)
+          }
+        }
+      }, 100) // Small delay to ensure video dimensions are available
     }
   }, [])
 
@@ -166,9 +189,13 @@ export default function StoriesViewer({
         style={{
           position: 'relative',
           width: '100%',
-          maxWidth: '500px',
+          maxWidth: isHorizontal ? '95vw' : '500px',
           height: '100%',
           background: '#000',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
         {/* Progress bars */}
@@ -260,9 +287,10 @@ export default function StoriesViewer({
           loop={false}
           style={{
             width: '100%',
-            height: '100%',
+            height: isHorizontal ? 'auto' : '100%',
+            maxHeight: '100%',
             '--controls': 'none',
-            '--media-object-fit': 'cover',
+            '--media-object-fit': 'contain', // Always contain to preserve aspect ratio
           }}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
@@ -276,8 +304,8 @@ export default function StoriesViewer({
           style={{
             position: 'absolute',
             inset: 0,
-            top: '80px', // Below header
-            bottom: '0',
+            top: isHorizontal ? '60px' : '80px', // Below header
+            bottom: isHorizontal ? '20px' : '0',
             zIndex: 5,
           }}
         />

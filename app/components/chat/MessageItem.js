@@ -456,30 +456,38 @@ export default function MessageItem({
         </div>
       )}
       <div className='message'>
-        {/* Regular Mux videos (not replies) - inside the message bubble */}
+        {/* Regular Mux videos (not replies) - clickable thumbnail that opens modal */}
         {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
           <div className='message-videos'>
             {msg.muxPlaybackIds.map((playbackId, idx) => (
-              <video
+              <div
                 key={idx}
-                className='message-mux-video'
-                controls
-                playsInline
-                preload='metadata'
-                poster={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
-                style={{
-                  width: '100%',
-                  maxWidth: '300px',
-                  borderRadius: '12px',
-                  marginBottom: '8px',
+                className='video-thumbnail-bubble'
+                onClick={e => {
+                  e.stopPropagation()
+                  // Create video data for StoriesViewer
+                  const videoData = msg.muxPlaybackIds.map(pid => ({
+                    playbackId: pid,
+                    sender: msg.sender,
+                    timestamp: msg.timestamp,
+                    msgId: msg.id,
+                  }))
+                  setStoriesVideos(videoData)
+                  setStoriesInitialIndex(idx)
+                  setStoriesOpen(true)
                 }}
               >
-                <source
-                  src={`https://stream.mux.com/${playbackId}.m3u8`}
-                  type='application/x-mpegURL'
+                <img
+                  src={`https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`}
+                  alt='Video'
+                  className='video-thumbnail-img'
                 />
-                <source src={`https://stream.mux.com/${playbackId}/high.mp4`} type='video/mp4' />
-              </video>
+                <div className='video-thumbnail-play'>
+                  <svg width='40' height='40' viewBox='0 0 24 24' fill='white'>
+                    <path d='M8 5v14l11-7z' />
+                  </svg>
+                </div>
+              </div>
             ))}
           </div>
         )}
