@@ -386,12 +386,18 @@ export default function MessageItem({
         {/* Reply quote - shows above the message bubble like iMessage */}
         {msg.replyTo && (
           <div className='reply-quote-container' onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
+            {(() => {
+              const replyUser = allUsers.find(u => u.displayName === msg.replyTo.sender || u.email === msg.replyTo.sender)
+              return replyUser?.photoURL ? (
+                <img src={replyUser.photoURL} alt={msg.replyTo.sender} className='reply-quote-avatar' />
+              ) : (
+                <div className='reply-quote-avatar-fallback'>
+                  {(msg.replyTo.sender || '?')[0].toUpperCase()}
+                </div>
+              )
+            })()}
             <div className='reply-quote'>
-              <div className='reply-quote-line'></div>
-              <div className='reply-quote-content'>
-                <div className='reply-quote-sender'>{msg.replyTo.sender}</div>
-                <div className='reply-quote-text'>{msg.replyTo.text}</div>
-              </div>
+              <div className='reply-quote-text'>{msg.replyTo.text}</div>
             </div>
           </div>
         )}
