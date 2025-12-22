@@ -1001,6 +1001,7 @@ html {
   text-overflow: ellipsis;
   line-height: 1.4;
   white-space: normal;
+  min-height: 36px; /* Fixed height for 2 lines (13px * 1.4 * 2) to prevent layout shift */
 }
 
 .dm-item-imessage.unread .dm-preview {
