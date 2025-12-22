@@ -196,6 +196,7 @@ export default function ChatWindow() {
     sending,
     handleSend,
     handleEdit,
+    handleSendAudio,
     sendVideoReply,
     updateTypingIndicator,
     clearTypingIndicator,
@@ -1291,6 +1292,7 @@ export default function ChatWindow() {
                 handleTextareaChange={handleTextareaChange}
                 handleKeyDown={handleKeyDown}
                 handleSend={handleSend}
+                handleSendAudio={handleSendAudio}
                 handleRemoveImage={handleRemoveImage}
                 handleRemoveImageAtIndex={handleRemoveImageAtIndex}
                 cancelEdit={cancelEdit}

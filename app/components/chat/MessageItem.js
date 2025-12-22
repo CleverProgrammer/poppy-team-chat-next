@@ -5,6 +5,7 @@ import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
 import StoriesViewer from './StoriesViewer'
 import VideoThumbnail from './VideoThumbnail'
+import VoiceMessage from './VoiceMessage'
 import {
   linkifyText,
   isSingleEmoji,
@@ -505,6 +506,14 @@ export default function MessageItem({
               ))
             })()}
           </div>
+        )}
+        {/* Voice message */}
+        {msg.audioUrl && (
+          <VoiceMessage
+            audioUrl={msg.audioUrl}
+            audioDuration={msg.audioDuration}
+            isSent={isOwnMessage}
+          />
         )}
         {/* Loom video embed */}
         {msg.text && isLoomUrl(msg.text) && (

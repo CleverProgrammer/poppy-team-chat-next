@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 export default function ChatInput({
@@ -16,6 +16,7 @@ export default function ChatInput({
   handleTextareaChange,
   handleKeyDown,
   handleSend,
+  handleSendAudio,
   handleRemoveImage,
   handleRemoveImageAtIndex,
   cancelEdit,
@@ -28,6 +29,16 @@ export default function ChatInput({
 }) {
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [hasContent, setHasContent] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [waveformData, setWaveformData] = useState([])
+  const recordingIntervalRef = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const audioContextRef = useRef(null)
+  const analyserRef = useRef(null)
+  const animationFrameRef = useRef(null)
+  const isRecordingRef = useRef(false)
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
@@ -74,6 +85,18 @@ export default function ChatInput({
     }
   }, [])
 
+  // Cleanup MediaRecorder on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop()
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current)
+      }
+    }
+  }, [isRecording])
+
   const handleInput = e => {
     handleTextareaChange(e)
     setHasContent(e.target.value.trim().length > 0 || imagePreviews.length > 0)
@@ -89,6 +112,173 @@ export default function ChatInput({
       setHasContent(inputRef.current.value.trim().length > 0 || imagePreviews.length > 0)
     }
   }, [sending, imagePreviews])
+
+  // Handle recording duration display and waveform visualization
+  useEffect(() => {
+    if (isRecording) {
+      isRecordingRef.current = true
+      setRecordingDuration(0)
+      setWaveformData([])
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1)
+      }, 1000)
+    } else {
+      isRecordingRef.current = false
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current)
+        recordingIntervalRef.current = null
+      }
+      // Clean up audio context
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close()
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      setWaveformData([])
+    }
+    return () => {
+      isRecordingRef.current = false
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current)
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [isRecording])
+
+  // Update waveform visualization in real-time
+  const updateWaveform = useCallback(() => {
+    if (!analyserRef.current || !isRecordingRef.current) {
+      return
+    }
+
+    try {
+      const bufferLength = analyserRef.current.frequencyBinCount
+      const dataArray = new Uint8Array(bufferLength)
+      analyserRef.current.getByteFrequencyData(dataArray)
+
+      // Sample the data to get ~20 bars for visualization
+      const sampleSize = Math.floor(bufferLength / 20)
+      const samples = []
+      for (let i = 0; i < 20; i++) {
+        let sum = 0
+        const startIdx = i * sampleSize
+        const endIdx = Math.min(startIdx + sampleSize, bufferLength)
+        for (let j = startIdx; j < endIdx; j++) {
+          sum += dataArray[j]
+        }
+        const avg = sum / (endIdx - startIdx)
+        // Normalize to 0-100 for height percentage, with minimum height of 10%
+        const normalized = Math.max(10, (avg / 255) * 100)
+        samples.push(normalized)
+      }
+
+      setWaveformData(samples)
+      
+      // Continue animation loop
+      if (isRecordingRef.current && analyserRef.current) {
+        animationFrameRef.current = requestAnimationFrame(updateWaveform)
+      }
+    } catch (error) {
+      console.error('Error updating waveform:', error)
+    }
+  }, [])
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      })
+      
+      // Set up Web Audio API for real-time waveform visualization
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      const analyser = audioContext.createAnalyser()
+      const microphone = audioContext.createMediaStreamSource(stream)
+      
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.8
+      microphone.connect(analyser)
+      
+      audioContextRef.current = audioContext
+      analyserRef.current = analyser
+      
+      audioChunksRef.current = []
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        stream.getTracks().forEach(track => track.stop())
+        
+        // Close audio context
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close()
+        }
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+        }
+        
+        if (handleSendAudio && audioBlob.size > 0) {
+          handleSendAudio(audioBlob, recordingDuration)
+        }
+        
+        mediaRecorderRef.current = null
+        audioChunksRef.current = []
+        analyserRef.current = null
+        audioContextRef.current = null
+      }
+      
+      mediaRecorderRef.current = mediaRecorder
+      mediaRecorder.start()
+      isRecordingRef.current = true
+      setIsRecording(true)
+      
+      // Initialize with some default bars so something shows immediately
+      setWaveformData(Array.from({ length: 20 }, () => 30))
+      
+      // Start waveform visualization after a small delay to ensure analyser is ready
+      setTimeout(() => {
+        if (analyserRef.current && isRecordingRef.current) {
+          updateWaveform()
+        }
+      }, 50)
+    } catch (error) {
+      console.error('Error starting recording:', error)
+      alert('Failed to access microphone. Please check permissions.')
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      isRecordingRef.current = false
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+    }
+  }
+
+  const handleMicClick = () => {
+    if (isRecording) {
+      stopRecording()
+    } else {
+      startRecording()
+    }
+  }
 
   return (
     <>
@@ -192,6 +382,42 @@ export default function ChatInput({
             </div>
           ) : null
         })()}
+
+      {/* Recording Indicator */}
+      {isRecording && (
+        <div
+          className='recording-indicator'
+          style={{
+            bottom: keyboardHeight ? `${keyboardHeight + 60}px` : '60px',
+          }}
+        >
+          <div className='recording-dot'></div>
+          <div className='recording-waveform'>
+            {waveformData.length > 0 ? (
+              waveformData.map((height, index) => {
+                // Convert percentage to pixels (container is 24px tall)
+                const barHeight = Math.max(4, (height / 100) * 24)
+                return (
+                  <div
+                    key={index}
+                    className='waveform-bar'
+                    style={{
+                      height: `${barHeight}px`,
+                      minHeight: '4px',
+                    }}
+                  />
+                )
+              })
+            ) : (
+              // Show placeholder bars while initializing
+              Array.from({ length: 20 }).map((_, index) => (
+                <div key={index} className='waveform-bar' style={{ height: '8px' }} />
+              ))
+            )}
+          </div>
+          <span className='recording-duration'>{formatDuration(recordingDuration)}</span>
+        </div>
+      )}
 
       {/* Input Section */}
       <div
@@ -298,33 +524,40 @@ export default function ChatInput({
               </button>
             ) : (
               <button
-                className='input-mic-btn'
-                aria-label='Voice input (coming soon)'
-                title='Voice input coming soon!'
+                className={`input-mic-btn ${isRecording ? 'recording' : ''}`}
+                onClick={handleMicClick}
+                aria-label={isRecording ? 'Stop recording' : 'Start voice recording'}
+                title={isRecording ? 'Tap to stop recording' : 'Tap to record voice message'}
               >
-                <svg width='18' height='18' viewBox='0 0 24 24' fill='none'>
-                  <path
-                    d='M12 1C10.34 1 9 2.34 9 4V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V4C15 2.34 13.66 1 12 1Z'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M19 10V12C19 15.866 15.866 19 12 19C8.13401 19 5 15.866 5 12V10'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M12 19V23M8 23H16'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                </svg>
+                {isRecording ? (
+                  <svg width='20' height='20' viewBox='0 0 24 24' fill='currentColor'>
+                    <rect x='6' y='6' width='12' height='12' rx='2' />
+                  </svg>
+                ) : (
+                  <svg width='20' height='20' viewBox='0 0 24 24' fill='none'>
+                    <path
+                      d='M12 1C10.34 1 9 2.34 9 4V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V4C15 2.34 13.66 1 12 1Z'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                    />
+                    <path
+                      d='M19 10V12C19 15.866 15.866 19 12 19C8.13401 19 5 15.866 5 12V10'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                    />
+                    <path
+                      d='M12 19V23M8 23H16'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                    />
+                  </svg>
+                )}
               </button>
             )}
           </div>

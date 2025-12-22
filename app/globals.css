@@ -589,7 +589,7 @@ html {
 
 .input-section textarea {
   flex: 1;
-  padding: 12px 16px;
+  padding: 12px 48px 12px 16px; /* Extra right padding for mic button */
   border: 1px solid var(--border-input);
   border-radius: 8px;
   font-size: 15px;
@@ -635,11 +635,63 @@ html {
   cursor: not-allowed;
 }
 
+/* Mic button inside input - show on both mobile and desktop */
+.input-mic-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%) !important; /* Override button transform */
+  width: 36px !important; /* Override button width */
+  height: 36px !important; /* Override button height */
+  border: none !important;
+  background: none !important; /* Override gradient background */
+  border-radius: 0 !important; /* Remove border radius */
+  color: #8E8E93 !important; /* Dark gray like mobile */
+  display: flex !important; /* Force display on all screens */
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s, opacity 0.2s;
+  z-index: 10;
+  opacity: 1;
+  pointer-events: auto;
+  font-size: 0 !important; /* Remove font-size from button */
+}
+
+.input-mic-btn:hover {
+  color: #6E6E73 !important; /* Slightly darker on hover */
+  opacity: 1;
+  transform: translateY(-50%) !important; /* Prevent scale on hover */
+  background: none !important; /* Keep no background on hover */
+}
+
+.input-mic-btn:active {
+  opacity: 0.5;
+  transform: translateY(-50%) !important; /* Prevent scale on active */
+}
+
+.input-mic-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.input-mic-btn.recording {
+  color: #ff3b30;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 /* Hide mobile-only buttons on desktop */
 .input-section .input-plus-btn,
-.input-section .mobile-send-btn,
-.input-section .input-mic-btn {
+.input-section .mobile-send-btn {
   display: none;
+}
+
+@media (max-width: 768px) {
+  /* Show mobile buttons on mobile */
+  .input-section .input-plus-btn,
+  .input-section .mobile-send-btn {
+    display: flex;
+  }
 }
 
 /* Sidebar */
@@ -1646,6 +1698,187 @@ iframe[src*="vercel"] {
 
 .video-preview {
   object-fit: cover;
+}
+
+/* Voice Message Styles */
+.voice-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  min-width: 200px;
+  max-width: 400px;
+  width: fit-content;
+  border-radius: 20px;
+}
+
+.voice-message.sent {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.voice-message.received {
+  background: rgba(0, 0, 0, 0.08);
+  color: #000;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.voice-play-button {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+  padding: 0;
+}
+
+.voice-play-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.voice-message.sent .voice-play-button {
+  background: transparent;
+  color: #fff;
+}
+
+.voice-message.received .voice-play-button {
+  background: transparent;
+  color: #000;
+}
+
+.voice-play-button:hover {
+  opacity: 0.7;
+}
+
+.voice-waveform-container {
+  flex: 1;
+  min-width: 150px;
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.voice-waveform-container > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.voice-waveform-container wave {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.voice-duration {
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+  opacity: 0.6;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-message.sent .voice-duration {
+  color: #fff;
+  opacity: 0.9;
+}
+
+.voice-message.received .voice-duration {
+  color: #000;
+  opacity: 0.6;
+}
+
+/* Recording Indicator */
+.recording-indicator {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 8px 16px;
+  border-radius: 20px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff3b30;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+}
+
+.recording-duration {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.recording-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.recording-waveform {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  height: 24px;
+  width: 120px;
+  padding: 0 4px;
+}
+
+.waveform-bar {
+  flex: 1;
+  background: #ff3b30;
+  border-radius: 2px;
+  min-width: 3px;
+  min-height: 4px;
+  width: 4px;
+  transition: height 0.05s ease-out;
+  animation: waveform-pulse 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes waveform-pulse {
+  0% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Mic button recording state */
+.input-mic-btn.recording {
+  color: #ff3b30;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Loom video container - responsive 16:9 aspect ratio */

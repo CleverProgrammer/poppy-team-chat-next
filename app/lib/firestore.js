@@ -500,6 +500,32 @@ export async function uploadImage(file, userId) {
   }
 }
 
+// Upload audio file to Firebase Storage
+export async function uploadAudio(blob, userId) {
+  if (!blob) throw new Error('No audio blob provided')
+
+  try {
+    // Generate unique filename with timestamp
+    const timestamp = Date.now()
+    const filename = `${userId}/${timestamp}_voice.webm`
+    const storageRef = ref(storage, `chat-audio/${filename}`)
+
+    // Convert blob to File for upload
+    const audioFile = new File([blob], filename, { type: 'audio/webm' })
+
+    // Upload the file
+    const snapshot = await uploadBytes(storageRef, audioFile)
+
+    // Get download URL
+    const downloadURL = await getDownloadURL(snapshot.ref)
+
+    return downloadURL
+  } catch (error) {
+    console.error('Error uploading audio:', error)
+    throw error
+  }
+}
+
 // Send message with image(s)
 // imageUrl can be a single URL (string) or array of URLs for multiple images
 export async function sendMessageWithImage(channelId, user, imageUrl, text = '', imageUrls = null) {
@@ -752,6 +778,110 @@ export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '',
     await addActiveDM(recipientId, user.uid)
   } catch (error) {
     console.error('Error sending DM with media:', error)
+    throw error
+  }
+}
+
+// Send message with audio (channel)
+export async function sendMessageWithAudio(channelId, user, audioUrl, audioDuration, replyTo = null) {
+  if (!user || !audioUrl) return
+
+  try {
+    const messagesRef = collection(db, 'channels', channelId, 'messages')
+    const messageData = {
+      text: '',
+      audioUrl: audioUrl,
+      audioDuration: audioDuration || 0,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    }
+    
+    // Add reply reference if replying
+    if (replyTo) {
+      messageData.replyTo = {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text,
+      }
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
+
+    // Index to Ragie (empty text but still index for context)
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: channelId,
+        chatType: 'channel',
+        text: '',
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
+  } catch (error) {
+    console.error('Error sending message with audio:', error)
+    throw error
+  }
+}
+
+// Send message with audio (DM)
+export async function sendMessageDMWithAudio(dmId, user, recipientId, audioUrl, audioDuration, recipient = null, replyTo = null) {
+  if (!user || !audioUrl) return
+
+  try {
+    const messagesRef = collection(db, 'dms', dmId, 'messages')
+    const messageData = {
+      text: '',
+      audioUrl: audioUrl,
+      audioDuration: audioDuration || 0,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    }
+    
+    // Add reply reference if replying
+    if (replyTo) {
+      messageData.replyTo = {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text,
+      }
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
+
+    // Index to Ragie
+    fetch('/api/ragie/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: dmId,
+        chatType: 'dm',
+        text: '',
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+        participants: dmId.split('_').slice(1),
+        recipientId: recipientId,
+        recipientName: recipient?.displayName || recipient?.email || null,
+        recipientEmail: recipient?.email || null,
+      }),
+    }).catch(err => console.error('Ragie sync failed:', err))
+
+    // Add to active DMs
+    await addActiveDM(user.uid, recipientId)
+    await addActiveDM(recipientId, user.uid)
+  } catch (error) {
+    console.error('Error sending DM with audio:', error)
     throw error
   }
 }

@@ -6,8 +6,11 @@ import {
   sendMessageDM,
   getDMId,
   uploadImage,
+  uploadAudio,
   sendMessageWithMedia,
   sendMessageDMWithMedia,
+  sendMessageWithAudio,
+  sendMessageDMWithAudio,
   sendMessageWithReply,
   sendMessageDMWithReply,
   editMessage,
@@ -343,11 +346,90 @@ export function useMessageSending({
     }
   }, [user, currentChat, allUsers]);
 
+  // Send audio message
+  const handleSendAudio = useCallback(async (audioBlob, duration) => {
+    if (!currentChat || !audioBlob || sending) return;
+
+    // Create optimistic message ID before try block
+    const optimisticId = `temp-${Date.now()}`;
+
+    try {
+      setUploading(true);
+      
+      // Upload audio to Firebase Storage
+      const audioUrl = await uploadAudio(audioBlob, user.uid);
+
+      // Create optimistic message
+      const optimisticMessage = {
+        id: optimisticId,
+        text: '',
+        sender: user.displayName || user.email,
+        senderId: user.uid,
+        photoURL: user.photoURL || '',
+        timestamp: new Date(),
+        audioUrl: audioUrl,
+        audioDuration: duration,
+        optimistic: true
+      };
+
+      setMessages(prev => [...prev, optimisticMessage]);
+
+      // Scroll to bottom
+      if (isAutoScrollingRef) isAutoScrollingRef.current = true;
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: 'LAST',
+          align: 'end',
+          behavior: 'auto'
+        });
+      }, 10);
+
+      // Send message with audio
+      if (currentChat.type === 'channel') {
+        await sendMessageWithAudio(currentChat.id, user, audioUrl, duration);
+        
+        // Mark as unread for all other users
+        setTimeout(() => {
+          allUsers.forEach(otherUser => {
+            if (otherUser.uid !== user.uid) {
+              markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
+                console.error('Failed to mark as unread:', err)
+              );
+            }
+          });
+        }, 0);
+      } else if (currentChat.type === 'dm') {
+        const dmId = getDMId(user.uid, currentChat.id);
+        const recipient = allUsers.find(u => u.uid === currentChat.id) || null;
+        
+        await sendMessageDMWithAudio(dmId, user, currentChat.id, audioUrl, duration, recipient);
+        
+        // Mark as unread for the recipient
+        setTimeout(() => {
+          markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
+            console.error('Failed to mark DM as unread:', err)
+          );
+        }, 0);
+      }
+
+      // Remove optimistic message once real one arrives
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+    } catch (error) {
+      console.error('Error sending audio message:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+      alert('Failed to send voice message. Please try again.');
+    } finally {
+      setUploading(false);
+      if (isAutoScrollingRef) isAutoScrollingRef.current = false;
+    }
+  }, [user, currentChat, sending, setMessages, setUploading, allUsers, virtuosoRef, isAutoScrollingRef, sendMessageWithAudio, sendMessageDMWithAudio, uploadAudio, markChatAsUnread, getDMId]);
+
   return {
     sending,
     handleSend,
     handleEdit,
     sendVideoReply,
+    handleSendAudio,
     updateTypingIndicator,
     clearTypingIndicator,
     typingTimeoutRef
