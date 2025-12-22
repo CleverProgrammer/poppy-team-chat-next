@@ -362,6 +362,12 @@ html {
   flex-direction: column;
   min-width: 0;
   flex: 1;
+  max-width: 100%;
+}
+
+/* For sent messages, align content to the right */
+.message-wrapper.sent .message-content-wrapper {
+  align-items: flex-end;
 }
 
 .message-sender {
@@ -1901,12 +1907,11 @@ iframe[src*="vercel"] {
   margin-top: 4px;
   opacity: 0.7;
   text-align: right;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  width: auto;
   white-space: nowrap;
-  align-self: flex-end;
 }
 
 .read-receipt-avatar {
