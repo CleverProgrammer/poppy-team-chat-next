@@ -1446,9 +1446,11 @@ iframe[src*="vercel"] {
   }
 }
 
-/* Video Reply Bubble - Adaptive thumbnail for video replies */
+/* Video Reply Bubble - Story-style thumbnail for video replies */
 .video-reply-bubble {
   position: relative;
+  width: 90px;
+  height: 160px;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
@@ -1458,19 +1460,7 @@ iframe[src*="vercel"] {
   background: #1a1a2e;
 }
 
-/* Vertical video reply - tall & narrow (story-style) */
-.video-reply-bubble.vertical {
-  width: 90px;
-  height: 160px;
-}
-
-/* Horizontal video reply - wider & shorter */
-.video-reply-bubble.horizontal {
-  width: 160px;
-  height: 100px;
-}
-
-/* Loading state */
+/* Loading state - same as default */
 .video-reply-bubble.loading {
   width: 90px;
   height: 160px;
