@@ -562,9 +562,11 @@ export default function MessageItem({
       onTouchCancel={handleTouchMove}
     >
       {/* Channel avatar - positioned to the left of the message like iMessage */}
+      {/* Only show for messages WITHOUT replies - for replies, avatar shows next to actual message */}
       {!isSent &&
         currentChat.type === 'channel' &&
         msg.senderId !== 'ai' &&
+        !msg.replyTo &&
         (() => {
           const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
           const initial = (msg.sender || '?')[0].toUpperCase()
@@ -686,6 +688,17 @@ export default function MessageItem({
             ))}
           </div>
         )}
+        {/* Sender avatar for received messages with replies - shows next to actual message */}
+        <div className={`message-row ${msg.replyTo && !isSent ? 'with-avatar' : ''}`}>
+          {!isSent && msg.replyTo && currentChat.type === 'channel' && msg.senderId !== 'ai' && (() => {
+            const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
+            const initial = (msg.sender || '?')[0].toUpperCase()
+            return photoURL ? (
+              <img src={photoURL} alt={msg.sender} className='message-avatar reply-message-avatar' />
+            ) : (
+              <div className='message-avatar-fallback reply-message-avatar'>{initial}</div>
+            )
+          })()}
         <div className='message'>
           {/* Regular Mux videos (not replies) - clickable thumbnail that opens modal */}
           {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
@@ -760,6 +773,8 @@ export default function MessageItem({
             </div>
           )}
         </div>
+        </div>
+        {/* End message-row */}
         {isSent && (
           <div className='message-timestamp-sent'>
             <MessageTimestamp timestamp={msg.timestamp} />

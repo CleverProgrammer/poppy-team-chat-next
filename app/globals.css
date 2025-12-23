@@ -428,6 +428,25 @@ html {
   margin-top: 20px; /* Offset for sender name to center with message bubble */
 }
 
+/* Message row - wraps avatar and message bubble for replies */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.message-row.with-avatar {
+  /* Adjust alignment for received messages with replies */
+}
+
+/* Avatar next to reply message */
+.reply-message-avatar {
+  margin-top: 0 !important;
+  align-self: flex-end;
+  margin-bottom: 4px;
+}
+
 .message-wrapper.sent .message-sender {
   display: none;
 }
