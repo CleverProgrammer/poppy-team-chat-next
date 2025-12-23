@@ -38,6 +38,8 @@ import {
   demotePostToMessage,
   loadOlderMessages,
   loadOlderMessagesDM,
+  sendMessageWithReply,
+  sendMessageDMWithReply,
 } from '../../lib/firestore'
 
 export default function ChatWindow() {
@@ -634,7 +636,7 @@ export default function ChatWindow() {
   }
 
   // Thread view handlers
-  const openThreadView = useCallback((originalMessage) => {
+  const openThreadView = useCallback(originalMessage => {
     setThreadView({ open: true, originalMessage })
   }, [])
 
@@ -647,6 +649,25 @@ export default function ChatWindow() {
     if (!threadView.originalMessage) return []
     return messages.filter(m => m.replyTo?.msgId === threadView.originalMessage.id)
   }, [messages, threadView.originalMessage])
+
+  // Send a reply directly from the thread view
+  const sendThreadReply = useCallback(async (text, replyTo) => {
+    if (!text.trim() || !user || !currentChat) return
+
+    const isDM = currentChat.type === 'dm'
+    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
+
+    try {
+      if (isDM) {
+        await sendMessageDMWithReply(chatId, user, text, currentChat.id, replyTo)
+      } else {
+        await sendMessageWithReply(chatId, user, text, replyTo)
+      }
+    } catch (error) {
+      console.error('Error sending thread reply:', error)
+      throw error
+    }
+  }, [user, currentChat])
 
   // Promote message to post
   const handlePromoteMessage = async messageId => {
@@ -936,10 +957,9 @@ export default function ChatWindow() {
         onPromote={handlePromoteMessage}
         onAddToTeamMemory={handleAddToTeamMemory}
         onAddReaction={handleAddReaction}
-        onImageClick={(images, startIndex) =>
-          setLightboxData({ open: true, images, startIndex })
-        }
+        onImageClick={(images, startIndex) => setLightboxData({ open: true, images, startIndex })}
         onScrollToMessage={scrollToMessage}
+        onSendThreadReply={sendThreadReply}
       />
 
       {/* Video Upload Progress Toast */}

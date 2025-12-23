@@ -4430,6 +4430,90 @@ iframe[src*="vercel"] {
   background: var(--bg-hover);
 }
 
+/* Thread reply area - wrapper for both mobile and desktop */
+.thread-view-reply-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-app);
+}
+
+/* Desktop: Real input container */
+.thread-view-reply-input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+
+.thread-view-reply-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: 22px;
+  padding: 12px 20px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  resize: none;
+  min-height: 44px;
+  max-height: 120px;
+  line-height: 1.4;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.thread-view-reply-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.thread-view-reply-input:focus {
+  border-color: #007AFF;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.thread-view-send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.thread-view-send-btn.active {
+  background: #007AFF;
+  color: white;
+  cursor: pointer;
+}
+
+.thread-view-send-btn.active:hover {
+  background: #0066CC;
+  transform: scale(1.05);
+}
+
+.thread-view-send-btn.active:active {
+  transform: scale(0.95);
+}
+
+.thread-view-sending-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Enhanced reply count indicator with icon */
 .reply-count-indicator {
   font-size: 12px;

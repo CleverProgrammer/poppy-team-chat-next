@@ -28,36 +28,59 @@ export default function ThreadView({
   onAddReaction,
   onImageClick,
   onScrollToMessage,
+  onSendThreadReply, // Function to send a reply directly from thread view
 }) {
   const [mounted, setMounted] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const threadContainerRef = useRef(null)
+  const inputRef = useRef(null)
   const messageRefs = useRef({})
 
   useEffect(() => {
     setMounted(true)
-    return () => setMounted(false)
+    // Detect mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => {
+      setMounted(false)
+      window.removeEventListener('resize', checkMobile)
+    }
   }, [])
 
-  // Scroll to bottom of thread when opened
+  // Scroll to bottom of thread when opened and focus input on desktop
   useEffect(() => {
     if (isOpen && threadContainerRef.current) {
       setTimeout(() => {
         threadContainerRef.current.scrollTop = threadContainerRef.current.scrollHeight
+        // Auto-focus input on desktop
+        if (!isMobile && inputRef.current) {
+          inputRef.current.focus()
+        }
       }, 100)
     }
-  }, [isOpen, threadMessages.length])
+  }, [isOpen, threadMessages.length, isMobile])
 
-  // Handle escape key to close
+  // Handle escape key to close (only when not typing)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
+        // If input has focus and has text, first clear the input
+        if (document.activeElement === inputRef.current && replyText.trim()) {
+          setReplyText('')
+          return
+        }
         handleClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
+  }, [isOpen, replyText])
 
   const handleClose = useCallback(() => {
     setIsClosing(true)
@@ -73,7 +96,40 @@ export default function ThreadView({
     }
   }, [handleClose])
 
-  // Handle reply within thread - replies to original message
+  // Send reply directly from thread view (desktop feature)
+  const handleSendReply = useCallback(async () => {
+    if (!replyText.trim() || sending || !onSendThreadReply) return
+    
+    setSending(true)
+    try {
+      await onSendThreadReply(replyText.trim(), {
+        msgId: originalMessage.id,
+        sender: originalMessage.sender,
+        text: originalMessage.text || originalMessage.content || ''
+      })
+      setReplyText('')
+      // Scroll to bottom after sending
+      setTimeout(() => {
+        if (threadContainerRef.current) {
+          threadContainerRef.current.scrollTop = threadContainerRef.current.scrollHeight
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Error sending thread reply:', error)
+    } finally {
+      setSending(false)
+    }
+  }, [replyText, sending, onSendThreadReply, originalMessage])
+
+  // Handle Enter key to send (desktop)
+  const handleInputKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendReply()
+    }
+  }, [handleSendReply])
+
+  // Handle reply within thread - for mobile, opens the main reply interface
   const handleThreadReply = useCallback((msgId, sender, text) => {
     // Always reply to the original message, not to replies
     onReply(originalMessage.id, originalMessage.sender, originalMessage.text || originalMessage.content || '')
@@ -153,11 +209,44 @@ export default function ThreadView({
           ))}
         </div>
 
-        {/* Reply prompt at bottom */}
-        <div className="thread-view-reply-prompt" onClick={() => handleThreadReply()}>
-          <div className="thread-view-reply-input-fake">
-            <span>Reply to thread...</span>
-          </div>
+        {/* Reply input at bottom */}
+        <div className="thread-view-reply-area">
+          {isMobile ? (
+            // Mobile: tap to open main reply interface
+            <div className="thread-view-reply-prompt" onClick={() => handleThreadReply()}>
+              <div className="thread-view-reply-input-fake">
+                <span>Reply to thread...</span>
+              </div>
+            </div>
+          ) : (
+            // Desktop: real input field
+            <div className="thread-view-reply-input-container">
+              <textarea
+                ref={inputRef}
+                className="thread-view-reply-input"
+                placeholder="Reply to thread..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                rows={1}
+                disabled={sending}
+              />
+              <button
+                className={`thread-view-send-btn ${replyText.trim() ? 'active' : ''}`}
+                onClick={handleSendReply}
+                disabled={!replyText.trim() || sending}
+                aria-label="Send reply"
+              >
+                {sending ? (
+                  <div className="thread-view-sending-spinner" />
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
