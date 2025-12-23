@@ -616,13 +616,22 @@ export default function MessageItem({
                   ? `${msg.replyTo.text.slice(0, 500)}...`
                   : msg.replyTo.text}
               </div>
-              {/* Reply count - iMessage style, shown under the quoted message */}
-              {!isInThreadView && replyCount > 0 && (
-                <div className='reply-quote-count'>
-                  {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
-                </div>
-              )}
             </div>
+          </div>
+        )}
+        {/* Reply count - outside and underneath the reply quote bubble */}
+        {msg.replyTo && !isInThreadView && replyCount > 0 && (
+          <div 
+            className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              const rootMessage = messages.find(m => m.id === msg.replyTo.msgId)
+              if (rootMessage && onOpenThread) {
+                onOpenThread(rootMessage)
+              }
+            }}
+          >
+            {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
           </div>
         )}
         {!isSent && (

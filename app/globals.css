@@ -2447,26 +2447,6 @@ iframe[src*="vercel"] {
   justify-content: flex-end;
 }
 
-/* Reply Count Indicator - iMessage style */
-.reply-count-indicator {
-  font-size: 12px;
-  font-weight: 500;
-  color: #007AFF;
-  margin-top: 4px;
-  cursor: pointer;
-}
-
-.reply-count-indicator:hover {
-  text-decoration: underline;
-}
-
-.reply-count-indicator.sent {
-  text-align: right;
-}
-
-.reply-count-indicator.received {
-  text-align: left;
-}
 
 .read-receipt {
   font-size: 11px;
@@ -2847,18 +2827,6 @@ iframe[src*="vercel"] {
   opacity: 0.3;
 }
 
-/* Reply count under the quoted message - iMessage style */
-.reply-quote-count {
-  font-size: 12px;
-  font-weight: 400;
-  color: #007AFF;
-  margin-top: 2px;
-  cursor: pointer;
-}
-
-.reply-quote-count:hover {
-  opacity: 0.7;
-}
 
 /* The reply bubble itself - no transform, naturally small */
 .reply-quote {
@@ -4531,10 +4499,11 @@ iframe[src*="vercel"] {
 
 /* Reply count indicator - iMessage style (simple text, no background) */
 .reply-count-indicator {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
   color: #007AFF;
-  margin-top: 4px;
+  margin-top: 2px;
+  margin-bottom: 8px;
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
