@@ -38,11 +38,11 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
       wavesurfer.on('play', () => setIsPlaying(true)),
       wavesurfer.on('pause', () => setIsPlaying(false)),
       wavesurfer.on('finish', () => setIsPlaying(false)),
-      wavesurfer.on('timeupdate', (time) => setCurrentTime(time)),
+      wavesurfer.on('timeupdate', time => setCurrentTime(time)),
     ]
 
     return () => {
-      subscriptions.forEach((unsub) => unsub())
+      subscriptions.forEach(unsub => unsub())
     }
   }, [wavesurfer])
 
@@ -53,10 +53,10 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
   }, [wavesurfer])
 
   const handleSpeedChange = useCallback(() => {
-    setSpeedIndex((prev) => (prev + 1) % SPEED_OPTIONS.length)
+    setSpeedIndex(prev => (prev + 1) % SPEED_OPTIONS.length)
   }, [])
 
-  const formatTime = (seconds) => {
+  const formatTime = seconds => {
     if (!seconds || isNaN(seconds)) return '0:00'
     const mins = Math.floor(seconds / 60)
     const secs = Math.floor(seconds % 60)
@@ -70,30 +70,28 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
   return (
     <div className={`voice-message ${isSent ? 'sent' : 'received'}`}>
       <button
-        className="voice-play-button"
+        className='voice-play-button'
         onClick={handlePlayPause}
         aria-label={isPlaying ? 'Pause' : 'Play'}
       >
         {isPlaying ? (
-          <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M5 3h2v10H5V3zm4 0h2v10H9V3z" />
+          <svg width='20' height='20' viewBox='0 0 16 16' fill='currentColor'>
+            <path d='M5 3h2v10H5V3zm4 0h2v10H9V3z' />
           </svg>
         ) : (
-          <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M5 3l8 5-8 5V3z" />
+          <svg width='20' height='20' viewBox='0 0 16 16' fill='currentColor'>
+            <path d='M5 3l8 5-8 5V3z' />
           </svg>
         )}
       </button>
 
-      <div className="voice-waveform-container" ref={containerRef} />
+      <div className='voice-waveform-container' ref={containerRef} />
 
-      <div className="voice-duration">
-        {formatTime(displayTime)}
-      </div>
+      <div className='voice-duration'>{formatTime(displayTime)}</div>
 
       {isPlaying && (
         <button
-          className="voice-speed-button"
+          className='voice-speed-button'
           onClick={handleSpeedChange}
           aria-label={`Playback speed ${currentSpeed}x`}
         >
@@ -103,4 +101,3 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
     </div>
   )
 }
-

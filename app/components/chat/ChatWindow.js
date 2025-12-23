@@ -164,14 +164,15 @@ export default function ChatWindow() {
   const pendingVideoReplyRef = useRef(null) // Store the message we're replying to
 
   // Subscriptions hook (handles all Firebase subscriptions) - must be early for allUsers
-  const { allUsers, activeDMs, lastMessages, channelLastMessages, aiLastMessage, otherUserTyping } = useSubscriptions({
-    user,
-    currentChat,
-    setCurrentChat,
-    setMessages,
-    messagesEndRef,
-    inputRef,
-  })
+  const { allUsers, activeDMs, lastMessages, channelLastMessages, aiLastMessage, otherUserTyping } =
+    useSubscriptions({
+      user,
+      currentChat,
+      setCurrentChat,
+      setMessages,
+      messagesEndRef,
+      inputRef,
+    })
 
   // AI hook (must be after virtuosoRef is defined)
   const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } = useAI(
@@ -1107,12 +1108,11 @@ export default function ChatWindow() {
                         // On mobile (native), always add base padding for read receipts to not overlap input
                         // When keyboard is open, add keyboard height on top of that
                         const basePadding = Capacitor.isNativePlatform() ? 60 : 0
-                        const totalHeight = keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
-                        
+                        const totalHeight =
+                          keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
+
                         if (totalHeight > 0) {
-                          return (
-                            <div style={{ height: totalHeight, background: 'transparent' }} />
-                          )
+                          return <div style={{ height: totalHeight, background: 'transparent' }} />
                         }
                         return null
                       },
