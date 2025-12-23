@@ -132,7 +132,16 @@ export default function ThreadView({
   // Handle reply within thread - for mobile, opens the main reply interface
   const handleThreadReply = useCallback((msgId, sender, text) => {
     // Always reply to the original message, not to replies
-    onReply(originalMessage.id, originalMessage.sender, originalMessage.text || originalMessage.content || '')
+    onReply({
+      msgId: originalMessage.id,
+      sender: originalMessage.sender,
+      text: originalMessage.text || originalMessage.content || '',
+      imageUrl: originalMessage.imageUrl || null,
+      imageUrls: originalMessage.imageUrls || null,
+      audioUrl: originalMessage.audioUrl || null,
+      audioDuration: originalMessage.audioDuration || null,
+      muxPlaybackIds: originalMessage.muxPlaybackIds || null,
+    })
     handleClose()
   }, [originalMessage, onReply, handleClose])
 

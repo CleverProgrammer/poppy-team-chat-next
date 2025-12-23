@@ -109,6 +109,11 @@ export default function MessageItem({
         msgId: msg.replyTo.msgId,
         sender: msg.replyTo.sender,
         text: msg.replyTo.text || '',
+        imageUrl: msg.replyTo.imageUrl || null,
+        imageUrls: msg.replyTo.imageUrls || null,
+        audioUrl: msg.replyTo.audioUrl || null,
+        audioDuration: msg.replyTo.audioDuration || null,
+        muxPlaybackIds: msg.replyTo.muxPlaybackIds || null,
       }
     }
     // This is an original message - reply to it directly
@@ -116,8 +121,13 @@ export default function MessageItem({
       msgId: msg.id,
       sender: msg.sender,
       text: msg.text || msg.content || '',
+      imageUrl: msg.imageUrl || null,
+      imageUrls: msg.imageUrls || null,
+      audioUrl: msg.audioUrl || null,
+      audioDuration: msg.audioDuration || null,
+      muxPlaybackIds: msg.muxPlaybackIds || null,
     }
-  }, [msg.id, msg.sender, msg.text, msg.content, msg.replyTo])
+  }, [msg.id, msg.sender, msg.text, msg.content, msg.replyTo, msg.imageUrl, msg.imageUrls, msg.audioUrl, msg.audioDuration, msg.muxPlaybackIds])
 
   // Handle triple-tap: open video reply directly
   const handleTripleTap = useCallback(() => {
@@ -205,7 +215,7 @@ export default function MessageItem({
         // Otherwise, open the thread view for this message
         if (isInThreadView) {
           const target = getOriginalReplyTarget()
-          onReply(target.msgId, target.sender, target.text)
+          onReply(target)
         } else if (onOpenThread) {
           // Open thread view with this message as the root (or find root if this is a reply)
           const rootMessage = msg.replyTo?.msgId 
@@ -335,7 +345,7 @@ export default function MessageItem({
             // Otherwise, open thread view
             if (isInThreadView) {
               const target = getOriginalReplyTarget()
-              onReply(target.msgId, target.sender, target.text)
+              onReply(target)
             } else if (onOpenThread) {
               const rootMessage = msg.replyTo?.msgId 
                 ? messages.find(m => m.id === msg.replyTo.msgId) || msg
@@ -511,7 +521,7 @@ export default function MessageItem({
             // Otherwise, open thread view
             if (isInThreadView) {
               const target = getOriginalReplyTarget()
-              onReply(target.msgId, target.sender, target.text)
+              onReply(target)
             } else if (onOpenThread) {
               const rootMessage = msg.replyTo?.msgId 
                 ? messages.find(m => m.id === msg.replyTo.msgId) || msg
@@ -580,7 +590,23 @@ export default function MessageItem({
       {/* Message content wrapper */}
       <div className='message-content-wrapper'>
         {/* Reply quote - shows above the message bubble like iMessage */}
-        {msg.replyTo && (
+        {msg.replyTo && (() => {
+          // Look up the original message to get media (for old messages that don't have media in replyTo)
+          const originalMsg = messages.find(m => m.id === msg.replyTo.msgId)
+          
+          // Get media from replyTo first, fallback to looking up the original message
+          const replyImageUrl = msg.replyTo.imageUrl || originalMsg?.imageUrl
+          const replyImageUrls = msg.replyTo.imageUrls || originalMsg?.imageUrls
+          const replyMuxPlaybackIds = msg.replyTo.muxPlaybackIds || originalMsg?.muxPlaybackIds
+          const replyAudioUrl = msg.replyTo.audioUrl || originalMsg?.audioUrl
+          const replyAudioDuration = msg.replyTo.audioDuration || originalMsg?.audioDuration
+          const replyText = msg.replyTo.text || originalMsg?.text
+          
+          const hasImages = replyImageUrl || replyImageUrls?.length > 0
+          const hasVideos = replyMuxPlaybackIds?.length > 0
+          const hasAudio = !!replyAudioUrl
+          
+          return (
           <div
             className='reply-quote-container'
             onClick={(e) => {
@@ -613,14 +639,79 @@ export default function MessageItem({
               )
             })()}
             <div className='reply-quote'>
-              <div className='reply-quote-text'>
-                {msg.replyTo.text?.length > 500
-                  ? `${msg.replyTo.text.slice(0, 500)}...`
-                  : msg.replyTo.text}
-              </div>
+              {/* Image preview in reply */}
+              {hasImages && (
+                <div className='reply-quote-media'>
+                  <img
+                    src={replyImageUrls?.[0] || replyImageUrl}
+                    alt='Reply image'
+                    className='reply-quote-image'
+                  />
+                  {replyImageUrls?.length > 1 && (
+                    <span className='reply-quote-image-count'>
+                      +{replyImageUrls.length - 1}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Video preview in reply */}
+              {hasVideos && (
+                <div className='reply-quote-media'>
+                  <img
+                    src={`https://image.mux.com/${replyMuxPlaybackIds[0]}/thumbnail.jpg?width=80&height=80&fit_mode=crop`}
+                    alt='Reply video'
+                    className='reply-quote-video'
+                  />
+                  <div className='reply-quote-video-icon'>
+                    <svg width='16' height='16' viewBox='0 0 16 16' fill='currentColor'>
+                      <path d='M5 3l8 5-8 5V3z' />
+                    </svg>
+                  </div>
+                </div>
+              )}
+              {/* Audio preview in reply - static waveform visualization */}
+              {hasAudio && (
+                <div className='reply-quote-audio'>
+                  <div className='reply-quote-audio-icon'>
+                    <svg width='14' height='14' viewBox='0 0 16 16' fill='currentColor'>
+                      <path d='M3 5h2l3-3v12l-3-3H3V5z' />
+                      <path d='M10.5 4.5a4 4 0 0 1 0 7M12 2a7 7 0 0 1 0 12' stroke='currentColor' strokeWidth='1.2' fill='none' />
+                    </svg>
+                  </div>
+                  <div className='reply-quote-waveform'>
+                    {/* Static waveform bars */}
+                    {[...Array(12)].map((_, i) => (
+                      <div
+                        key={i}
+                        className='reply-quote-waveform-bar'
+                        style={{ height: `${20 + Math.sin(i * 0.8) * 15 + Math.random() * 10}%` }}
+                      />
+                    ))}
+                  </div>
+                  {replyAudioDuration && (
+                    <span className='reply-quote-audio-duration'>
+                      {Math.floor(replyAudioDuration / 60)}:{String(Math.floor(replyAudioDuration % 60)).padStart(2, '0')}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Text preview */}
+              {replyText && (
+                <div className='reply-quote-text'>
+                  {replyText.length > 500
+                    ? `${replyText.slice(0, 500)}...`
+                    : replyText}
+                </div>
+              )}
+              {/* Fallback for empty text with no media */}
+              {!replyText && !hasImages && !hasVideos && !hasAudio && (
+                <div className='reply-quote-text reply-quote-empty'>
+                  Message
+                </div>
+              )}
             </div>
           </div>
-        )}
+        )})()}
         {/* Reply count - outside and underneath the reply quote bubble */}
         {msg.replyTo && !isInThreadView && replyCount > 0 && (
           <div 
@@ -877,7 +968,7 @@ export default function MessageItem({
           // Otherwise, open thread view
           if (isInThreadView) {
             const target = getOriginalReplyTarget()
-            onReply(target.msgId, target.sender, target.text)
+            onReply(target)
           } else if (onOpenThread) {
             const rootMessage = msg.replyTo?.msgId 
               ? messages.find(m => m.id === msg.replyTo.msgId) || msg

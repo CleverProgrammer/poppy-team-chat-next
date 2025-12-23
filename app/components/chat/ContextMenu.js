@@ -66,20 +66,30 @@ export default function ContextMenu({
       return {
         msgId: message.replyTo.msgId,
         sender: message.replyTo.sender,
-        text: message.replyTo.text || ''
+        text: message.replyTo.text || '',
+        imageUrl: message.replyTo.imageUrl || null,
+        imageUrls: message.replyTo.imageUrls || null,
+        audioUrl: message.replyTo.audioUrl || null,
+        audioDuration: message.replyTo.audioDuration || null,
+        muxPlaybackIds: message.replyTo.muxPlaybackIds || null,
       }
     }
     // This is an original message - reply to it directly
     return {
       msgId: message.id,
       sender: message.sender,
-      text: message.text || message.content || ''
+      text: message.text || message.content || '',
+      imageUrl: message.imageUrl || null,
+      imageUrls: message.imageUrls || null,
+      audioUrl: message.audioUrl || null,
+      audioDuration: message.audioDuration || null,
+      muxPlaybackIds: message.muxPlaybackIds || null,
     }
   };
 
   const handleReply = () => {
     const target = getOriginalReplyTarget();
-    onReply(target.msgId, target.sender, target.text);
+    onReply(target);
     setContextMenu(null);
   };
 

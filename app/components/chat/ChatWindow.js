@@ -378,8 +378,26 @@ export default function ChatWindow() {
   }, [user, allUsers])
 
   // Reply handlers
-  const startReply = (messageId, sender, text) => {
-    setReplyingTo({ msgId: messageId, sender, text })
+  const startReply = target => {
+    // Accept either a full target object or individual parameters for backwards compatibility
+    const replyData =
+      typeof target === 'object' && target.msgId
+        ? target
+        : {
+            msgId: target,
+            sender: arguments[1],
+            text: arguments[2] || '',
+          }
+    setReplyingTo({
+      msgId: replyData.msgId,
+      sender: replyData.sender,
+      text: replyData.text || '',
+      imageUrl: replyData.imageUrl || null,
+      imageUrls: replyData.imageUrls || null,
+      audioUrl: replyData.audioUrl || null,
+      audioDuration: replyData.audioDuration || null,
+      muxPlaybackIds: replyData.muxPlaybackIds || null,
+    })
     setContextMenu(null)
     inputRef.current?.focus()
   }

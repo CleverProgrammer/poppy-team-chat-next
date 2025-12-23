@@ -673,7 +673,14 @@ export async function sendMessageDMWithImage(
 }
 
 // Send message with media (images and/or Mux videos)
-export async function sendMessageWithMedia(channelId, user, text = '', imageUrls = [], muxPlaybackIds = [], replyTo = null) {
+export async function sendMessageWithMedia(
+  channelId,
+  user,
+  text = '',
+  imageUrls = [],
+  muxPlaybackIds = [],
+  replyTo = null
+) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
   try {
@@ -688,16 +695,23 @@ export async function sendMessageWithMedia(channelId, user, text = '', imageUrls
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add reply reference if replying
     if (replyTo) {
-      messageData.replyTo = {
+      const replyData = {
         msgId: replyTo.msgId,
         sender: replyTo.sender,
-        text: replyTo.text,
+        text: replyTo.text || '',
       }
+      // Add media fields if present
+      if (replyTo.imageUrl) replyData.imageUrl = replyTo.imageUrl
+      if (replyTo.imageUrls?.length) replyData.imageUrls = replyTo.imageUrls
+      if (replyTo.audioUrl) replyData.audioUrl = replyTo.audioUrl
+      if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
+      if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
+      messageData.replyTo = replyData
     }
-    
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Index text to Ragie if present
@@ -724,7 +738,16 @@ export async function sendMessageWithMedia(channelId, user, text = '', imageUrls
 }
 
 // Send DM with media (images and/or Mux videos)
-export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '', recipient = null, imageUrls = [], muxPlaybackIds = [], replyTo = null) {
+export async function sendMessageDMWithMedia(
+  dmId,
+  user,
+  recipientId,
+  text = '',
+  recipient = null,
+  imageUrls = [],
+  muxPlaybackIds = [],
+  replyTo = null
+) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
   try {
@@ -739,16 +762,23 @@ export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '',
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add reply reference if replying
     if (replyTo) {
-      messageData.replyTo = {
+      const replyData = {
         msgId: replyTo.msgId,
         sender: replyTo.sender,
-        text: replyTo.text,
+        text: replyTo.text || '',
       }
+      // Add media fields if present
+      if (replyTo.imageUrl) replyData.imageUrl = replyTo.imageUrl
+      if (replyTo.imageUrls?.length) replyData.imageUrls = replyTo.imageUrls
+      if (replyTo.audioUrl) replyData.audioUrl = replyTo.audioUrl
+      if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
+      if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
+      messageData.replyTo = replyData
     }
-    
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Index text to Ragie if present
@@ -783,7 +813,13 @@ export async function sendMessageDMWithMedia(dmId, user, recipientId, text = '',
 }
 
 // Send message with audio (channel)
-export async function sendMessageWithAudio(channelId, user, audioUrl, audioDuration, replyTo = null) {
+export async function sendMessageWithAudio(
+  channelId,
+  user,
+  audioUrl,
+  audioDuration,
+  replyTo = null
+) {
   if (!user || !audioUrl) return
 
   try {
@@ -797,7 +833,7 @@ export async function sendMessageWithAudio(channelId, user, audioUrl, audioDurat
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add reply reference if replying
     if (replyTo) {
       messageData.replyTo = {
@@ -806,7 +842,7 @@ export async function sendMessageWithAudio(channelId, user, audioUrl, audioDurat
         text: replyTo.text,
       }
     }
-    
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (empty text but still index for context)
@@ -831,7 +867,15 @@ export async function sendMessageWithAudio(channelId, user, audioUrl, audioDurat
 }
 
 // Send message with audio (DM)
-export async function sendMessageDMWithAudio(dmId, user, recipientId, audioUrl, audioDuration, recipient = null, replyTo = null) {
+export async function sendMessageDMWithAudio(
+  dmId,
+  user,
+  recipientId,
+  audioUrl,
+  audioDuration,
+  recipient = null,
+  replyTo = null
+) {
   if (!user || !audioUrl) return
 
   try {
@@ -845,7 +889,7 @@ export async function sendMessageDMWithAudio(dmId, user, recipientId, audioUrl, 
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add reply reference if replying
     if (replyTo) {
       messageData.replyTo = {
@@ -854,7 +898,7 @@ export async function sendMessageDMWithAudio(dmId, user, recipientId, audioUrl, 
         text: replyTo.text,
       }
     }
-    
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie
@@ -948,17 +992,25 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
+    const replyData = {
+      msgId: replyTo.msgId,
+      sender: replyTo.sender,
+      text: replyTo.text || '',
+    }
+    // Add media fields if present
+    if (replyTo.imageUrl) replyData.imageUrl = replyTo.imageUrl
+    if (replyTo.imageUrls?.length) replyData.imageUrls = replyTo.imageUrls
+    if (replyTo.audioUrl) replyData.audioUrl = replyTo.audioUrl
+    if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
+    if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
+
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-      replyTo: {
-        msgId: replyTo.msgId,
-        sender: replyTo.sender,
-        text: replyTo.text,
-      },
+      replyTo: replyData,
     })
 
     // Index to Ragie (fire and forget, don't block send)
@@ -995,17 +1047,25 @@ export async function sendMessageDMWithReply(
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
+    const replyData = {
+      msgId: replyTo.msgId,
+      sender: replyTo.sender,
+      text: replyTo.text || '',
+    }
+    // Add media fields if present
+    if (replyTo.imageUrl) replyData.imageUrl = replyTo.imageUrl
+    if (replyTo.imageUrls?.length) replyData.imageUrls = replyTo.imageUrls
+    if (replyTo.audioUrl) replyData.audioUrl = replyTo.audioUrl
+    if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
+    if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
+
     const docRef = await addDoc(messagesRef, {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-      replyTo: {
-        msgId: replyTo.msgId,
-        sender: replyTo.sender,
-        text: replyTo.text,
-      },
+      replyTo: replyData,
     })
 
     // Index to Ragie (fire and forget, don't block send)

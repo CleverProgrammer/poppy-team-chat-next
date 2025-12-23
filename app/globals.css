@@ -2850,7 +2850,9 @@ iframe[src*="vercel"] {
 /* The reply bubble itself - no transform, naturally small */
 .reply-quote {
   display: inline-flex;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
   width: fit-content;
   max-width: 90%;
   background: transparent;
@@ -2868,6 +2870,110 @@ iframe[src*="vercel"] {
   font-size: 11px;
   color: #667eea;
   line-height: 1.4;
+}
+
+.reply-quote-empty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Reply quote media previews */
+.reply-quote-media {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.reply-quote-image {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.reply-quote-image-count {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.reply-quote-video {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.reply-quote-video-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+/* Reply quote audio waveform preview */
+.reply-quote-audio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.reply-quote-audio-icon {
+  color: #667eea;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reply-quote-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+}
+
+.reply-quote-waveform-bar {
+  width: 2px;
+  background: #667eea;
+  border-radius: 1px;
+  opacity: 0.6;
+  min-height: 4px;
+}
+
+.reply-quote-audio-duration {
+  font-size: 10px;
+  color: #667eea;
+  opacity: 0.8;
+  margin-left: 2px;
+}
+
+/* Sent message reply quote variations */
+.message-wrapper.sent .reply-quote-media .reply-quote-image,
+.message-wrapper.sent .reply-quote-media .reply-quote-video {
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.message-wrapper.sent .reply-quote-audio-icon,
+.message-wrapper.sent .reply-quote-waveform-bar,
+.message-wrapper.sent .reply-quote-audio-duration {
+  color: #667eea;
 }
 
 .reply-bar {
