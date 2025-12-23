@@ -651,23 +651,26 @@ export default function ChatWindow() {
   }, [messages, threadView.originalMessage])
 
   // Send a reply directly from the thread view
-  const sendThreadReply = useCallback(async (text, replyTo) => {
-    if (!text.trim() || !user || !currentChat) return
+  const sendThreadReply = useCallback(
+    async (text, replyTo) => {
+      if (!text.trim() || !user || !currentChat) return
 
-    const isDM = currentChat.type === 'dm'
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
+      const isDM = currentChat.type === 'dm'
+      const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
 
-    try {
-      if (isDM) {
-        await sendMessageDMWithReply(chatId, user, text, currentChat.id, replyTo)
-      } else {
-        await sendMessageWithReply(chatId, user, text, replyTo)
+      try {
+        if (isDM) {
+          await sendMessageDMWithReply(chatId, user, text, currentChat.id, replyTo)
+        } else {
+          await sendMessageWithReply(chatId, user, text, replyTo)
+        }
+      } catch (error) {
+        console.error('Error sending thread reply:', error)
+        throw error
       }
-    } catch (error) {
-      console.error('Error sending thread reply:', error)
-      throw error
-    }
-  }, [user, currentChat])
+    },
+    [user, currentChat]
+  )
 
   // Promote message to post
   const handlePromoteMessage = async messageId => {

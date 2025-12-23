@@ -4514,33 +4514,26 @@ iframe[src*="vercel"] {
   to { transform: rotate(360deg); }
 }
 
-/* Enhanced reply count indicator with icon */
+/* Reply count indicator - iMessage style (simple text, no background) */
 .reply-count-indicator {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: #007AFF;
   margin-top: 4px;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 12px;
-  background: rgba(0, 122, 255, 0.08);
-  transition: all 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .reply-count-indicator:hover {
-  background: rgba(0, 122, 255, 0.15);
-  transform: translateY(-1px);
+  opacity: 0.7;
 }
 
 .reply-count-indicator:active {
-  transform: scale(0.97);
+  opacity: 0.5;
 }
 
 .reply-count-indicator.sent {
   text-align: right;
-  margin-left: auto;
 }
 
 .reply-count-indicator.received {

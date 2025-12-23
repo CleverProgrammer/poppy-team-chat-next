@@ -198,14 +198,24 @@ export default function MessageItem({
     setSwipeOffset(0)
 
     if (shouldReply) {
-      // Trigger reply after a brief delay for smooth animation
+      // Trigger thread view or reply after a brief delay for smooth animation
       setTimeout(() => {
         hapticSuccess()
-        const target = getOriginalReplyTarget()
-        onReply(target.msgId, target.sender, target.text)
+        // If we're in thread view, use the regular reply behavior
+        // Otherwise, open the thread view for this message
+        if (isInThreadView) {
+          const target = getOriginalReplyTarget()
+          onReply(target.msgId, target.sender, target.text)
+        } else if (onOpenThread) {
+          // Open thread view with this message as the root (or find root if this is a reply)
+          const rootMessage = msg.replyTo?.msgId 
+            ? messages.find(m => m.id === msg.replyTo.msgId) || msg
+            : msg
+          onOpenThread(rootMessage)
+        }
       }, 100)
     }
-  }, [swipeOffset, getOriginalReplyTarget, onReply])
+  }, [swipeOffset, getOriginalReplyTarget, onReply, isInThreadView, onOpenThread, msg, messages])
 
   // Touch start - start long press timer or swipe
   const handleTouchStart = useCallback(
@@ -319,16 +329,24 @@ export default function MessageItem({
         if (e.deltaX < -30 && !isDragging.current) {
           e.preventDefault()
           e.stopPropagation()
-          // Trigger reply directly for trackpad gesture
-          const target = getOriginalReplyTarget()
           hapticSuccess()
           setTimeout(() => {
-            onReply(target.msgId, target.sender, target.text)
+            // If we're in thread view, use regular reply behavior
+            // Otherwise, open thread view
+            if (isInThreadView) {
+              const target = getOriginalReplyTarget()
+              onReply(target.msgId, target.sender, target.text)
+            } else if (onOpenThread) {
+              const rootMessage = msg.replyTo?.msgId 
+                ? messages.find(m => m.id === msg.replyTo.msgId) || msg
+                : msg
+              onOpenThread(rootMessage)
+            }
           }, 50)
         }
       }
     },
-    [getOriginalReplyTarget, onReply]
+    [getOriginalReplyTarget, onReply, isInThreadView, onOpenThread, msg, messages]
   )
 
   // Mouse handlers for desktop drag (disabled - using trackpad gestures instead)
@@ -499,8 +517,17 @@ export default function MessageItem({
           position={actionSheetPosition}
           onReaction={emoji => onAddReaction(msg.id, emoji)}
           onReply={() => {
-            const target = getOriginalReplyTarget()
-            onReply(target.msgId, target.sender, target.text)
+            // If we're in thread view, use regular reply behavior
+            // Otherwise, open thread view
+            if (isInThreadView) {
+              const target = getOriginalReplyTarget()
+              onReply(target.msgId, target.sender, target.text)
+            } else if (onOpenThread) {
+              const rootMessage = msg.replyTo?.msgId 
+                ? messages.find(m => m.id === msg.replyTo.msgId) || msg
+                : msg
+              onOpenThread(rootMessage)
+            }
           }}
           onVideoReply={handleVideoReply}
           onEdit={() => onEdit(msg.id, msg.text)}
@@ -775,7 +802,7 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* Reply Count Indicator - Clickable to open thread view */}
+        {/* Reply Count Indicator - iMessage style, just text */}
         {shouldShowReplyCount && (
           <div 
             className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}
@@ -784,9 +811,6 @@ export default function MessageItem({
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && handleReplyCountClick(e)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
             {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
           </div>
         )}
@@ -830,8 +854,17 @@ export default function MessageItem({
         position={actionSheetPosition}
         onReaction={emoji => onAddReaction(msg.id, emoji)}
         onReply={() => {
-          const target = getOriginalReplyTarget()
-          onReply(target.msgId, target.sender, target.text)
+          // If we're in thread view, use regular reply behavior
+          // Otherwise, open thread view
+          if (isInThreadView) {
+            const target = getOriginalReplyTarget()
+            onReply(target.msgId, target.sender, target.text)
+          } else if (onOpenThread) {
+            const rootMessage = msg.replyTo?.msgId 
+              ? messages.find(m => m.id === msg.replyTo.msgId) || msg
+              : msg
+            onOpenThread(rootMessage)
+          }
         }}
         onVideoReply={handleVideoReply}
         onEdit={() => onEdit(msg.id, msg.text)}
