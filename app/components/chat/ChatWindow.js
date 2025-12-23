@@ -16,6 +16,7 @@ import PostsView from './PostsView'
 import PostPreview from './PostPreview'
 import VideoRecorder from './VideoRecorder'
 import WebVideoRecorder from './WebVideoRecorder'
+import ThreadView from './ThreadView'
 import { useAuth } from '../../contexts/AuthContext'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { useReactions } from '../../hooks/useReactions'
@@ -62,6 +63,7 @@ export default function ChatWindow() {
   const [videoUploadProgress, setVideoUploadProgress] = useState(null) // { percent, status } for upload indicator
   const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder (iOS)
   const [webVideoRecorderOpen, setWebVideoRecorderOpen] = useState(false) // Web video recorder (desktop)
+  const [threadView, setThreadView] = useState({ open: false, originalMessage: null }) // Thread view state
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -631,6 +633,21 @@ export default function ChatWindow() {
     }
   }
 
+  // Thread view handlers
+  const openThreadView = useCallback((originalMessage) => {
+    setThreadView({ open: true, originalMessage })
+  }, [])
+
+  const closeThreadView = useCallback(() => {
+    setThreadView({ open: false, originalMessage: null })
+  }, [])
+
+  // Get thread messages for the currently open thread
+  const getThreadMessages = useCallback(() => {
+    if (!threadView.originalMessage) return []
+    return messages.filter(m => m.replyTo?.msgId === threadView.originalMessage.id)
+  }, [messages, threadView.originalMessage])
+
   // Promote message to post
   const handlePromoteMessage = async messageId => {
     const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
@@ -899,6 +916,30 @@ export default function ChatWindow() {
           pendingVideoReplyRef.current = null
         }}
         onVideoRecorded={handleWebVideoRecorded}
+      />
+
+      {/* Thread View - iMessage style overlay */}
+      <ThreadView
+        isOpen={threadView.open}
+        onClose={closeThreadView}
+        originalMessage={threadView.originalMessage}
+        threadMessages={getThreadMessages()}
+        allMessages={messages}
+        user={user}
+        currentChat={currentChat}
+        allUsers={allUsers}
+        topReactions={topReactions}
+        onReply={startReply}
+        onVideoReply={startVideoReply}
+        onEdit={startEdit}
+        onDelete={handleDeleteMessage}
+        onPromote={handlePromoteMessage}
+        onAddToTeamMemory={handleAddToTeamMemory}
+        onAddReaction={handleAddReaction}
+        onImageClick={(images, startIndex) =>
+          setLightboxData({ open: true, images, startIndex })
+        }
+        onScrollToMessage={scrollToMessage}
       />
 
       {/* Video Upload Progress Toast */}
@@ -1193,6 +1234,7 @@ export default function ChatWindow() {
                             }
                             onScrollToMessage={scrollToMessage}
                             messageRef={el => (messageRefs.current[item.id] = el)}
+                            onOpenThread={openThreadView}
                           />
                         )
                       }

@@ -4219,6 +4219,270 @@ iframe[src*="vercel"] {
 }
 
 /* =====================================================
+   Thread View - iMessage-style overlay
+   ===================================================== */
+
+.thread-view-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: threadOverlayIn 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.thread-view-overlay.closing {
+  animation: threadOverlayOut 0.2s cubic-bezier(0.32, 0, 0.68, 0);
+  opacity: 0;
+}
+
+@keyframes threadOverlayIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}
+
+@keyframes threadOverlayOut {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+}
+
+.thread-view-container {
+  width: 100%;
+  max-width: 600px;
+  height: 90vh;
+  max-height: 800px;
+  background: var(--bg-messages);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 
+    0 25px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: threadContainerIn 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.thread-view-overlay.closing .thread-view-container {
+  animation: threadContainerOut 0.2s cubic-bezier(0.32, 0, 0.68, 0);
+  transform: scale(0.95) translateY(20px);
+  opacity: 0;
+}
+
+@keyframes threadContainerIn {
+  from {
+    transform: scale(0.9) translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes threadContainerOut {
+  from {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.95) translateY(20px);
+    opacity: 0;
+  }
+}
+
+/* Thread header */
+.thread-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-app);
+  flex-shrink: 0;
+}
+
+.thread-view-close-btn {
+  background: none;
+  border: none;
+  color: #007AFF;
+  cursor: pointer;
+  padding: 8px;
+  margin: -8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.thread-view-close-btn:hover {
+  background: rgba(0, 122, 255, 0.1);
+}
+
+.thread-view-close-btn:active {
+  transform: scale(0.95);
+}
+
+.thread-view-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.thread-view-title-text {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.thread-view-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.thread-view-spacer {
+  width: 40px; /* Balance the close button */
+}
+
+/* Thread messages container - looks like main message list */
+.thread-view-messages {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-messages);
+}
+
+/* Original message in thread has a subtle highlight */
+.thread-view-messages .message-wrapper.thread-original {
+  position: relative;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+}
+
+.thread-view-messages .message-wrapper.thread-original::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+}
+
+/* Label for original message */
+.thread-view-messages .message-wrapper.thread-original .message-content-wrapper::before {
+  content: 'Original message';
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Reply prompt at bottom */
+.thread-view-reply-prompt {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-app);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.thread-view-reply-input-fake {
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: 22px;
+  padding: 12px 20px;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.thread-view-reply-prompt:hover .thread-view-reply-input-fake {
+  border-color: #007AFF;
+  background: var(--bg-hover);
+}
+
+/* Enhanced reply count indicator with icon */
+.reply-count-indicator {
+  font-size: 12px;
+  font-weight: 500;
+  color: #007AFF;
+  margin-top: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0, 122, 255, 0.08);
+  transition: all 0.15s ease;
+}
+
+.reply-count-indicator:hover {
+  background: rgba(0, 122, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.reply-count-indicator:active {
+  transform: scale(0.97);
+}
+
+.reply-count-indicator.sent {
+  text-align: right;
+  margin-left: auto;
+}
+
+.reply-count-indicator.received {
+  text-align: left;
+}
+
+/* Mobile responsiveness for thread view */
+@media (max-width: 768px) {
+  .thread-view-container {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+  
+  .thread-view-header {
+    padding-top: max(16px, env(safe-area-inset-top, 16px));
+  }
+  
+  .thread-view-reply-prompt {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  }
+}
+
+/* =====================================================
    iOS Native Mobile Styles - iMessage-inspired
    ===================================================== */
 /* Moved to app/mobile.css */

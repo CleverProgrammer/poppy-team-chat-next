@@ -34,6 +34,9 @@ export default function MessageItem({
   onImageClick,
   onScrollToMessage,
   messageRef,
+  onOpenThread,
+  isInThreadView = false,
+  isOriginalInThread = false,
 }) {
   const [actionSheetOpen, setActionSheetOpen] = useState(false)
   const [actionSheetReactionsOnly, setActionSheetReactionsOnly] = useState(false)
@@ -404,11 +407,22 @@ export default function MessageItem({
     }
   })
 
-  // Count replies to this message (only if this is a reply itself)
-  // If this message is a reply, show the count of all replies to the original message
-  const replyCount = msg.replyTo 
-    ? messages.filter(m => m.replyTo?.msgId === msg.replyTo.msgId).length
-    : 0
+  // Count replies to this message
+  // If this message is an original (not a reply), count messages that reply to it
+  // If this message is a reply, count total replies to the same original message
+  const originalMsgId = msg.replyTo?.msgId || msg.id
+  const replyCount = messages.filter(m => m.replyTo?.msgId === originalMsgId).length
+  
+  // Only show reply count on the original message (not on replies)
+  const shouldShowReplyCount = !msg.replyTo && replyCount > 0 && !isInThreadView
+  
+  // Handle clicking the reply count to open thread view
+  const handleReplyCountClick = useCallback((e) => {
+    e.stopPropagation()
+    if (onOpenThread) {
+      onOpenThread(msg)
+    }
+  }, [msg, onOpenThread])
 
   const isReplyTarget = replyingTo?.msgId === msg.id
   const isLastMessage = index === totalMessages - 1
@@ -506,6 +520,7 @@ export default function MessageItem({
         elementRef.current = el
       }}
       data-msg-id={msg.id}
+      data-is-original={isOriginalInThread ? 'true' : undefined}
       className={`message-wrapper ${isSent ? 'sent' : 'received'} ${
         isReplyTarget ? 'reply-target' : ''
       } ${actionSheetOpen ? 'message-selected' : ''} ${
@@ -516,7 +531,9 @@ export default function MessageItem({
         !msg.imageUrls?.length
           ? 'video-only-reply'
           : ''
-      } ${msg.senderId === 'ai' ? 'ai-message' : ''} ${isSwiping ? 'swiping' : ''}`}
+      } ${msg.senderId === 'ai' ? 'ai-message' : ''} ${isSwiping ? 'swiping' : ''} ${
+        isOriginalInThread ? 'thread-original' : ''
+      }`}
       style={{
         transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : 'none',
         transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -758,9 +775,18 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* Reply Count Indicator */}
-        {replyCount > 0 && (
-          <div className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}>
+        {/* Reply Count Indicator - Clickable to open thread view */}
+        {shouldShowReplyCount && (
+          <div 
+            className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}
+            onClick={handleReplyCountClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleReplyCountClick(e)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
             {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
           </div>
         )}
