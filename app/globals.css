@@ -1710,6 +1710,7 @@ iframe[src*="vercel"] {
   max-width: 400px;
   width: fit-content;
   border-radius: 20px;
+  position: relative;
 }
 
 .voice-message.sent {
@@ -1816,6 +1817,34 @@ iframe[src*="vercel"] {
 .voice-message.received .voice-duration {
   color: #000;
   opacity: 0.6;
+}
+
+/* Speed Button - Positioned at bottom right, only visible when playing */
+.voice-speed-button {
+  position: absolute;
+  bottom: -6px;
+  right: -4px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 5px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  font-variant-numeric: tabular-nums;
+  background: rgba(30, 30, 30, 0.85);
+  color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  min-width: 32px;
+  text-align: center;
+}
+
+.voice-speed-button:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.voice-speed-button:active {
+  opacity: 0.8;
 }
 
 /* Recording Indicator */

@@ -1,11 +1,60 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import WaveSurfer from '@wavesurfer/react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useWavesurfer } from '@wavesurfer/react'
+
+const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3]
 
 export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const wavesurferRef = useRef(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [speedIndex, setSpeedIndex] = useState(0)
+  const containerRef = useRef(null)
+
+  const { wavesurfer, isReady } = useWavesurfer({
+    container: containerRef,
+    url: audioUrl,
+    height: 40,
+    waveColor: isSent ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+    progressColor: isSent ? 'rgba(255,255,255,1)' : '#ff3b30',
+    barWidth: 3,
+    barGap: 2,
+    barRadius: 2,
+    cursorWidth: 0,
+    normalize: true,
+  })
+
+  // Set playback rate when speed changes or wavesurfer is ready
+  useEffect(() => {
+    if (wavesurfer) {
+      wavesurfer.setPlaybackRate(SPEED_OPTIONS[speedIndex])
+    }
+  }, [wavesurfer, speedIndex])
+
+  useEffect(() => {
+    if (!wavesurfer) return
+
+    const subscriptions = [
+      wavesurfer.on('play', () => setIsPlaying(true)),
+      wavesurfer.on('pause', () => setIsPlaying(false)),
+      wavesurfer.on('finish', () => setIsPlaying(false)),
+      wavesurfer.on('timeupdate', (time) => setCurrentTime(time)),
+    ]
+
+    return () => {
+      subscriptions.forEach((unsub) => unsub())
+    }
+  }, [wavesurfer])
+
+  const handlePlayPause = useCallback(() => {
+    if (wavesurfer) {
+      wavesurfer.playPause()
+    }
+  }, [wavesurfer])
+
+  const handleSpeedChange = useCallback(() => {
+    setSpeedIndex((prev) => (prev + 1) % SPEED_OPTIONS.length)
+  }, [])
 
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00'
@@ -14,11 +63,9 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const handlePlayPause = () => {
-    if (wavesurferRef.current) {
-      wavesurferRef.current.playPause()
-    }
-  }
+  // Show current time while playing, otherwise show duration
+  const displayTime = isPlaying ? currentTime : audioDuration
+  const currentSpeed = SPEED_OPTIONS[speedIndex]
 
   return (
     <div className={`voice-message ${isSent ? 'sent' : 'received'}`}>
@@ -38,28 +85,21 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent }) {
         )}
       </button>
 
-      <div className="voice-waveform-container">
-        <WaveSurfer
-          url={audioUrl}
-          height={40}
-          waveColor={isSent ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}
-          progressColor={isSent ? "rgba(255,255,255,1)" : "rgba(255,59,48,1)"}
-          barWidth={3}
-          barGap={1.5}
-          cursorWidth={0}
-          normalize={true}
-          fillParent={true}
-          onReady={(ws) => {
-            wavesurferRef.current = ws
-          }}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-        />
-      </div>
+      <div className="voice-waveform-container" ref={containerRef} />
 
       <div className="voice-duration">
-        {formatTime(audioDuration)}
+        {formatTime(displayTime)}
       </div>
+
+      {isPlaying && (
+        <button
+          className="voice-speed-button"
+          onClick={handleSpeedChange}
+          aria-label={`Playback speed ${currentSpeed}x`}
+        >
+          {currentSpeed}x
+        </button>
+      )}
     </div>
   )
 }
