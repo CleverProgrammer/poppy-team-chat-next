@@ -404,8 +404,11 @@ export default function MessageItem({
     }
   })
 
-  // Count replies to this message
-  const replyCount = messages.filter(m => m.replyTo?.msgId === msg.id).length
+  // Count replies to this message (only if this is a reply itself)
+  // If this message is a reply, show the count of all replies to the original message
+  const replyCount = msg.replyTo 
+    ? messages.filter(m => m.replyTo?.msgId === msg.replyTo.msgId).length
+    : 0
 
   const isReplyTarget = replyingTo?.msgId === msg.id
   const isLastMessage = index === totalMessages - 1
