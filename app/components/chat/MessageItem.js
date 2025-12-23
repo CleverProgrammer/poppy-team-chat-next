@@ -42,6 +42,8 @@ export default function MessageItem({
   const [storiesOpen, setStoriesOpen] = useState(false)
   const [storiesVideos, setStoriesVideos] = useState([])
   const [storiesInitialIndex, setStoriesInitialIndex] = useState(0)
+  const [swipeOffset, setSwipeOffset] = useState(0)
+  const [isSwiping, setIsSwiping] = useState(false)
   const lastTapTime = useRef(0)
   const secondLastTapTime = useRef(0) // For triple-tap detection
   const doubleTapTimer = useRef(null) // Delay double-tap to check for triple-tap
@@ -49,6 +51,11 @@ export default function MessageItem({
   const longPressTimer = useRef(null)
   const isLongPressTriggered = useRef(false)
   const prevReactionsRef = useRef(null)
+  const swipeStartX = useRef(0)
+  const swipeStartY = useRef(0)
+  const isDragging = useRef(false)
+  const SWIPE_THRESHOLD = 60 // pixels to trigger reply
+  const MAX_SWIPE = 100 // max pixels to drag
 
   const isOwnMessage = msg.senderId === user?.uid
 
@@ -98,14 +105,14 @@ export default function MessageItem({
       return {
         msgId: msg.replyTo.msgId,
         sender: msg.replyTo.sender,
-        text: msg.replyTo.text || ''
+        text: msg.replyTo.text || '',
       }
     }
     // This is an original message - reply to it directly
     return {
       msgId: msg.id,
       sender: msg.sender,
-      text: msg.text || msg.content || ''
+      text: msg.text || msg.content || '',
     }
   }, [msg.id, msg.sender, msg.text, msg.content, msg.replyTo])
 
@@ -130,17 +137,87 @@ export default function MessageItem({
     setActionSheetOpen(true)
   }, [])
 
-  // Touch start - start long press timer
+  // Handle swipe/drag start (touch or mouse)
+  const handleSwipeStart = useCallback((clientX, clientY) => {
+    swipeStartX.current = clientX
+    swipeStartY.current = clientY
+    isDragging.current = true
+    setIsSwiping(true)
+    setSwipeOffset(0)
+    // Cancel long press timer when starting swipe
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }, [])
+
+  // Handle swipe/drag move
+  const handleSwipeMove = useCallback((clientX, clientY) => {
+    if (!isDragging.current) return
+
+    const deltaX = clientX - swipeStartX.current
+    const deltaY = Math.abs(clientY - swipeStartY.current)
+
+    // Only allow rightward swipes (positive deltaX)
+    // And ensure it's more horizontal than vertical (prevent accidental swipes during scroll)
+    // Require at least 10px horizontal movement to start swiping
+    if (deltaX > 10 && deltaX > deltaY * 0.7) {
+      // Cap the swipe at MAX_SWIPE
+      const offset = Math.min(deltaX, MAX_SWIPE)
+      setSwipeOffset(offset)
+      // Add resistance after threshold
+      if (offset > SWIPE_THRESHOLD) {
+        const extra = offset - SWIPE_THRESHOLD
+        const resistance = SWIPE_THRESHOLD + extra * 0.3 // Add resistance
+        setSwipeOffset(Math.min(resistance, MAX_SWIPE))
+      }
+    } else if (deltaX < -10 || deltaY > deltaX * 0.7) {
+      // Reset if swiping left or if vertical movement dominates (scrolling)
+      setSwipeOffset(0)
+      // Cancel drag if scrolling vertically
+      if (deltaY > deltaX * 0.7) {
+        isDragging.current = false
+        setIsSwiping(false)
+      }
+    }
+  }, [])
+
+  // Handle swipe/drag end
+  const handleSwipeEnd = useCallback(() => {
+    if (!isDragging.current) return
+
+    const currentOffset = swipeOffset
+    const shouldReply = currentOffset >= SWIPE_THRESHOLD
+
+    // Reset swipe state first
+    isDragging.current = false
+    setIsSwiping(false)
+    setSwipeOffset(0)
+
+    if (shouldReply) {
+      // Trigger reply after a brief delay for smooth animation
+      setTimeout(() => {
+        hapticSuccess()
+        const target = getOriginalReplyTarget()
+        onReply(target.msgId, target.sender, target.text)
+      }, 100)
+    }
+  }, [swipeOffset, getOriginalReplyTarget, onReply])
+
+  // Touch start - start long press timer or swipe
   const handleTouchStart = useCallback(
     e => {
       isLongPressTriggered.current = false
+      handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)
 
       longPressTimer.current = setTimeout(() => {
-        isLongPressTriggered.current = true
-        handleLongPress()
+        if (!isDragging.current) {
+          isLongPressTriggered.current = true
+          handleLongPress()
+        }
       }, 400)
     },
-    [handleLongPress]
+    [handleLongPress, handleSwipeStart]
   )
 
   // Touch end - check for double tap and triple tap
@@ -152,8 +229,8 @@ export default function MessageItem({
         longPressTimer.current = null
       }
 
-      // Skip if long press was triggered
-      if (isLongPressTriggered.current) {
+      // Skip if long press was triggered or if we were swiping
+      if (isLongPressTriggered.current || isDragging.current) {
         return
       }
 
@@ -198,13 +275,84 @@ export default function MessageItem({
     [handleDoubleTap, handleTripleTap]
   )
 
-  // Touch move - cancel long press
-  const handleTouchMove = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
+  // Touch move - handle swipe or cancel long press
+  const handleTouchMove = useCallback(
+    e => {
+      if (isDragging.current) {
+        handleSwipeMove(e.touches[0].clientX, e.touches[0].clientY)
+        // Prevent default only if we're actually swiping horizontally
+        if (swipeOffset > 10) {
+          e.preventDefault()
+        }
+      }
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current)
+        longPressTimer.current = null
+      }
+    },
+    [handleSwipeMove, swipeOffset]
+  )
+
+  // Touch end - handle swipe end or tap detection
+  const handleTouchEndWithSwipe = useCallback(
+    e => {
+      if (isDragging.current) {
+        handleSwipeEnd()
+        // Don't process taps if we were swiping
+        return
+      }
+      handleTouchEnd(e)
+    },
+    [handleSwipeEnd, handleTouchEnd]
+  )
+
+  // Trackpad gesture handlers for Mac
+  const handleWheel = useCallback(
+    e => {
+      // Detect horizontal scroll (trackpad swipe)
+      // Negative deltaX means swiping right (scrolling content right)
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 30) {
+        // Rightward swipe (negative deltaX means scrolling right, which is swipe right)
+        if (e.deltaX < -30 && !isDragging.current) {
+          e.preventDefault()
+          e.stopPropagation()
+          // Trigger reply directly for trackpad gesture
+          const target = getOriginalReplyTarget()
+          hapticSuccess()
+          setTimeout(() => {
+            onReply(target.msgId, target.sender, target.text)
+          }, 50)
+        }
+      }
+    },
+    [getOriginalReplyTarget, onReply]
+  )
+
+  // Mouse handlers for desktop drag (disabled - using trackpad gestures instead)
+  const handleMouseDown = useCallback(() => {
+    // Disabled - we use trackpad gestures instead
   }, [])
+
+  const handleMouseMove = useCallback(() => {
+    // Disabled
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    // Disabled
+  }, [])
+
+  // Trackpad gesture detection for Mac
+  useEffect(() => {
+    const element = elementRef.current
+    if (!element) return
+
+    // Use wheel event to detect trackpad swipes
+    element.addEventListener('wheel', handleWheel, { passive: false })
+
+    return () => {
+      element.removeEventListener('wheel', handleWheel)
+    }
+  }, [handleWheel])
 
   // Right-click handler - show full action sheet
   const handleContextMenuWrapper = useCallback(
@@ -282,10 +430,14 @@ export default function MessageItem({
         data-msg-id={msg.id}
         className={`message-wrapper ${isSent ? 'sent' : 'received'} jumbo-emoji-wrapper ${
           actionSheetOpen ? 'message-selected' : ''
-        } ${msg.senderId === 'ai' ? 'ai-message' : ''}`}
+        } ${msg.senderId === 'ai' ? 'ai-message' : ''} ${isSwiping ? 'swiping' : ''}`}
+        style={{
+          transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : 'none',
+          transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        }}
         onContextMenu={handleContextMenuWrapper}
         onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        onTouchEnd={handleTouchEndWithSwipe}
         onTouchMove={handleTouchMove}
         onTouchCancel={handleTouchMove}
       >
@@ -361,39 +513,49 @@ export default function MessageItem({
         !msg.imageUrls?.length
           ? 'video-only-reply'
           : ''
-      } ${msg.senderId === 'ai' ? 'ai-message' : ''}`}
+      } ${msg.senderId === 'ai' ? 'ai-message' : ''} ${isSwiping ? 'swiping' : ''}`}
+      style={{
+        transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : 'none',
+        transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+      }}
       onContextMenu={handleContextMenuWrapper}
       onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchEnd={handleTouchEndWithSwipe}
       onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchMove}
     >
       {/* Channel avatar - positioned to the left of the message like iMessage */}
-      {!isSent && currentChat.type === 'channel' && msg.senderId !== 'ai' && (() => {
-        const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
-        const initial = (msg.sender || '?')[0].toUpperCase()
-        return photoURL ? (
-          <img
-            src={photoURL}
-            alt={msg.sender}
-            className='message-avatar'
-          />
-        ) : (
-          <div className='message-avatar-fallback'>
-            {initial}
-          </div>
-        )
-      })()}
+      {!isSent &&
+        currentChat.type === 'channel' &&
+        msg.senderId !== 'ai' &&
+        (() => {
+          const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
+          const initial = (msg.sender || '?')[0].toUpperCase()
+          return photoURL ? (
+            <img src={photoURL} alt={msg.sender} className='message-avatar' />
+          ) : (
+            <div className='message-avatar-fallback'>{initial}</div>
+          )
+        })()}
 
       {/* Message content wrapper */}
       <div className='message-content-wrapper'>
         {/* Reply quote - shows above the message bubble like iMessage */}
         {msg.replyTo && (
-          <div className='reply-quote-container' onClick={() => onScrollToMessage(msg.replyTo.msgId)}>
+          <div
+            className='reply-quote-container'
+            onClick={() => onScrollToMessage(msg.replyTo.msgId)}
+          >
             {(() => {
-              const replyUser = allUsers.find(u => u.displayName === msg.replyTo.sender || u.email === msg.replyTo.sender)
+              const replyUser = allUsers.find(
+                u => u.displayName === msg.replyTo.sender || u.email === msg.replyTo.sender
+              )
               return replyUser?.photoURL ? (
-                <img src={replyUser.photoURL} alt={msg.replyTo.sender} className='reply-quote-avatar' />
+                <img
+                  src={replyUser.photoURL}
+                  alt={msg.replyTo.sender}
+                  className='reply-quote-avatar'
+                />
               ) : (
                 <div className='reply-quote-avatar-fallback'>
                   {(msg.replyTo.sender || '?')[0].toUpperCase()}
@@ -402,8 +564,8 @@ export default function MessageItem({
             })()}
             <div className='reply-quote'>
               <div className='reply-quote-text'>
-                {msg.replyTo.text?.length > 500 
-                  ? `${msg.replyTo.text.slice(0, 500)}...` 
+                {msg.replyTo.text?.length > 500
+                  ? `${msg.replyTo.text.slice(0, 500)}...`
                   : msg.replyTo.text}
               </div>
             </div>
@@ -423,206 +585,208 @@ export default function MessageItem({
             <MessageTimestamp timestamp={msg.timestamp} />
           </div>
         )}
-      {/* Video replies - render OUTSIDE the message bubble for proper positioning */}
-      {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && msg.replyTo && (
-        <div className='message-videos video-reply'>
-          {msg.muxPlaybackIds.map((playbackId, idx) => (
-            <VideoThumbnail
-              key={idx}
-              playbackId={playbackId}
-              isReply={true}
-              onClick={e => {
-                e.stopPropagation()
-                // Collect all video replies to the SAME original message
-                const repliestoSameMessage = messages
-                  .filter(
-                    m =>
-                      m.muxPlaybackIds &&
-                      m.muxPlaybackIds.length > 0 &&
-                      m.replyTo?.msgId === msg.replyTo?.msgId
-                  )
-                  .flatMap(m =>
-                    m.muxPlaybackIds.map(pid => ({
-                      playbackId: pid,
-                      sender: m.sender,
-                      timestamp: m.timestamp,
-                      msgId: m.id,
-                    }))
-                  )
-                // Find the index of the clicked video
-                const currentIdx = repliestoSameMessage.findIndex(v => v.playbackId === playbackId)
-                setStoriesVideos(repliestoSameMessage)
-                setStoriesInitialIndex(currentIdx >= 0 ? currentIdx : 0)
-                setStoriesOpen(true)
-              }}
-            />
-          ))}
-        </div>
-      )}
-      <div className='message'>
-        {/* Regular Mux videos (not replies) - clickable thumbnail that opens modal */}
-        {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
-          <div className='message-videos'>
+        {/* Video replies - render OUTSIDE the message bubble for proper positioning */}
+        {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && msg.replyTo && (
+          <div className='message-videos video-reply'>
             {msg.muxPlaybackIds.map((playbackId, idx) => (
               <VideoThumbnail
                 key={idx}
                 playbackId={playbackId}
-                isReply={false}
+                isReply={true}
                 onClick={e => {
                   e.stopPropagation()
-                  // Create video data for StoriesViewer
-                  const videoData = msg.muxPlaybackIds.map(pid => ({
-                    playbackId: pid,
-                    sender: msg.sender,
-                    timestamp: msg.timestamp,
-                    msgId: msg.id,
-                  }))
-                  setStoriesVideos(videoData)
-                  setStoriesInitialIndex(idx)
+                  // Collect all video replies to the SAME original message
+                  const repliestoSameMessage = messages
+                    .filter(
+                      m =>
+                        m.muxPlaybackIds &&
+                        m.muxPlaybackIds.length > 0 &&
+                        m.replyTo?.msgId === msg.replyTo?.msgId
+                    )
+                    .flatMap(m =>
+                      m.muxPlaybackIds.map(pid => ({
+                        playbackId: pid,
+                        sender: m.sender,
+                        timestamp: m.timestamp,
+                        msgId: m.id,
+                      }))
+                    )
+                  // Find the index of the clicked video
+                  const currentIdx = repliestoSameMessage.findIndex(
+                    v => v.playbackId === playbackId
+                  )
+                  setStoriesVideos(repliestoSameMessage)
+                  setStoriesInitialIndex(currentIdx >= 0 ? currentIdx : 0)
                   setStoriesOpen(true)
                 }}
               />
             ))}
           </div>
         )}
-        {/* Support multiple images or single image */}
-        {(msg.imageUrls || msg.imageUrl) && (
-          <div
-            className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}
-          >
-            {(() => {
-              const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
-              return allImages.map((url, idx) => (
-                <img
+        <div className='message'>
+          {/* Regular Mux videos (not replies) - clickable thumbnail that opens modal */}
+          {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
+            <div className='message-videos'>
+              {msg.muxPlaybackIds.map((playbackId, idx) => (
+                <VideoThumbnail
                   key={idx}
-                  src={url}
-                  alt={`Shared image ${idx + 1}`}
-                  className='message-image'
+                  playbackId={playbackId}
+                  isReply={false}
                   onClick={e => {
                     e.stopPropagation()
-                    onImageClick(allImages, idx)
+                    // Create video data for StoriesViewer
+                    const videoData = msg.muxPlaybackIds.map(pid => ({
+                      playbackId: pid,
+                      sender: msg.sender,
+                      timestamp: msg.timestamp,
+                      msgId: msg.id,
+                    }))
+                    setStoriesVideos(videoData)
+                    setStoriesInitialIndex(idx)
+                    setStoriesOpen(true)
                   }}
                 />
-              ))
-            })()}
-          </div>
-        )}
-        {/* Voice message */}
-        {msg.audioUrl && (
-          <VoiceMessage
-            audioUrl={msg.audioUrl}
-            audioDuration={msg.audioDuration}
-            isSent={isOwnMessage}
-          />
-        )}
-        {/* Loom video embed */}
-        {msg.text && isLoomUrl(msg.text) && (
-          <div className='loom-container'>
-            <iframe
-              src={getLoomEmbedUrl(msg.text)}
-              loading='lazy'
-              allowFullScreen
-              title='Loom video'
+              ))}
+            </div>
+          )}
+          {/* Support multiple images or single image */}
+          {(msg.imageUrls || msg.imageUrl) && (
+            <div
+              className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}
+            >
+              {(() => {
+                const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
+                return allImages.map((url, idx) => (
+                  <img
+                    key={idx}
+                    src={url}
+                    alt={`Shared image ${idx + 1}`}
+                    className='message-image'
+                    onClick={e => {
+                      e.stopPropagation()
+                      onImageClick(allImages, idx)
+                    }}
+                  />
+                ))
+              })()}
+            </div>
+          )}
+          {/* Voice message */}
+          {msg.audioUrl && (
+            <VoiceMessage
+              audioUrl={msg.audioUrl}
+              audioDuration={msg.audioDuration}
+              isSent={isOwnMessage}
             />
-          </div>
-        )}
-        {msg.text && (
-          <div className='text'>
-            {linkifyText(msg.text)}
-            {msg.edited && <span className='edited-indicator'> (edited)</span>}
-          </div>
-        )}
-      </div>
-      {isSent && (
-        <div className='message-timestamp-sent'>
-          <MessageTimestamp timestamp={msg.timestamp} />
-        </div>
-      )}
-
-      {/* Reactions Display */}
-      {Object.keys(reactionCounts).length > 0 && (
-        <div className='reactions-display'>
-          {Object.entries(reactionCounts).map(([emoji, data]) => {
-            const reactedUsers = data.userIds
-              .map(uid => allUsers.find(u => u.uid === uid))
-              .filter(Boolean)
-
-            return (
-              <div
-                key={emoji}
-                className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''} ${
-                  animatingEmoji === emoji ? 'reaction-pop' : ''
-                }`}
-                onClick={() => onAddReaction(msg.id, emoji)}
-              >
-                <span className='reaction-emoji'>{emoji}</span>
-                <span className='count'>{data.count}</span>
-
-                {/* Reaction tooltip with user avatars */}
-                <div className='reaction-tooltip'>
-                  <div className='reaction-tooltip-avatars'>
-                    {reactedUsers.map(reactedUser => (
-                      reactedUser.photoURL ? (
-                        <img
-                          key={reactedUser.uid}
-                          src={reactedUser.photoURL}
-                          alt={reactedUser.displayName}
-                          className='reaction-tooltip-avatar'
-                          title={reactedUser.displayName || reactedUser.email}
-                        />
-                      ) : (
-                        <div
-                          key={reactedUser.uid}
-                          className='reaction-tooltip-avatar-fallback'
-                          title={reactedUser.displayName || reactedUser.email}
-                        >
-                          {(reactedUser.displayName || reactedUser.email || '?')[0].toUpperCase()}
-                        </div>
-                      )
-                    ))}
-                  </div>
-                  <div className='reaction-tooltip-names'>
-                    {reactedUsers.map(u => u.displayName || u.email).join(', ')}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Reply Count Indicator */}
-      {replyCount > 0 && (
-        <div className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}>
-          {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
-        </div>
-      )}
-
-      {/* Read Receipt - Only show on messages I sent that were read by the other person */}
-      {isSent &&
-        currentChat.type === 'dm' &&
-        msg.readBy &&
-        msg.readBy[currentChat.id] &&
-        isLastMessageFromSender &&
-        (() => {
-          const otherUser = allUsers.find(u => u.uid === currentChat.id)
-          return (
-            <div className='read-receipt'>
-              <span className='read-text'>
-                Read{' '}
-                {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                })}
-              </span>
-              <img
-                src={otherUser?.photoURL || ''}
-                alt={otherUser?.displayName || 'User'}
-                className='read-receipt-avatar'
+          )}
+          {/* Loom video embed */}
+          {msg.text && isLoomUrl(msg.text) && (
+            <div className='loom-container'>
+              <iframe
+                src={getLoomEmbedUrl(msg.text)}
+                loading='lazy'
+                allowFullScreen
+                title='Loom video'
               />
             </div>
-          )
-        })()}
+          )}
+          {msg.text && (
+            <div className='text'>
+              {linkifyText(msg.text)}
+              {msg.edited && <span className='edited-indicator'> (edited)</span>}
+            </div>
+          )}
+        </div>
+        {isSent && (
+          <div className='message-timestamp-sent'>
+            <MessageTimestamp timestamp={msg.timestamp} />
+          </div>
+        )}
+
+        {/* Reactions Display */}
+        {Object.keys(reactionCounts).length > 0 && (
+          <div className='reactions-display'>
+            {Object.entries(reactionCounts).map(([emoji, data]) => {
+              const reactedUsers = data.userIds
+                .map(uid => allUsers.find(u => u.uid === uid))
+                .filter(Boolean)
+
+              return (
+                <div
+                  key={emoji}
+                  className={`reaction-badge ${userReactedWith[emoji] ? 'mine' : ''} ${
+                    animatingEmoji === emoji ? 'reaction-pop' : ''
+                  }`}
+                  onClick={() => onAddReaction(msg.id, emoji)}
+                >
+                  <span className='reaction-emoji'>{emoji}</span>
+                  <span className='count'>{data.count}</span>
+
+                  {/* Reaction tooltip with user avatars */}
+                  <div className='reaction-tooltip'>
+                    <div className='reaction-tooltip-avatars'>
+                      {reactedUsers.map(reactedUser =>
+                        reactedUser.photoURL ? (
+                          <img
+                            key={reactedUser.uid}
+                            src={reactedUser.photoURL}
+                            alt={reactedUser.displayName}
+                            className='reaction-tooltip-avatar'
+                            title={reactedUser.displayName || reactedUser.email}
+                          />
+                        ) : (
+                          <div
+                            key={reactedUser.uid}
+                            className='reaction-tooltip-avatar-fallback'
+                            title={reactedUser.displayName || reactedUser.email}
+                          >
+                            {(reactedUser.displayName || reactedUser.email || '?')[0].toUpperCase()}
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className='reaction-tooltip-names'>
+                      {reactedUsers.map(u => u.displayName || u.email).join(', ')}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Reply Count Indicator */}
+        {replyCount > 0 && (
+          <div className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}>
+            {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
+          </div>
+        )}
+
+        {/* Read Receipt - Only show on messages I sent that were read by the other person */}
+        {isSent &&
+          currentChat.type === 'dm' &&
+          msg.readBy &&
+          msg.readBy[currentChat.id] &&
+          isLastMessageFromSender &&
+          (() => {
+            const otherUser = allUsers.find(u => u.uid === currentChat.id)
+            return (
+              <div className='read-receipt'>
+                <span className='read-text'>
+                  Read{' '}
+                  {new Date(msg.readBy[currentChat.id].seconds * 1000).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </span>
+                <img
+                  src={otherUser?.photoURL || ''}
+                  alt={otherUser?.displayName || 'User'}
+                  className='read-receipt-avatar'
+                />
+              </div>
+            )
+          })()}
       </div>
       {/* End message-content-wrapper */}
 

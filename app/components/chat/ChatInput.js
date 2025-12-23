@@ -46,6 +46,9 @@ export default function ChatInput({
   const animationFrameRef = useRef(null)
   const isRecordingRef = useRef(false)
   const previewWaveformContainerRef = useRef(null)
+  const tripleTapTimerRef = useRef(null)
+  const tapCountRef = useRef(0)
+  const lastTapTimeRef = useRef(0)
 
   // WaveSurfer for preview state - only initialize when we have audio URL
   const { wavesurfer: previewWavesurfer } = useWavesurfer({
@@ -139,6 +142,51 @@ export default function ChatInput({
     handleTextareaChange(e)
     setHasContent(e.target.value.trim().length > 0 || imagePreviews.length > 0)
   }
+
+  // Handle triple tap to select all text (iOS)
+  const handleTripleTap = useCallback((e) => {
+    // Only handle on touch devices (iOS/mobile)
+    if (!e.touches || e.touches.length === 0) return
+
+    const now = Date.now()
+    const timeSinceLastTap = now - lastTapTimeRef.current
+
+    // Reset if too much time has passed (more than 500ms)
+    if (timeSinceLastTap > 500) {
+      tapCountRef.current = 0
+    }
+
+    tapCountRef.current++
+    lastTapTimeRef.current = now
+
+    // Clear existing timer
+    if (tripleTapTimerRef.current) {
+      clearTimeout(tripleTapTimerRef.current)
+    }
+
+    // If we've detected 3 taps, select all text
+    if (tapCountRef.current >= 3) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      if (inputRef.current) {
+        inputRef.current.focus()
+        // Use setTimeout to ensure focus happens before selection
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.select()
+          }
+        }, 0)
+        tapCountRef.current = 0 // Reset after selection
+      }
+      return
+    }
+
+    // Set a timer to reset tap count if no more taps come
+    tripleTapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0
+    }, 500)
+  }, [])
 
   const onSend = e => {
     handleSend(e)
@@ -360,6 +408,9 @@ export default function ChatInput({
       }
       if (recordedAudioUrl) {
         URL.revokeObjectURL(recordedAudioUrl)
+      }
+      if (tripleTapTimerRef.current) {
+        clearTimeout(tripleTapTimerRef.current)
       }
     }
   }, [previewWavesurfer, recordedAudioUrl])
@@ -643,6 +694,7 @@ export default function ChatInput({
               rows='1'
               onInput={handleInput}
               onKeyDown={handleKeyDown}
+              onTouchStart={handleTripleTap}
               onFocus={() => {
                 // Scroll to bottom when input is focused (for web mobile)
                 // Native platforms use Capacitor Keyboard events instead
