@@ -57,6 +57,7 @@ export default function MessageItem({
   const swipeStartX = useRef(0)
   const swipeStartY = useRef(0)
   const isDragging = useRef(false)
+  const actionSheetClosedAt = useRef(0) // Track when action sheet closed to prevent phantom touches
   const SWIPE_THRESHOLD = 60 // pixels to trigger reply
   const MAX_SWIPE = 100 // max pixels to drag
 
@@ -230,6 +231,13 @@ export default function MessageItem({
   // Touch start - start long press timer or swipe
   const handleTouchStart = useCallback(
     e => {
+      // Ignore touches that happen within 300ms of action sheet closing
+      // This prevents phantom touch events from re-triggering the menu
+      const timeSinceActionSheetClosed = Date.now() - actionSheetClosedAt.current
+      if (timeSinceActionSheetClosed < 300) {
+        return
+      }
+      
       isLongPressTriggered.current = false
       handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)
 
@@ -319,14 +327,27 @@ export default function MessageItem({
   // Touch end - handle swipe end or tap detection
   const handleTouchEndWithSwipe = useCallback(
     e => {
+      // ALWAYS clear the long press timer first to prevent it from firing
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current)
+        longPressTimer.current = null
+      }
+      
+      // Check if we actually swiped (moved significantly)
+      const didSwipe = swipeOffset > 10
+      
       if (isDragging.current) {
         handleSwipeEnd()
-        // Don't process taps if we were swiping
-        return
+        // Only skip tap detection if we actually swiped
+        if (didSwipe) {
+          return
+        }
       }
+      
+      // Process tap detection if we didn't swipe
       handleTouchEnd(e)
     },
-    [handleSwipeEnd, handleTouchEnd]
+    [handleSwipeEnd, handleTouchEnd, swipeOffset]
   )
 
   // Trackpad gesture handlers for Mac
@@ -509,7 +530,10 @@ export default function MessageItem({
         {/* Mobile Action Sheet (vaul) */}
         <MessageActionSheet
           isOpen={actionSheetOpen}
-          onClose={() => setActionSheetOpen(false)}
+          onClose={() => {
+            actionSheetClosedAt.current = Date.now()
+            setActionSheetOpen(false)
+          }}
           message={msg}
           isOwnMessage={isOwnMessage}
           isPost={false}
@@ -956,7 +980,10 @@ export default function MessageItem({
       {/* Mobile Action Sheet (vaul) */}
       <MessageActionSheet
         isOpen={actionSheetOpen}
-        onClose={() => setActionSheetOpen(false)}
+        onClose={() => {
+          actionSheetClosedAt.current = Date.now()
+          setActionSheetOpen(false)
+        }}
         message={msg}
         isOwnMessage={isOwnMessage}
         isPost={false}
