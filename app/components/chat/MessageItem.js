@@ -431,16 +431,6 @@ export default function MessageItem({
   const originalMsgId = msg.replyTo?.msgId || msg.id
   const replyCount = messages.filter(m => m.replyTo?.msgId === originalMsgId).length
   
-  // Only show reply count on the original message (not on replies)
-  const shouldShowReplyCount = !msg.replyTo && replyCount > 0 && !isInThreadView
-  
-  // Handle clicking the reply count to open thread view
-  const handleReplyCountClick = useCallback((e) => {
-    e.stopPropagation()
-    if (onOpenThread) {
-      onOpenThread(msg)
-    }
-  }, [msg, onOpenThread])
 
   const isReplyTarget = replyingTo?.msgId === msg.id
   const isLastMessage = index === totalMessages - 1
@@ -591,7 +581,18 @@ export default function MessageItem({
         {msg.replyTo && (
           <div
             className='reply-quote-container'
-            onClick={() => onScrollToMessage(msg.replyTo.msgId)}
+            onClick={(e) => {
+              e.stopPropagation()
+              // Click on reply count opens thread, click elsewhere scrolls to message
+              if (e.target.classList.contains('reply-quote-count')) {
+                const rootMessage = messages.find(m => m.id === msg.replyTo.msgId)
+                if (rootMessage && onOpenThread) {
+                  onOpenThread(rootMessage)
+                }
+              } else {
+                onScrollToMessage(msg.replyTo.msgId)
+              }
+            }}
           >
             {(() => {
               const replyUser = allUsers.find(
@@ -615,6 +616,12 @@ export default function MessageItem({
                   ? `${msg.replyTo.text.slice(0, 500)}...`
                   : msg.replyTo.text}
               </div>
+              {/* Reply count - iMessage style, shown under the quoted message */}
+              {!isInThreadView && replyCount > 0 && (
+                <div className='reply-quote-count'>
+                  {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -802,18 +809,6 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* Reply Count Indicator - iMessage style, just text */}
-        {shouldShowReplyCount && (
-          <div 
-            className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}
-            onClick={handleReplyCountClick}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleReplyCountClick(e)}
-          >
-            {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
-          </div>
-        )}
 
         {/* Read Receipt - Only show on messages I sent that were read by the other person */}
         {isSent &&

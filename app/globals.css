@@ -2820,7 +2820,7 @@ iframe[src*="vercel"] {
   justify-content: flex-start;
 }
 
-/* Avatar touching the bubble */
+/* Avatar touching the bubble - very low opacity like iMessage */
 .reply-quote-avatar {
   width: 16px;
   height: 16px;
@@ -2828,6 +2828,7 @@ iframe[src*="vercel"] {
   object-fit: cover;
   flex-shrink: 0;
   margin-right: 4px;
+  opacity: 0.3;
 }
 
 .reply-quote-avatar-fallback {
@@ -2843,6 +2844,20 @@ iframe[src*="vercel"] {
   color: white;
   flex-shrink: 0;
   margin-right: 4px;
+  opacity: 0.3;
+}
+
+/* Reply count under the quoted message - iMessage style */
+.reply-quote-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #007AFF;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.reply-quote-count:hover {
+  opacity: 0.7;
 }
 
 /* The reply bubble itself - no transform, naturally small */
