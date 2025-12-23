@@ -1851,23 +1851,141 @@ iframe[src*="vercel"] {
 .recording-indicator {
   position: fixed;
   left: 50%;
+  bottom: 100px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 8px 16px;
-  border-radius: 20px;
-  z-index: 1000;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  border-radius: 24px;
+  z-index: 10001;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  min-width: 200px;
+  justify-content: center;
+}
+
+/* Recording State - Red bars, time on left, stop button on right */
+.recording-indicator.recording-state {
+  gap: 10px;
+}
+
+.recording-indicator.recording-state .recording-duration {
+  color: #ff3b30;
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 45px;
+  text-align: left;
+}
+
+/* Preview State - White bars, buttons on sides */
+.recording-indicator.preview-state {
+  gap: 10px;
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.recording-stop-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.recording-stop-btn:hover {
+  transform: scale(1.1);
+}
+
+.recording-stop-btn:active {
+  transform: scale(0.95);
+}
+
+.recording-stop-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ff3b30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.3);
+}
+
+.recording-stop-square {
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 2px;
+}
+
+.recording-cancel-btn,
+.recording-play-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: background 0.2s, transform 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.recording-cancel-btn:hover,
+.recording-play-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.recording-cancel-btn:active,
+.recording-play-btn:active {
+  transform: scale(0.9);
+}
+
+.recording-send-btn {
+  background: #007AFF;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: background 0.2s, transform 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.recording-send-btn:hover {
+  background: #0051D5;
+}
+
+.recording-send-btn:active {
+  transform: scale(0.95);
 }
 
 .recording-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #ff3b30;
   animation: pulse 1.5s ease-in-out infinite;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 @keyframes pulse {
@@ -1883,9 +2001,12 @@ iframe[src*="vercel"] {
 
 .recording-duration {
   color: white;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: right;
 }
 
 .recording-text {
@@ -1901,17 +2022,46 @@ iframe[src*="vercel"] {
   height: 24px;
   width: 120px;
   padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.preview-waveform-container {
+  width: 120px;
+  height: 24px;
+  overflow: hidden;
+}
+
+.preview-waveform-container > div {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .waveform-bar {
   flex: 1;
-  background: #ff3b30;
   border-radius: 2px;
   min-width: 3px;
   min-height: 4px;
   width: 4px;
   transition: height 0.05s ease-out;
+}
+
+/* Red bars for recording state */
+.waveform-bar.recording-bar {
+  background: #ff3b30;
   animation: waveform-pulse 0.3s ease-in-out infinite alternate;
+}
+
+/* White bars for preview state */
+.waveform-bar.preview-bar {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.recording-indicator.preview-state .recording-duration {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
 }
 
 @keyframes waveform-pulse {

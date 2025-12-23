@@ -23,7 +23,10 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
+      // Use requestAnimationFrame for immediate focus without delay
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
   }, [isOpen]);
 

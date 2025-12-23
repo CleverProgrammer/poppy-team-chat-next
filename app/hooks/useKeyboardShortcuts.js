@@ -13,7 +13,8 @@ export function useKeyboardShortcuts({
   setIsPaletteOpen,
   startReply,
   startEdit,
-  cancelReply
+  cancelReply,
+  inputRef
 }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -23,6 +24,15 @@ export function useKeyboardShortcuts({
       // Cmd+K: Open command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
+        e.stopPropagation();
+        // Immediately blur the message input to prevent typing into it
+        if (inputRef?.current) {
+          inputRef.current.blur();
+        }
+        // Also blur any other active input elements
+        if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') {
+          document.activeElement.blur();
+        }
         setIsPaletteOpen(true);
       }
 
@@ -69,6 +79,7 @@ export function useKeyboardShortcuts({
     setIsPaletteOpen,
     startReply,
     startEdit,
-    cancelReply
+    cancelReply,
+    inputRef
   ]);
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { useWavesurfer } from '@wavesurfer/react'
 
 export default function ChatInput({
   inputRef,
@@ -30,8 +31,13 @@ export default function ChatInput({
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [hasContent, setHasContent] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [recordedAudio, setRecordedAudio] = useState(null) // Blob after stopping
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState(null) // Blob URL for WaveSurfer
+  const [recordedDuration, setRecordedDuration] = useState(0)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [waveformData, setWaveformData] = useState([])
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false)
+  const [showComingSoonModal, setShowComingSoonModal] = useState(false)
   const recordingIntervalRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
@@ -39,6 +45,38 @@ export default function ChatInput({
   const analyserRef = useRef(null)
   const animationFrameRef = useRef(null)
   const isRecordingRef = useRef(false)
+  const previewWaveformContainerRef = useRef(null)
+
+  // WaveSurfer for preview state - only initialize when we have audio URL
+  const { wavesurfer: previewWavesurfer } = useWavesurfer({
+    container: previewWaveformContainerRef,
+    url: recordedAudioUrl || undefined,
+    height: 24,
+    waveColor: 'rgba(255, 255, 255, 0.5)',
+    progressColor: 'rgba(255, 255, 255, 0.9)',
+    barWidth: 2,
+    barGap: 1,
+    barRadius: 1,
+    cursorWidth: 0,
+    normalize: true,
+    interact: false, // Disable interaction - we handle play/pause separately
+    autoplay: false,
+  })
+
+  // Handle WaveSurfer events for preview playback
+  useEffect(() => {
+    if (!previewWavesurfer) return
+
+    const subscriptions = [
+      previewWavesurfer.on('play', () => setIsPlayingPreview(true)),
+      previewWavesurfer.on('pause', () => setIsPlayingPreview(false)),
+      previewWavesurfer.on('finish', () => setIsPlayingPreview(false)),
+    ]
+
+    return () => {
+      subscriptions.forEach((unsub) => unsub())
+    }
+  }, [previewWavesurfer])
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
@@ -231,8 +269,13 @@ export default function ChatInput({
           cancelAnimationFrame(animationFrameRef.current)
         }
         
-        if (handleSendAudio && audioBlob.size > 0) {
-          handleSendAudio(audioBlob, recordingDuration)
+        // Store the recorded audio for preview instead of sending immediately
+        if (audioBlob.size > 0) {
+          setRecordedAudio(audioBlob)
+          setRecordedDuration(recordingDuration)
+          // Create blob URL for WaveSurfer
+          const blobUrl = URL.createObjectURL(audioBlob)
+          setRecordedAudioUrl(blobUrl)
         }
         
         mediaRecorderRef.current = null
@@ -269,10 +312,77 @@ export default function ChatInput({
       }
       mediaRecorderRef.current.stop()
       setIsRecording(false)
+      // Don't clear recordingDuration - we'll use it for recordedDuration
     }
   }
 
+  // Handle WaveSurfer events for preview playback
+  useEffect(() => {
+    if (!previewWavesurfer) return
+
+    const subscriptions = [
+      previewWavesurfer.on('play', () => setIsPlayingPreview(true)),
+      previewWavesurfer.on('pause', () => setIsPlayingPreview(false)),
+      previewWavesurfer.on('finish', () => setIsPlayingPreview(false)),
+    ]
+
+    return () => {
+      subscriptions.forEach((unsub) => unsub())
+    }
+  }, [previewWavesurfer])
+
+  const handlePlayPreview = () => {
+    if (!previewWavesurfer) return
+    previewWavesurfer.playPause()
+  }
+
+  const handleCancelRecording = () => {
+    // Stop preview if playing
+    if (previewWavesurfer) {
+      previewWavesurfer.pause()
+    }
+    // Clean up blob URL
+    if (recordedAudioUrl) {
+      URL.revokeObjectURL(recordedAudioUrl)
+    }
+    setIsPlayingPreview(false)
+    setRecordedAudio(null)
+    setRecordedAudioUrl(null)
+    setRecordedDuration(0)
+    setRecordingDuration(0)
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (previewWavesurfer) {
+        previewWavesurfer.destroy()
+      }
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl)
+      }
+    }
+  }, [previewWavesurfer, recordedAudioUrl])
+
+  const handleSendRecording = () => {
+    if (recordedAudio && handleSendAudio) {
+      handleSendAudio(recordedAudio, recordedDuration)
+      handleCancelRecording()
+    }
+  }
+
+  const isMobile = () => {
+    return Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.innerWidth <= 768)
+  }
+
   const handleMicClick = () => {
+    // On mobile, show "coming soon" modal instead of recording
+    if (isMobile()) {
+      setShowComingSoonModal(true)
+      return
+    }
+    
+    // Desktop functionality - proceed with recording
     if (isRecording) {
       stopRecording()
     } else {
@@ -383,15 +493,10 @@ export default function ChatInput({
           ) : null
         })()}
 
-      {/* Recording Indicator */}
+      {/* Recording Indicator - Recording State */}
       {isRecording && (
-        <div
-          className='recording-indicator'
-          style={{
-            bottom: keyboardHeight ? `${keyboardHeight + 60}px` : '60px',
-          }}
-        >
-          <div className='recording-dot'></div>
+        <div className='recording-indicator recording-state'>
+          <span className='recording-duration'>{formatDuration(recordingDuration)}</span>
           <div className='recording-waveform'>
             {waveformData.length > 0 ? (
               waveformData.map((height, index) => {
@@ -400,7 +505,7 @@ export default function ChatInput({
                 return (
                   <div
                     key={index}
-                    className='waveform-bar'
+                    className='waveform-bar recording-bar'
                     style={{
                       height: `${barHeight}px`,
                       minHeight: '4px',
@@ -411,11 +516,67 @@ export default function ChatInput({
             ) : (
               // Show placeholder bars while initializing
               Array.from({ length: 20 }).map((_, index) => (
-                <div key={index} className='waveform-bar' style={{ height: '8px' }} />
+                <div key={index} className='waveform-bar recording-bar' style={{ height: '8px' }} />
               ))
             )}
           </div>
-          <span className='recording-duration'>{formatDuration(recordingDuration)}</span>
+          <button
+            className='recording-stop-btn'
+            onClick={stopRecording}
+            aria-label='Stop recording'
+            title='Stop recording'
+          >
+            <div className='recording-stop-circle'>
+              <div className='recording-stop-square'></div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Recording Indicator - Preview State (after stopping) */}
+      {recordedAudio && !isRecording && (
+        <div className='recording-indicator preview-state'>
+          <button
+            className='recording-cancel-btn'
+            onClick={handleCancelRecording}
+            aria-label='Cancel recording'
+            title='Cancel'
+          >
+            <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+              <path d='M18 6L6 18M6 6l12 12' />
+            </svg>
+          </button>
+          <button
+            className='recording-play-btn'
+            onClick={handlePlayPreview}
+            aria-label={isPlayingPreview ? 'Pause preview' : 'Play preview'}
+            title={isPlayingPreview ? 'Pause' : 'Play'}
+          >
+            {isPlayingPreview ? (
+              <svg width='16' height='16' viewBox='0 0 24 24' fill='currentColor'>
+                <rect x='6' y='4' width='4' height='16' />
+                <rect x='14' y='4' width='4' height='16' />
+              </svg>
+            ) : (
+              <svg width='16' height='16' viewBox='0 0 24 24' fill='currentColor'>
+                <path d='M8 5v14l11-7z' />
+              </svg>
+            )}
+          </button>
+          <div className='recording-waveform preview-waveform-container'>
+            <div ref={previewWaveformContainerRef} style={{ width: '100%', height: '24px' }} />
+          </div>
+          <span className='recording-duration preview-duration'>{formatDuration(recordedDuration)}</span>
+          <button
+            className='recording-send-btn'
+            onClick={handleSendRecording}
+            aria-label='Send recording'
+            title='Send'
+          >
+            <svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+              <path d='M5 12h14M12 5l7 7-7 7' />
+            </svg>
+          </button>
         </div>
       )}
 
@@ -571,6 +732,31 @@ export default function ChatInput({
           </button>
         </div>
       </div>
+
+      {/* Coming Soon Modal for Mobile */}
+      {showComingSoonModal && (
+        <>
+          <div 
+            className='coming-soon-modal-overlay' 
+            onClick={() => setShowComingSoonModal(false)}
+          />
+          <div className='coming-soon-modal'>
+            <div className='coming-soon-modal-content'>
+              <div className='coming-soon-modal-icon'>🎤</div>
+              <h3 className='coming-soon-modal-title'>Voice Messages Coming Soon</h3>
+              <p className='coming-soon-modal-text'>
+                Voice messages are currently available on desktop. This feature will be coming to mobile soon!
+              </p>
+              <button 
+                className='coming-soon-modal-button'
+                onClick={() => setShowComingSoonModal(false)}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }

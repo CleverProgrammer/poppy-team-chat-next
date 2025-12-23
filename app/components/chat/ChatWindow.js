@@ -614,6 +614,7 @@ export default function ChatWindow() {
     startReply,
     startEdit,
     cancelReply,
+    inputRef,
   })
 
   // Delete handler
