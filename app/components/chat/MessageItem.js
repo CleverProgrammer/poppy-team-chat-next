@@ -242,10 +242,10 @@ export default function MessageItem({
       handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)
 
       longPressTimer.current = setTimeout(() => {
-        if (!isDragging.current) {
-          isLongPressTriggered.current = true
-          handleLongPress()
-        }
+        // Fire long press if user hasn't moved significantly (not swiping)
+        // Note: swipeOffset would be > 0 if user started swiping
+        isLongPressTriggered.current = true
+        handleLongPress()
       }, 400)
     },
     [handleLongPress, handleSwipeStart]
