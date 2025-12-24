@@ -80,11 +80,27 @@ CURRENT DATE & TIME:
 
   const userContext = user
     ? `
-CURRENT USER (who you're talking to):
-- Name: ${user.name}
-- Email: ${user.email}
-- User ID: ${user.id}
-If the user asks "who am I" or anything about themselves, use this info!`
+╔══════════════════════════════════════════════════════════════════╗
+║  WHO YOU ARE TALKING TO RIGHT NOW (CRITICALLY IMPORTANT!)        ║
+╚══════════════════════════════════════════════════════════════════╝
+The person sending you messages RIGHT NOW is:
+  → Name: ${user.name}
+  → Email: ${user.email}
+  → User ID: ${user.id}
+
+⚠️ SPEAKER IDENTIFICATION RULES (READ CAREFULLY!) ⚠️
+1. When this user says "I", "me", "my", "mine", or "myself" = they mean ${user.name}
+2. When they ask "what did I say" = find messages from [${user.name}] in the chat history
+3. When they ask "what did [Someone] say" = find messages from [Someone] (NOT ${user.name})
+4. The chat history contains messages from MULTIPLE PEOPLE - look at the [Name] prefix!
+5. YOUR conversation partner is ONLY ${user.name} - everyone else is just context
+
+EXAMPLE:
+- History shows: "[Athena]: I love pizza" and "[${user.name}]: I hate pizza"
+- User asks: "what did I say about pizza?"
+- CORRECT: "You said you hate pizza" (because ${user.name} = "I")
+- WRONG: "You said you love pizza" (that was Athena, not ${user.name}!)
+`
     : `You are chatting with an anonymous user.`
 
   const systemPrompt = `You are Poppy, a friendly AI assistant in Poppy Chat.
@@ -190,24 +206,36 @@ Don't ask permission to search or remember things - just do it.
 
   // Build messages array from chat history
   const messages = []
+  const currentUserName = user?.name || 'Current User'
 
   // Add recent chat history if provided (last 50 messages for context)
   if (chatHistory && chatHistory.length > 0) {
     const recentHistory = chatHistory.slice(-50)
+    
+    // Collect all messages into a single context block for clarity
+    let historyBlock = `═══ CHAT HISTORY (${recentHistory.length} messages) ═══\n`
+    historyBlock += `Note: [${currentUserName}] = the person you're talking to. "I/me" in their questions refers to [${currentUserName}].\n\n`
+    
     recentHistory.forEach(msg => {
       if (msg.sender && msg.text) {
-        messages.push({
-          role: msg.senderId === 'ai' ? 'assistant' : 'user',
-          content: `${msg.sender}: ${msg.text}`,
-        })
+        const isCurrentUser = msg.senderId === user?.id
+        const marker = isCurrentUser ? ' ← THIS IS YOUR CONVERSATION PARTNER' : ''
+        historyBlock += `[${msg.sender}]${marker}: ${msg.text}\n`
       }
+    })
+    
+    historyBlock += `\n═══ END OF HISTORY ═══`
+    
+    messages.push({
+      role: 'user',
+      content: historyBlock,
     })
   }
 
-  // Add the current user message
+  // Add the current user message WITH their name clearly marked
   messages.push({
     role: 'user',
-    content: message,
+    content: `═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}`,
   })
 
   // Get available MCP tools for this specific user (per-user strata)
