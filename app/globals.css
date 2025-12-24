@@ -433,7 +433,7 @@ html {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  width: 100%;
+  width: fit-content;
 }
 
 .message-row.with-avatar {
