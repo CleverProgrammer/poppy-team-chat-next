@@ -1,5 +1,7 @@
+// URL regex pattern used across the app
+export const urlRegex = /(https?:\/\/[^\s]+)/g;
+
 export function linkifyText(text) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = text.split(urlRegex);
 
   return parts.map((part, index) => {
@@ -19,6 +21,13 @@ export function linkifyText(text) {
     }
     return part;
   });
+}
+
+// Extract the first URL from text
+export function extractFirstUrl(text) {
+  if (!text) return null;
+  const match = text.match(urlRegex);
+  return match ? match[0] : null;
 }
 
 // Check if text is a single emoji (or up to 3 emojis)

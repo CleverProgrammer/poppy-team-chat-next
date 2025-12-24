@@ -11,7 +11,9 @@ import {
   isSingleEmoji,
   isLoomUrl,
   getLoomEmbedUrl,
+  extractFirstUrl,
 } from '../../utils/messageFormatting'
+import LinkPreview from './LinkPreview'
 import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
 
 export default function MessageItem({
@@ -890,6 +892,13 @@ export default function MessageItem({
               {linkifyText(msg.text)}
               {msg.edited && <span className='edited-indicator'> (edited)</span>}
             </div>
+          )}
+          {/* Link preview - show for URLs that aren't Loom videos */}
+          {msg.text && extractFirstUrl(msg.text) && !isLoomUrl(msg.text) && (
+            <LinkPreview 
+              url={extractFirstUrl(msg.text)} 
+              isSent={isOwnMessage}
+            />
           )}
         </div>
         </div>
