@@ -344,9 +344,15 @@ html {
   position: relative;
   width: fit-content;
   padding: 6px 0;
-  user-select: none;
-  -webkit-user-select: none;
   touch-action: pan-y; /* Allow vertical scrolling but handle horizontal swipes */
+}
+
+/* Disable text selection only on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .message-wrapper {
+    user-select: none;
+    -webkit-user-select: none;
+  }
 }
 
 /* Swipe to reply - visual feedback */
