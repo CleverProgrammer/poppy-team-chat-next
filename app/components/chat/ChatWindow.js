@@ -72,6 +72,7 @@ export default function ChatWindow() {
   const lastScrollTopRef = useRef(0)
   const isAutoScrollingRef = useRef(false) // Flag to prevent blur during programmatic scroll
   const isTouchingRef = useRef(false) // Track if user is actively touching the screen
+  const shouldStayAtBottomRef = useRef(true) // Track if we should auto-scroll when content loads
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
 
   // Swipe from left edge to open sidebar (mobile)
@@ -194,6 +195,20 @@ export default function ChatWindow() {
       align: 'end',
       behavior: 'smooth',
     })
+  }, [])
+
+  // Handler for when media (images/videos) finish loading
+  // This fixes the scroll-to-bottom issue when dynamic content changes height
+  const handleMediaLoaded = useCallback(() => {
+    if (shouldStayAtBottomRef.current) {
+      requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: 'LAST',
+          align: 'end',
+          behavior: 'auto',
+        })
+      })
+    }
   }, [])
 
   // Message sending hook
@@ -1179,7 +1194,19 @@ export default function ChatWindow() {
                     )}
                     firstItemIndex={firstItemIndex}
                     initialTopMostItemIndex={999999}
-                    followOutput='smooth'
+                    alignToBottom={true}
+                    followOutput={(isAtBottom) => {
+                      // Auto-scroll to bottom when new messages arrive if user is at bottom
+                      if (shouldStayAtBottomRef.current || isAtBottom) {
+                        return 'smooth'
+                      }
+                      return false
+                    }}
+                    atBottomStateChange={(atBottom) => {
+                      // Track if user is at bottom to know if we should auto-scroll on media load
+                      shouldStayAtBottomRef.current = atBottom
+                    }}
+                    atBottomThreshold={150}
                     startReached={loadOlder}
                     // Keep all 50 messages rendered to prevent image re-rendering jitter
                     overscan={{ main: 2000, reverse: 2000 }}
@@ -1276,6 +1303,7 @@ export default function ChatWindow() {
                             onScrollToMessage={scrollToMessage}
                             messageRef={el => (messageRefs.current[item.id] = el)}
                             onOpenThread={openThreadView}
+                            onMediaLoaded={handleMediaLoaded}
                           />
                         )
                       }

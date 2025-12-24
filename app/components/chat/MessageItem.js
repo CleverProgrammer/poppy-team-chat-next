@@ -35,6 +35,7 @@ export default function MessageItem({
   onScrollToMessage,
   messageRef,
   onOpenThread,
+  onMediaLoaded,
   isInThreadView = false,
   isOriginalInThread = false,
 }) {
@@ -773,6 +774,7 @@ export default function MessageItem({
                 key={idx}
                 playbackId={playbackId}
                 isReply={true}
+                onLoad={onMediaLoaded}
                 onClick={e => {
                   e.stopPropagation()
                   // Collect all video replies to the SAME original message
@@ -823,6 +825,7 @@ export default function MessageItem({
                   key={idx}
                   playbackId={playbackId}
                   isReply={false}
+                  onLoad={onMediaLoaded}
                   onClick={e => {
                     e.stopPropagation()
                     // Create video data for StoriesViewer
@@ -853,6 +856,7 @@ export default function MessageItem({
                     src={url}
                     alt={`Shared image ${idx + 1}`}
                     className='message-image'
+                    onLoad={onMediaLoaded}
                     onClick={e => {
                       e.stopPropagation()
                       onImageClick(allImages, idx)
