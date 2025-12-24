@@ -6,6 +6,7 @@ export default function VideoThumbnail({
   playbackId,
   onClick,
   isReply = false,
+  onLoad,
 }) {
   const [isVertical, setIsVertical] = useState(true) // Default to vertical
   const [loaded, setLoaded] = useState(false)
@@ -81,6 +82,7 @@ export default function VideoThumbnail({
         src={getAnimatedUrl()}
         alt='Video'
         className={getImgClass()}
+        onLoad={onLoad}
       />
       <div className={getPlayClass()}>
         <svg 
