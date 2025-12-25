@@ -692,8 +692,12 @@ export default function ChatInput({
             >
               <span className='ai-mode-emoji'>{privateMode ? '🙈' : '👀'}</span>
               <span className='ai-mode-label'>
-                {privateMode ? 'Private AI' : (
-                  <>Public AI <span className='ai-mode-hint'>- tap to make private</span></>
+                {privateMode ? (
+                  'Private AI'
+                ) : (
+                  <>
+                    Public AI <span className='ai-mode-hint'>- tap to make private</span>
+                  </>
                 )}
               </span>
             </button>
