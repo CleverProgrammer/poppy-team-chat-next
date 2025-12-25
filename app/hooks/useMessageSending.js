@@ -325,7 +325,9 @@ export function useMessageSending({
     askPoppyDirectly,
     sending,
     handleEdit,
-    clearTypingIndicator
+    clearTypingIndicator,
+    aiMode,
+    privateMode
   ]);
 
   // Send a video reply directly with mux playback ID
