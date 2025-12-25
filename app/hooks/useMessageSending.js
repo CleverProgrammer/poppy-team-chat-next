@@ -59,6 +59,9 @@ export function useMessageSending({
 
   // Update typing indicator on input change
   const updateTypingIndicator = useCallback(() => {
+    // Skip typing indicator for private AI mode - don't reveal you're typing to recipient
+    if (aiMode && privateMode) return;
+    
     if (currentChat?.type === 'dm' && user) {
       const dmId = getDMId(user.uid, currentChat.id);
 
@@ -75,7 +78,7 @@ export function useMessageSending({
         setUserTyping(dmId, user.uid, false);
       }, 2000);
     }
-  }, [currentChat, user]);
+  }, [currentChat, user, aiMode, privateMode]);
 
   // Handle editing a message
   const handleEdit = useCallback(async () => {
@@ -230,6 +233,7 @@ export function useMessageSending({
       }
 
       const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0;
+      const privateOptions = { isPrivate, privateFor: user.uid };
 
       if (currentChat.type === 'ai') {
         // Send user message to Firestore
@@ -240,23 +244,26 @@ export function useMessageSending({
       } else if (currentChat.type === 'channel') {
         // Send message with optional media and reply
         if (hasMedia) {
-          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo);
+          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, privateOptions);
         } else if (currentReplyingTo) {
-          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
+          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, privateOptions);
         } else {
-          await sendMessage(currentChat.id, user, messageText, { isPrivate });
+          await sendMessage(currentChat.id, user, messageText, privateOptions);
         }
 
         // Mark as unread for all other users (async, non-blocking)
-        setTimeout(() => {
-          allUsers.forEach(otherUser => {
-            if (otherUser.uid !== user.uid) {
-              markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
-                console.error('Failed to mark as unread:', err)
-              );
-            }
-          });
-        }, 0);
+        // Skip for private messages - they shouldn't notify others
+        if (!isPrivate) {
+          setTimeout(() => {
+            allUsers.forEach(otherUser => {
+              if (otherUser.uid !== user.uid) {
+                markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
+                  console.error('Failed to mark as unread:', err)
+                );
+              }
+            });
+          }, 0);
+        }
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
         // Find recipient from allUsers for Ragie metadata
@@ -264,19 +271,22 @@ export function useMessageSending({
 
         // Send DM with optional media and reply
         if (hasMedia) {
-          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo);
+          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, privateOptions);
         } else if (currentReplyingTo) {
-          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
+          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient, privateOptions);
         } else {
-          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
+          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient, privateOptions);
         }
 
         // Mark as unread for the recipient (async, non-blocking)
-        setTimeout(() => {
-          markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
-            console.error('Failed to mark DM as unread:', err)
-          );
-        }, 0);
+        // Skip for private messages - they shouldn't notify the recipient
+        if (!isPrivate) {
+          setTimeout(() => {
+            markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
+              console.error('Failed to mark DM as unread:', err)
+            );
+          }, 0);
+        }
       }
 
       // Remove optimistic message once real one arrives (Firestore subscription will add it)

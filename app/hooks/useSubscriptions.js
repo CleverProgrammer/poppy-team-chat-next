@@ -295,7 +295,7 @@ export function useSubscriptions({
         return msg.privateFor === user.uid || msg.senderId === user.uid
       })
     }
-
+    
     if (currentChat.type === 'channel') {
       unsubscribe = subscribeToMessages(
         currentChat.id,
@@ -304,8 +304,7 @@ export function useSubscriptions({
           setMessages(filteredMessages)
           messagesRef.current = filteredMessages
           setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages) // Cache for instant load
-          // Mark as read whenever new messages arrive while viewing this chat
+          cacheMessages(filteredMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100
@@ -319,8 +318,7 @@ export function useSubscriptions({
           setMessages(filteredMessages)
           messagesRef.current = filteredMessages
           setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages) // Cache for instant load
-          // Mark as read whenever new messages arrive while viewing this chat
+          cacheMessages(filteredMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100

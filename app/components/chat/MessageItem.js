@@ -543,6 +543,7 @@ export default function MessageItem({
           isPost={false}
           topReactions={topReactions}
           position={actionSheetPosition}
+          currentUserId={user?.uid}
           onReaction={emoji => onAddReaction(msg.id, emoji)}
           onReply={() => {
             // If we're in thread view, use regular reply behavior
@@ -1012,6 +1013,7 @@ export default function MessageItem({
         isPost={false}
         topReactions={topReactions}
         position={actionSheetPosition}
+        currentUserId={user?.uid}
         onReaction={emoji => onAddReaction(msg.id, emoji)}
         onReply={() => {
           // If we're in thread view, use regular reply behavior

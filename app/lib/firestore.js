@@ -42,7 +42,7 @@ export async function saveUser(user) {
 export async function sendMessage(channelId, user, text, options = {}) {
   if (!user || !text.trim()) return
 
-  const { isPrivate = false } = options
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -57,7 +57,8 @@ export async function sendMessage(channelId, user, text, options = {}) {
     // Add private flag if message is private
     if (isPrivate) {
       messageData.isPrivate = true
-      messageData.privateFor = user.uid // Only visible to this user
+      // Use explicitly passed privateFor, or fall back to sender's uid
+      messageData.privateFor = privateFor || user.uid
     }
     
     const docRef = await addDoc(messagesRef, messageData)
@@ -700,9 +701,12 @@ export async function sendMessageWithMedia(
   text = '',
   imageUrls = [],
   muxPlaybackIds = [],
-  replyTo = null
+  replyTo = null,
+  options = {}
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -715,6 +719,12 @@ export async function sendMessageWithMedia(
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
     }
 
     // Add reply reference if replying
@@ -767,9 +777,12 @@ export async function sendMessageDMWithMedia(
   recipient = null,
   imageUrls = [],
   muxPlaybackIds = [],
-  replyTo = null
+  replyTo = null,
+  options = {}
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
@@ -782,6 +795,12 @@ export async function sendMessageDMWithMedia(
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
     }
 
     // Add reply reference if replying
@@ -1031,8 +1050,10 @@ export async function deleteMessage(channelId, messageId, isDM = false) {
 }
 
 // Send message with reply
-export async function sendMessageWithReply(channelId, user, text, replyTo) {
+export async function sendMessageWithReply(channelId, user, text, replyTo, options = {}) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -1048,14 +1069,22 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
     if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
     if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
 
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
       replyTo: replyData,
-    })
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -1085,9 +1114,12 @@ export async function sendMessageDMWithReply(
   text,
   recipientId,
   replyTo,
-  recipient = null
+  recipient = null,
+  options = {}
 ) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
@@ -1103,14 +1135,22 @@ export async function sendMessageDMWithReply(
     if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
     if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
 
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
       replyTo: replyData,
-    })
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {

@@ -828,10 +828,14 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!user) return
 
-    console.log('🔔 Subscribing to unread chats for user:', user.uid)
-    const unsubscribe = subscribeToUnreadChats(user.uid, unreadChats => {
-      console.log('📬 Unread chats updated:', unreadChats)
-      setUnreadChats(unreadChats)
+    let lastUnreadString = ''
+    const unsubscribe = subscribeToUnreadChats(user.uid, newUnreadChats => {
+      // Only update if unread chats actually changed (prevents unnecessary re-renders)
+      const newUnreadString = JSON.stringify(newUnreadChats.sort())
+      if (newUnreadString !== lastUnreadString) {
+        lastUnreadString = newUnreadString
+        setUnreadChats(newUnreadChats)
+      }
     })
 
     return () => {

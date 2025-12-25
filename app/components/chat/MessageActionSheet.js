@@ -23,6 +23,7 @@ export default function MessageActionSheet({
   onDemote,
   onAddToTeamMemory,
   onMakePublic,
+  currentUserId = null, // For checking private message ownership
 }) {
   const openTimeRef = useRef(0);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -196,8 +197,8 @@ export default function MessageActionSheet({
                 <span>Copy</span>
               </button>
             )}
-            {/* Make Public - only for own private messages */}
-            {isOwnMessage && message?.isPrivate && (
+            {/* Make Public - for own private messages OR messages private for this user */}
+            {message?.isPrivate && (isOwnMessage || message?.privateFor === currentUserId) && (
               <button className="action-sheet-action-btn make-public-btn" onClick={() => handleAction(onMakePublic)}>
                 <span className="action-icon">👀</span>
                 <span>Show to everyone</span>
