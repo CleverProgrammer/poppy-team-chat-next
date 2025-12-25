@@ -1948,8 +1948,8 @@ iframe[src*="vercel"] {
 }
 
 .message-image {
-  max-width: 300px;
-  max-height: 400px;
+  max-width: 240px;
+  max-height: 280px;
   border-radius: 12px;
   margin-bottom: 8px;
   cursor: pointer;
@@ -1973,8 +1973,8 @@ iframe[src*="vercel"] {
 
 /* Video messages */
 .message-video {
-  max-width: 300px;
-  max-height: 400px;
+  max-width: 240px;
+  max-height: 280px;
   border-radius: 12px;
   margin-bottom: 8px;
   display: block;
@@ -1998,8 +1998,8 @@ iframe[src*="vercel"] {
   --media-object-position: center;
   aspect-ratio: 16/9;
   width: 100%;
-  max-width: 300px;
-  min-height: 170px;
+  max-width: 240px;
+  min-height: 135px;
   border-radius: 12px;
   background: #1a1a1a;
 }
@@ -2007,8 +2007,8 @@ iframe[src*="vercel"] {
 /* Mobile fix for Mux player - ensure it renders */
 @media (max-width: 768px) {
   .message-mux-video {
-    max-width: 260px;
-    min-height: 146px;
+    max-width: 220px;
+    min-height: 124px;
   }
   
   mux-player {
