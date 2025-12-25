@@ -678,15 +678,6 @@ export default function ChatInput({
                 {privateMode ? 'Private AI' : 'Public AI'}
               </span>
             </button>
-            <button
-              className="ai-mode-close"
-              onClick={() => setAiMode && setAiMode(false)}
-              onMouseDown={(e) => e.preventDefault()}
-              aria-label='Exit AI mode'
-              title='Exit AI mode'
-            >
-              ✕
-            </button>
           </div>
         )}
         {imagePreviews.length > 0 && (
@@ -778,7 +769,9 @@ export default function ChatInput({
                 editingMessage
                   ? 'Edit your message...'
                   : aiMode
-                    ? 'Ask Poppy anything...'
+                    ? privateMode 
+                      ? 'Ask Poppy privately... 🙈'
+                      : 'Ask Poppy anything... ✨'
                     : 'Message, press @ for AI'
               }
               rows='1'
