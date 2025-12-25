@@ -1,5 +1,8 @@
 'use client'
 
+import ChannelStoryRing from './ChannelStoryRing'
+import DMStoryRing from './DMStoryRing'
+
 export default function ChatHeader({
   currentChat,
   isSidebarOpen,
@@ -8,6 +11,7 @@ export default function ChatHeader({
   onViewModeChange,
   onBack,
   allUsers,
+  currentUserId, // Current logged-in user's ID for DM stories
 }) {
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#'
@@ -45,20 +49,76 @@ export default function ChatHeader({
     }
     if (currentChat.type === 'dm') {
       const photo = getUserPhoto()
-      if (photo) {
-        return <img src={photo} alt={currentChat.name} className='chat-header-avatar' />
-      }
-      // Fallback to initials
-      const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
-      return <div className='chat-header-avatar chat-header-avatar-initials'>{initials}</div>
+      const avatarContent = photo ? (
+        <img src={photo} alt={currentChat.name} className='chat-header-avatar' />
+      ) : (
+        <div className='chat-header-avatar chat-header-avatar-initials'>
+          {currentChat.name?.substring(0, 2).toUpperCase() || '??'}
+        </div>
+      )
+      // Wrap with DMStoryRing for private stories
+      return (
+        <DMStoryRing
+          currentUserId={currentUserId}
+          otherUserId={currentChat.id}
+          size="medium"
+        >
+          {avatarContent}
+        </DMStoryRing>
+      )
     }
-    // Channel
-    return <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
+    // Channel - wrap with story ring for all channels
+    const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
+    return (
+      <ChannelStoryRing channelId={currentChat.id} size="medium">
+        {channelAvatar}
+      </ChannelStoryRing>
+    )
+  }
+
+  // Get avatar for desktop header (iMessage style)
+  const getDesktopAvatar = () => {
+    if (currentChat.type === 'ai') {
+      return (
+        <img
+          src='/poppy-icon.png'
+          alt='Poppy'
+          className='chat-header-avatar-desktop'
+        />
+      )
+    }
+    if (currentChat.type === 'dm') {
+      const photo = getUserPhoto()
+      const avatarContent = photo ? (
+        <img src={photo} alt={currentChat.name} className='chat-header-avatar-desktop' />
+      ) : (
+        <div className='chat-header-avatar-desktop chat-header-avatar-initials'>
+          {currentChat.name?.substring(0, 2).toUpperCase() || '??'}
+        </div>
+      )
+      // Wrap with DMStoryRing for private stories
+      return (
+        <DMStoryRing
+          currentUserId={currentUserId}
+          otherUserId={currentChat.id}
+          size="small"
+        >
+          {avatarContent}
+        </DMStoryRing>
+      )
+    }
+    // Channel - wrap with story ring for all channels
+    const channelAvatar = <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
+    return (
+      <ChannelStoryRing channelId={currentChat.id} size="small">
+        {channelAvatar}
+      </ChannelStoryRing>
+    )
   }
 
   return (
     <>
-      {/* Desktop Header */}
+      {/* Desktop Header - iMessage style with avatar and name pill */}
       <div className='chat-header'>
         <button
           className='mobile-menu-button'
@@ -78,9 +138,17 @@ export default function ChatHeader({
             <line x1='3' y1='18' x2='21' y2='18'></line>
           </svg>
         </button>
-        <span className='chat-header-icon'>{getIcon()}</span>
-        <h1>{currentChat.name?.replace('🤖 ', '').replace('🤖', '')}</h1>
-        <span className='chat-header-subtitle'>{getSubtitle()}</span>
+        
+        {/* iMessage-style header content */}
+        <div className='chat-header-imessage'>
+          {getDesktopAvatar()}
+          <div className='chat-header-name-pill'>
+            <span className='chat-header-name-text'>
+              {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
+            </span>
+            <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
+          </div>
+        </div>
 
         {viewMode && onViewModeChange && (
           <div className='view-mode-toggle'>
