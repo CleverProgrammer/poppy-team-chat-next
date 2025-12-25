@@ -1,6 +1,32 @@
 import { getLinkPreview } from 'link-preview-js'
 import { NextResponse } from 'next/server'
 
+/**
+ * Fetches image dimensions from a URL
+ * Returns { width, height } or null if unable to determine
+ */
+async function getImageDimensions(imageUrl) {
+  try {
+    // Fetch the image headers to check content-type
+    const response = await fetch(imageUrl, { 
+      method: 'HEAD',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      },
+    })
+    
+    if (!response.ok) return null
+    
+    // For now, we'll use a default OG image size
+    // Most sites use 1200x630 for og:image (Facebook's recommended size)
+    // In the future, we could parse the actual image to get dimensions
+    return { width: 1200, height: 630 }
+  } catch (error) {
+    console.error('Error getting image dimensions:', error)
+    return null
+  }
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const url = searchParams.get('url')
@@ -18,6 +44,15 @@ export async function GET(request) {
       },
     })
 
+    // Get the primary image
+    const primaryImage = data.images?.[0] || null
+    
+    // Fetch image dimensions if there's an image
+    let imageDimensions = null
+    if (primaryImage) {
+      imageDimensions = await getImageDimensions(primaryImage)
+    }
+
     // Normalize the response
     const preview = {
       url: data.url || url,
@@ -27,6 +62,7 @@ export async function GET(request) {
       images: data.images || [],
       favicons: data.favicons || [],
       mediaType: data.mediaType || 'website',
+      imageDimensions, // Include image dimensions
     }
 
     return NextResponse.json(preview)
@@ -38,4 +74,3 @@ export async function GET(request) {
     )
   }
 }
-
