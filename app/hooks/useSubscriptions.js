@@ -321,16 +321,37 @@ export function useSubscriptions({
 
     // Helper to check if messages have actually changed (prevents re-renders for private messages from others)
     const haveMessagesChanged = (newFiltered, oldFiltered) => {
-      if (newFiltered.length !== oldFiltered.length) return true
+      if (newFiltered.length !== oldFiltered.length) {
+        console.log(`🔍 [haveMessagesChanged] Length changed: ${oldFiltered.length} → ${newFiltered.length}`)
+        return true
+      }
       // Check if message IDs have changed (fast comparison)
       for (let i = 0; i < newFiltered.length; i++) {
-        if (newFiltered[i].id !== oldFiltered[i]?.id) return true
+        if (newFiltered[i].id !== oldFiltered[i]?.id) {
+          console.log(`🔍 [haveMessagesChanged] ID changed at index ${i}: ${oldFiltered[i]?.id} → ${newFiltered[i].id}`)
+          return true
+        }
         // Also check for edits, reactions, or other updates (compare critical fields)
-        if (newFiltered[i].text !== oldFiltered[i]?.text) return true
-        if (newFiltered[i].edited !== oldFiltered[i]?.edited) return true
-        if (JSON.stringify(newFiltered[i].reactions) !== JSON.stringify(oldFiltered[i]?.reactions)) return true
-        if (JSON.stringify(newFiltered[i].readBy) !== JSON.stringify(oldFiltered[i]?.readBy)) return true
-        if (newFiltered[i].isPrivate !== oldFiltered[i]?.isPrivate) return true
+        if (newFiltered[i].text !== oldFiltered[i]?.text) {
+          console.log(`🔍 [haveMessagesChanged] Text changed at index ${i}`)
+          return true
+        }
+        if (newFiltered[i].edited !== oldFiltered[i]?.edited) {
+          console.log(`🔍 [haveMessagesChanged] Edited changed at index ${i}`)
+          return true
+        }
+        if (JSON.stringify(newFiltered[i].reactions) !== JSON.stringify(oldFiltered[i]?.reactions)) {
+          console.log(`🔍 [haveMessagesChanged] Reactions changed at index ${i}`)
+          return true
+        }
+        if (JSON.stringify(newFiltered[i].readBy) !== JSON.stringify(oldFiltered[i]?.readBy)) {
+          console.log(`🔍 [haveMessagesChanged] ReadBy changed at index ${i}`)
+          return true
+        }
+        if (newFiltered[i].isPrivate !== oldFiltered[i]?.isPrivate) {
+          console.log(`🔍 [haveMessagesChanged] isPrivate changed at index ${i}`)
+          return true
+        }
       }
       return false
     }
@@ -340,13 +361,20 @@ export function useSubscriptions({
         currentChat.id,
         newMessages => {
           const filteredMessages = filterPrivateMessages(newMessages)
+          const hasChanged = haveMessagesChanged(filteredMessages, messagesRef.current)
+          
+          console.log(`🔍 [CHANNEL] Subscription fired: ${newMessages.length} total, ${filteredMessages.length} visible, hasChanged: ${hasChanged}`)
+          
           // Only update state if the visible messages have actually changed
           // This prevents re-renders when private messages from other users are added
-          if (haveMessagesChanged(filteredMessages, messagesRef.current)) {
+          if (hasChanged) {
+            console.log(`📝 [CHANNEL] Updating messages state`)
             setMessages(filteredMessages)
             messagesRef.current = filteredMessages
             setCurrentMessages(filteredMessages)
             cacheMessages(filteredMessages)
+          } else {
+            console.log(`⏭️ [CHANNEL] Skipping state update - no visible change`)
           }
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
