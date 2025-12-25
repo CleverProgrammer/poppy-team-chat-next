@@ -39,18 +39,25 @@ export async function saveUser(user) {
   }
 }
 
-export async function sendMessage(channelId, user, text) {
+export async function sendMessage(channelId, user, text, linkPreview = null) {
   if (!user || !text.trim()) return
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add link preview if present
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -158,7 +165,7 @@ export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 
   return messages.reverse()
 }
 
-export async function sendMessageDM(dmId, user, text, recipientId, recipient = null) {
+export async function sendMessageDM(dmId, user, text, recipientId, recipient = null, linkPreview = null) {
   if (!user || !text.trim()) return
 
   console.log('═══════════════════════════════════════════════════════════')
@@ -174,13 +181,20 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
     const messagesRef = collection(db, 'dms', dmId, 'messages')
     console.log('📝 Writing to Firestore: dms/' + dmId + '/messages')
 
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add link preview if present
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     console.log('✅ [SEND DM] Message written to Firestore!')
     console.log(`📝 Document ID: ${docRef.id}`)
@@ -476,6 +490,49 @@ export async function discoverExistingDMs(userId) {
 }
 
 // Media upload helper function (images and videos)
+// Helper function to get image dimensions from a file
+export function getImageDimensions(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      resolve(null) // Not an image, skip
+      return
+    }
+
+    const img = new Image()
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      URL.revokeObjectURL(img.src) // Clean up
+    }
+    img.onerror = () => {
+      console.warn('Failed to get image dimensions')
+      resolve(null)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+// Helper function to get video dimensions from a file
+export function getVideoDimensions(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('video/')) {
+      resolve(null) // Not a video, skip
+      return
+    }
+
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      resolve({ width: video.videoWidth, height: video.videoHeight })
+      URL.revokeObjectURL(video.src) // Clean up
+    }
+    video.onerror = () => {
+      console.warn('Failed to get video dimensions')
+      resolve(null)
+    }
+    video.src = URL.createObjectURL(file)
+  })
+}
+
 export async function uploadImage(file, userId) {
   if (!file) throw new Error('No file provided')
 
@@ -679,7 +736,9 @@ export async function sendMessageWithMedia(
   text = '',
   imageUrls = [],
   muxPlaybackIds = [],
-  replyTo = null
+  replyTo = null,
+  mediaDimensions = [], // Array of { width, height } for each media item
+  linkPreview = null
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
@@ -690,10 +749,17 @@ export async function sendMessageWithMedia(
       imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
       muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      // Store dimensions for layout stability (prevents layout shift on load)
+      mediaDimensions: mediaDimensions.length > 0 ? mediaDimensions : null,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
+    }
+    
+    // Add link preview if present
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
     }
 
     // Add reply reference if replying
@@ -746,7 +812,9 @@ export async function sendMessageDMWithMedia(
   recipient = null,
   imageUrls = [],
   muxPlaybackIds = [],
-  replyTo = null
+  replyTo = null,
+  mediaDimensions = [], // Array of { width, height } for each media item
+  linkPreview = null
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
@@ -757,10 +825,17 @@ export async function sendMessageDMWithMedia(
       imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
       muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      // Store dimensions for layout stability (prevents layout shift on load)
+      mediaDimensions: mediaDimensions.length > 0 ? mediaDimensions : null,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
+    }
+    
+    // Add link preview if present
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
     }
 
     // Add reply reference if replying
@@ -972,6 +1047,97 @@ export async function editMessage(channelId, messageId, newText, isDM = false) {
   }
 }
 
+/**
+ * Update media dimensions for a message (on-demand migration for old messages).
+ * This is called when an image/video loads without stored dimensions.
+ * Fire-and-forget - doesn't block UI.
+ * 
+ * @param {string} chatId - Channel ID or DM ID
+ * @param {string} messageId - Message document ID
+ * @param {boolean} isDM - Whether this is a DM message
+ * @param {Array<{width: number, height: number}>} mediaDimensions - Array of dimensions
+ */
+export async function updateMessageMediaDimensions(chatId, messageId, isDM = false, mediaDimensions) {
+  try {
+    const messageRef = isDM
+      ? doc(db, 'dms', chatId, 'messages', messageId)
+      : doc(db, 'channels', chatId, 'messages', messageId)
+
+    await updateDoc(messageRef, {
+      mediaDimensions,
+    })
+    
+    console.log('📐 Migrated media dimensions for message:', messageId)
+  } catch (error) {
+    // Silent fail - this is a background migration, don't disrupt user
+    console.warn('Failed to migrate media dimensions:', error)
+  }
+}
+
+/**
+ * Fetch link preview data from the API.
+ * Used when sending a message with a URL.
+ * 
+ * @param {string} url - The URL to get preview for
+ * @returns {Promise<object|null>} - Link preview data or null
+ */
+export async function fetchLinkPreview(url) {
+  try {
+    const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch preview')
+    }
+
+    const data = await response.json()
+    
+    if (data.error) {
+      return null
+    }
+
+    // Return normalized preview data to store in Firestore
+    return {
+      url: data.url || url,
+      title: data.title || null,
+      description: data.description || null,
+      siteName: data.siteName || null,
+      image: data.images?.[0] || null,
+      favicon: data.favicons?.[0] || null,
+      imageDimensions: data.imageDimensions || null,
+    }
+  } catch (error) {
+    console.warn('Failed to fetch link preview:', error)
+    return null
+  }
+}
+
+/**
+ * Update link preview for a message (on-demand migration for old messages).
+ * This is called when a message has a URL but no stored link preview.
+ * Fire-and-forget - doesn't block UI.
+ * 
+ * @param {string} chatId - Channel ID or DM ID
+ * @param {string} messageId - Message document ID
+ * @param {boolean} isDM - Whether this is a DM message
+ * @param {object} linkPreview - Link preview data
+ */
+export async function updateMessageLinkPreview(chatId, messageId, isDM = false, linkPreview) {
+  try {
+    const messageRef = isDM
+      ? doc(db, 'dms', chatId, 'messages', messageId)
+      : doc(db, 'channels', chatId, 'messages', messageId)
+
+    await updateDoc(messageRef, {
+      linkPreview,
+    })
+    
+    console.log('🔗 Migrated link preview for message:', messageId)
+  } catch (error) {
+    // Silent fail - this is a background migration, don't disrupt user
+    console.warn('Failed to migrate link preview:', error)
+  }
+}
+
 // Delete message
 export async function deleteMessage(channelId, messageId, isDM = false) {
   try {
@@ -987,7 +1153,7 @@ export async function deleteMessage(channelId, messageId, isDM = false) {
 }
 
 // Send message with reply
-export async function sendMessageWithReply(channelId, user, text, replyTo) {
+export async function sendMessageWithReply(channelId, user, text, replyTo, linkPreview = null) {
   if (!user || !text.trim()) return
 
   try {
@@ -1004,14 +1170,21 @@ export async function sendMessageWithReply(channelId, user, text, replyTo) {
     if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
     if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
 
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
       replyTo: replyData,
-    })
+    }
+    
+    // Add link preview if present
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -1041,7 +1214,8 @@ export async function sendMessageDMWithReply(
   text,
   recipientId,
   replyTo,
-  recipient = null
+  recipient = null,
+  linkPreview = null
 ) {
   if (!user || !text.trim()) return
 
@@ -1059,14 +1233,21 @@ export async function sendMessageDMWithReply(
     if (replyTo.audioDuration) replyData.audioDuration = replyTo.audioDuration
     if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
 
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
       replyTo: replyData,
-    })
+    }
+    
+    // Add link preview if present
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {

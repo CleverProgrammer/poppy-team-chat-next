@@ -16,8 +16,12 @@ import {
   editMessage,
   sendAIMessage,
   setUserTyping,
-  markChatAsUnread
+  markChatAsUnread,
+  getImageDimensions,
+  getVideoDimensions,
+  fetchLinkPreview
 } from '../lib/firestore';
+import { extractFirstUrl, isLoomUrl } from '../utils/messageFormatting';
 
 export function useMessageSending({
   user,
@@ -173,6 +177,7 @@ export function useMessageSending({
     try {
       let imageUrls = [];
       let muxPlaybackIds = [];
+      let mediaDimensions = []; // Store dimensions for layout stability
 
       // Separate videos and images
       const videoFiles = currentImageFiles.filter(f => f.type.startsWith('video/'));
@@ -182,17 +187,32 @@ export function useMessageSending({
       if (currentImageFiles.length > 0) {
         setUploading(true);
 
-        // Upload images to Firebase in parallel
+        // Upload images to Firebase in parallel AND get their dimensions
         if (imageOnlyFiles.length > 0) {
-          imageUrls = await Promise.all(
-            imageOnlyFiles.map(file => uploadImage(file, user.uid))
+          const imageResults = await Promise.all(
+            imageOnlyFiles.map(async (file) => {
+              // Get dimensions and upload in parallel for each image
+              const [url, dimensions] = await Promise.all([
+                uploadImage(file, user.uid),
+                getImageDimensions(file)
+              ]);
+              console.log('📐 Image dimensions extracted:', dimensions, 'for file:', file.name);
+              return { url, dimensions };
+            })
           );
+          imageUrls = imageResults.map(r => r.url);
+          // Add image dimensions to the array
+          mediaDimensions = imageResults.map(r => r.dimensions).filter(Boolean);
+          console.log('📐 All media dimensions to store:', mediaDimensions);
         }
 
-        // Upload videos to Mux in parallel
+        // Upload videos to Mux in parallel AND get their dimensions
         if (videoFiles.length > 0) {
           const muxResults = await Promise.all(
             videoFiles.map(async (file) => {
+              // Get video dimensions first (before upload)
+              const dimensions = await getVideoDimensions(file);
+              
               // Get upload URL
               const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' });
               const { uploadUrl, uploadId } = await uploadResponse.json();
@@ -211,16 +231,28 @@ export function useMessageSending({
                   break;
                 }
               }
-              return playbackId;
+              return { playbackId, dimensions };
             })
           );
-          muxPlaybackIds = muxResults.filter(Boolean);
+          muxPlaybackIds = muxResults.map(r => r.playbackId).filter(Boolean);
+          // Add video dimensions after image dimensions
+          const videoDimensions = muxResults.map(r => r.dimensions).filter(Boolean);
+          mediaDimensions = [...mediaDimensions, ...videoDimensions];
         }
 
         setUploading(false);
       }
 
       const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0;
+
+      // Fetch link preview if message contains a URL (not Loom - those are embedded)
+      let linkPreview = null;
+      const firstUrl = extractFirstUrl(messageText);
+      if (firstUrl && !isLoomUrl(messageText)) {
+        console.log('🔗 Fetching link preview for:', firstUrl);
+        linkPreview = await fetchLinkPreview(firstUrl);
+        console.log('🔗 Link preview fetched:', linkPreview);
+      }
 
       if (currentChat.type === 'ai') {
         // Send user message to Firestore
@@ -229,13 +261,13 @@ export function useMessageSending({
         // Get AI response (fire and forget - don't block message sending)
         askPoppyDirectly(messageText);
       } else if (currentChat.type === 'channel') {
-        // Send message with optional media and reply
+        // Send message with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo);
+          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview);
         } else if (currentReplyingTo) {
-          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
+          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview);
         } else {
-          await sendMessage(currentChat.id, user, messageText);
+          await sendMessage(currentChat.id, user, messageText, linkPreview);
         }
 
         // Mark as unread for all other users (async, non-blocking)
@@ -253,13 +285,13 @@ export function useMessageSending({
         // Find recipient from allUsers for Ragie metadata
         const recipient = allUsers.find(u => u.uid === currentChat.id) || null;
 
-        // Send DM with optional media and reply
+        // Send DM with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo);
+          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview);
         } else if (currentReplyingTo) {
-          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient);
+          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient, linkPreview);
         } else {
-          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient);
+          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient, linkPreview);
         }
 
         // Mark as unread for the recipient (async, non-blocking)

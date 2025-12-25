@@ -1,47 +1,65 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import SkeletonView from './SkeletonView'
+import { cn } from '../../utils/cn'
+
+// Maximum width for video thumbnails
+const MAX_VIDEO_WIDTH = 320
 
 export default function VideoThumbnail({
   playbackId,
   onClick,
   isReply = false,
-  onLoad,
+  // Pre-stored dimensions from upload (prevents layout shift)
+  width: storedWidth,
+  height: storedHeight,
+  // For on-demand migration of old videos without dimensions
+  onDimensionsMigrate,
+  videoIndex = 0,
 }) {
-  const [isVertical, setIsVertical] = useState(true) // Default to vertical
+  // Calculate initial values from props to avoid cascading renders
+  const hasStoredDimensions = !!(storedWidth && storedHeight)
+  const initialVertical = hasStoredDimensions ? storedHeight > storedWidth : true
+  
   const [loaded, setLoaded] = useState(false)
+  const [isVertical, setIsVertical] = useState(initialVertical)
+  const [dimensions, setDimensions] = useState(
+    hasStoredDimensions ? { width: storedWidth, height: storedHeight } : null
+  )
+  
+  // Track if migration has been called to avoid duplicates
+  const migrationCalledRef = useRef(false)
 
-  // Detect orientation by loading thumbnail and checking dimensions
-  // Only for regular videos (not replies) - replies are always vertical story-style
+  // For replies, we don't need dimensions - they have fixed styling
+  // For regular videos without stored dimensions, detect from thumbnail
   useEffect(() => {
-    if (!playbackId) return
+    if (!playbackId || isReply || hasStoredDimensions) return
 
-    // For replies, skip detection - always use vertical style
-    if (isReply) {
-      setLoaded(true)
-      return
-    }
-
+    // Fallback: detect dimensions from thumbnail
     const img = new Image()
     img.onload = () => {
+      const newDimensions = { width: img.naturalWidth, height: img.naturalHeight }
       setIsVertical(img.naturalHeight > img.naturalWidth)
-      setLoaded(true)
+      setDimensions(newDimensions)
+      
+      // On-demand migration: notify parent about detected dimensions
+      if (!migrationCalledRef.current && onDimensionsMigrate) {
+        migrationCalledRef.current = true
+        onDimensionsMigrate(videoIndex, newDimensions)
+      }
     }
     img.onerror = () => {
-      setIsVertical(false) // Default to horizontal on error for regular videos
-      setLoaded(true)
+      setIsVertical(false)
     }
-    // Use static thumbnail for faster loading and dimension detection
     img.src = `https://image.mux.com/${playbackId}/thumbnail.jpg?time=1`
-  }, [playbackId, isReply])
+  }, [playbackId, isReply, hasStoredDimensions, onDimensionsMigrate, videoIndex])
 
   // Get the appropriate animated GIF URL
   const getAnimatedUrl = () => {
-    // Replies always use vertical-optimized GIF
     if (isReply) {
       return `https://image.mux.com/${playbackId}/animated.gif?start=0&end=4&height=200&fps=12`
     }
-    // Regular videos use orientation-based sizing
     if (isVertical) {
       return `https://image.mux.com/${playbackId}/animated.gif?start=0&end=4&height=200&fps=12`
     } else {
@@ -49,53 +67,58 @@ export default function VideoThumbnail({
     }
   }
 
-  // Determine classes based on orientation and type
-  const getBubbleClass = () => {
-    if (isReply) {
-      return 'video-reply-bubble' // Always vertical style for replies
-    }
-    return `video-thumbnail-bubble ${isVertical ? 'vertical' : 'horizontal'}`
+  const handleLoad = () => {
+    setLoaded(true)
   }
 
-  const getImgClass = () => {
-    return isReply ? 'video-reply-thumbnail' : 'video-thumbnail-img'
-  }
-
-  const getPlayClass = () => {
-    return isReply ? 'video-reply-play' : 'video-thumbnail-play'
-  }
-
-  // Show loading state while detecting orientation (only for non-replies)
-  if (!loaded) {
+  // Reply-style videos have their own fixed layout
+  if (isReply) {
     return (
-      <div className={`${isReply ? 'video-reply-bubble' : 'video-thumbnail-bubble'} loading`}>
-        <div className='video-thumbnail-loading'>
-          <div className='loading-shimmer' />
+      <div className='video-reply-bubble' onClick={onClick}>
+        <img
+          src={getAnimatedUrl()}
+          alt='Video'
+          className='video-reply-thumbnail'
+          onLoad={handleLoad}
+        />
+        <div className='video-reply-play'>
+          <svg width='24' height='24' viewBox='0 0 24 24' fill='white'>
+            <path d='M8 5v14l11-7z' />
+          </svg>
         </div>
+        <div className='video-reply-badge'>🎬</div>
       </div>
     )
   }
 
+  // Regular videos use SkeletonView with parent max-width
   return (
-    <div className={getBubbleClass()} onClick={onClick}>
-      <img
-        src={getAnimatedUrl()}
-        alt='Video'
-        className={getImgClass()}
-        onLoad={onLoad}
-      />
-      <div className={getPlayClass()}>
-        <svg 
-          width={isReply ? '24' : '28'} 
-          height={isReply ? '24' : '28'} 
-          viewBox='0 0 24 24' 
-          fill='white'
-        >
-          <path d='M8 5v14l11-7z' />
-        </svg>
-      </div>
-      {isReply && <div className='video-reply-badge'>🎬</div>}
+    <div 
+      className={cn('rounded-xl overflow-hidden cursor-pointer relative')}
+      style={{ maxWidth: MAX_VIDEO_WIDTH }}
+      onClick={onClick}
+    >
+      <SkeletonView
+        width={dimensions?.width}
+        height={dimensions?.height}
+        loaded={loaded}
+      >
+        <img
+          src={getAnimatedUrl()}
+          alt='Video'
+          className='w-full h-full object-cover block'
+          onLoad={handleLoad}
+        />
+        <div className={cn(
+          'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+          'bg-black/50 rounded-full w-12 h-12',
+          'flex items-center justify-center pointer-events-none'
+        )}>
+          <svg width='28' height='28' viewBox='0 0 24 24' fill='white'>
+            <path d='M8 5v14l11-7z' />
+          </svg>
+        </div>
+      </SkeletonView>
     </div>
   )
 }
-

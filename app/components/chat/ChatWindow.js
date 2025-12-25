@@ -197,20 +197,6 @@ export default function ChatWindow() {
     })
   }, [])
 
-  // Handler for when media (images/videos) finish loading
-  // This fixes the scroll-to-bottom issue when dynamic content changes height
-  const handleMediaLoaded = useCallback(() => {
-    if (shouldStayAtBottomRef.current) {
-      requestAnimationFrame(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: 'LAST',
-          align: 'end',
-          behavior: 'auto',
-        })
-      })
-    }
-  }, [])
-
   // Message sending hook
   const {
     sending,
@@ -1305,7 +1291,6 @@ export default function ChatWindow() {
                             onScrollToMessage={scrollToMessage}
                             messageRef={el => (messageRefs.current[item.id] = el)}
                             onOpenThread={openThreadView}
-                            onMediaLoaded={handleMediaLoaded}
                           />
                         )
                       }

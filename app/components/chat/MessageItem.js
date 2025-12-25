@@ -6,6 +6,7 @@ import MessageActionSheet from './MessageActionSheet'
 import StoriesViewer from './StoriesViewer'
 import VideoThumbnail from './VideoThumbnail'
 import VoiceMessage from './VoiceMessage'
+import SkeletonView from './SkeletonView'
 import {
   linkifyText,
   isSingleEmoji,
@@ -13,8 +14,80 @@ import {
   getLoomEmbedUrl,
   extractFirstUrl,
 } from '../../utils/messageFormatting'
+import { updateMessageMediaDimensions, updateMessageLinkPreview, getDMId } from '../../lib/firestore'
 import LinkPreview from './LinkPreview'
 import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
+import { cn } from '../../utils/cn'
+
+// Maximum width for single images/videos
+const MAX_MEDIA_WIDTH = 320
+// Maximum width for images in multi-image grid
+const MAX_MULTI_IMAGE_WIDTH = 140
+
+/**
+ * ImageWithSkeleton - Wraps an image with SkeletonView for loading state.
+ * Parent div controls max-width, SkeletonView fills 100% and maintains aspect ratio.
+ * 
+ * Also handles on-demand migration: if image loads without stored dimensions,
+ * it captures them and updates Firestore for future loads.
+ */
+function ImageWithSkeleton({ 
+  src, 
+  alt, 
+  width, 
+  height, 
+  maxWidth, 
+  onClick,
+  // For on-demand migration
+  onDimensionsMigrate,
+  imageIndex = 0,
+}) {
+  const [loaded, setLoaded] = useState(false)
+  const [displayDimensions, setDisplayDimensions] = useState(
+    width && height ? { width, height } : null
+  )
+
+  const handleLoad = (e) => {
+    const img = e.target
+    setLoaded(true)
+    
+    // On-demand migration: if no stored dimensions, capture and migrate
+    if (!width || !height) {
+      const actualDimensions = { 
+        width: img.naturalWidth, 
+        height: img.naturalHeight 
+      }
+      setDisplayDimensions(actualDimensions)
+      
+      // Notify parent to update Firestore
+      onDimensionsMigrate?.(imageIndex, actualDimensions)
+    }
+  }
+
+  return (
+    <div 
+      className={cn(
+        'rounded-xl overflow-hidden cursor-pointer relative',
+        'hover:scale-[1.02] transition-transform'
+      )}
+      style={{ maxWidth }}
+      onClick={onClick}
+    >
+      <SkeletonView
+        width={displayDimensions?.width}
+        height={displayDimensions?.height}
+        loaded={loaded}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className='w-full h-full object-cover block'
+          onLoad={handleLoad}
+        />
+      </SkeletonView>
+    </div>
+  )
+}
 
 export default function MessageItem({
   msg,
@@ -37,7 +110,6 @@ export default function MessageItem({
   onScrollToMessage,
   messageRef,
   onOpenThread,
-  onMediaLoaded,
   isInThreadView = false,
   isOriginalInThread = false,
 }) {
@@ -776,7 +848,6 @@ export default function MessageItem({
                 key={idx}
                 playbackId={playbackId}
                 isReply={true}
-                onLoad={onMediaLoaded}
                 onClick={e => {
                   e.stopPropagation()
                   // Collect all video replies to the SAME original message
@@ -822,49 +893,121 @@ export default function MessageItem({
           {/* Regular Mux videos (not replies) - clickable thumbnail that opens modal */}
           {msg.muxPlaybackIds && msg.muxPlaybackIds.length > 0 && !msg.replyTo && (
             <div className='message-videos'>
-              {msg.muxPlaybackIds.map((playbackId, idx) => (
-                <VideoThumbnail
-                  key={idx}
-                  playbackId={playbackId}
-                  isReply={false}
-                  onLoad={onMediaLoaded}
-                  onClick={e => {
-                    e.stopPropagation()
-                    // Create video data for StoriesViewer
-                    const videoData = msg.muxPlaybackIds.map(pid => ({
-                      playbackId: pid,
-                      sender: msg.sender,
-                      timestamp: msg.timestamp,
-                      msgId: msg.id,
-                    }))
-                    setStoriesVideos(videoData)
-                    setStoriesInitialIndex(idx)
-                    setStoriesOpen(true)
-                  }}
-                />
-              ))}
+              {(() => {
+                const imageCount = (msg.imageUrls?.length || (msg.imageUrl ? 1 : 0))
+                const videoDimensions = msg.mediaDimensions || []
+                const needsVideoMigration = !msg.mediaDimensions || msg.mediaDimensions.length <= imageCount
+                
+                // Handler for on-demand migration of video dimensions
+                const handleVideoDimensionsMigrate = (videoIndex, newDimensions) => {
+                  if (!needsVideoMigration) return
+                  
+                  // Build the full dimensions array (images + videos)
+                  const existingDimensions = msg.mediaDimensions || []
+                  const updatedDimensions = [...existingDimensions]
+                  
+                  // Video dimensions come after image dimensions
+                  updatedDimensions[imageCount + videoIndex] = newDimensions
+                  
+                  // Only update if we have dimensions for all videos
+                  const allVideosCollected = msg.muxPlaybackIds.every(
+                    (_, i) => updatedDimensions[imageCount + i]
+                  )
+                  if (allVideosCollected) {
+                    const chatId = currentChat.type === 'dm' 
+                      ? getDMId(user.uid, currentChat.id) 
+                      : currentChat.id
+                    const isDM = currentChat.type === 'dm'
+                    
+                    // Fire and forget - don't block UI
+                    updateMessageMediaDimensions(chatId, msg.id, isDM, updatedDimensions)
+                  }
+                }
+                
+                return msg.muxPlaybackIds.map((playbackId, idx) => {
+                  const dim = videoDimensions[imageCount + idx]
+                  return (
+                    <VideoThumbnail
+                      key={idx}
+                      playbackId={playbackId}
+                      isReply={false}
+                      width={dim?.width}
+                      height={dim?.height}
+                      videoIndex={idx}
+                      onDimensionsMigrate={needsVideoMigration ? handleVideoDimensionsMigrate : undefined}
+                      onClick={e => {
+                        e.stopPropagation()
+                        // Create video data for StoriesViewer
+                        const videoData = msg.muxPlaybackIds.map(pid => ({
+                          playbackId: pid,
+                          sender: msg.sender,
+                          timestamp: msg.timestamp,
+                          msgId: msg.id,
+                        }))
+                        setStoriesVideos(videoData)
+                        setStoriesInitialIndex(idx)
+                        setStoriesOpen(true)
+                      }}
+                    />
+                  )
+                })
+              })()}
             </div>
           )}
-          {/* Support multiple images or single image */}
+          {/* Support multiple images or single image - with skeleton placeholders for layout stability */}
           {(msg.imageUrls || msg.imageUrl) && (
             <div
               className={`message-images ${(msg.imageUrls?.length || 1) > 1 ? 'multi-image' : ''}`}
             >
               {(() => {
                 const allImages = (msg.imageUrls || [msg.imageUrl]).filter(Boolean)
-                return allImages.map((url, idx) => (
-                  <img
-                    key={idx}
-                    src={url}
-                    alt={`Shared image ${idx + 1}`}
-                    className='message-image'
-                    onLoad={onMediaLoaded}
-                    onClick={e => {
-                      e.stopPropagation()
-                      onImageClick(allImages, idx)
-                    }}
-                  />
-                ))
+                const dimensions = msg.mediaDimensions || []
+                const isMultiImage = allImages.length > 1
+                const needsMigration = !msg.mediaDimensions || msg.mediaDimensions.length === 0
+                
+                // Handler for on-demand migration of old messages without dimensions
+                const handleDimensionsMigrate = (imageIndex, newDimensions) => {
+                  if (!needsMigration) return
+                  
+                  // Build the full dimensions array
+                  const updatedDimensions = [...dimensions]
+                  updatedDimensions[imageIndex] = newDimensions
+                  
+                  // Only update if we have dimensions for all images
+                  const allCollected = allImages.every((_, i) => updatedDimensions[i])
+                  if (allCollected) {
+                    const chatId = currentChat.type === 'dm' 
+                      ? getDMId(user.uid, currentChat.id) 
+                      : currentChat.id
+                    const isDM = currentChat.type === 'dm'
+                    
+                    // Fire and forget - don't block UI
+                    updateMessageMediaDimensions(chatId, msg.id, isDM, updatedDimensions)
+                  }
+                }
+                
+                return allImages.map((url, idx) => {
+                  // Get dimensions for this image (if available)
+                  const dim = dimensions[idx]
+                  const maxWidth = isMultiImage ? MAX_MULTI_IMAGE_WIDTH : MAX_MEDIA_WIDTH
+                  
+                  return (
+                    <ImageWithSkeleton
+                      key={idx}
+                      src={url}
+                      alt={`Shared image ${idx + 1}`}
+                      width={dim?.width}
+                      height={dim?.height}
+                      maxWidth={maxWidth}
+                      imageIndex={idx}
+                      onDimensionsMigrate={needsMigration ? handleDimensionsMigrate : undefined}
+                      onClick={e => {
+                        e.stopPropagation()
+                        onImageClick(allImages, idx)
+                      }}
+                    />
+                  )
+                })
               })()}
             </div>
           )}
@@ -898,6 +1041,15 @@ export default function MessageItem({
             <LinkPreview 
               url={extractFirstUrl(msg.text)} 
               isSent={isOwnMessage}
+              storedPreview={msg.linkPreview || null}
+              onPreviewMigrate={!msg.linkPreview ? (previewData) => {
+                // On-demand migration for old messages without stored link preview
+                const chatId = currentChat.type === 'dm' 
+                  ? getDMId(user.uid, currentChat.id) 
+                  : currentChat.id
+                const isDM = currentChat.type === 'dm'
+                updateMessageLinkPreview(chatId, msg.id, isDM, previewData)
+              } : undefined}
             />
           )}
         </div>

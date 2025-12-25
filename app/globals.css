@@ -1555,6 +1555,16 @@ iframe[src*="vercel"] {
   transform: scale(1.02);
 }
 
+/* Skeleton shimmer animation - used by SkeletonView component */
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Video messages */
 .message-video {
   max-width: 300px;
