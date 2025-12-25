@@ -1,5 +1,7 @@
 'use client'
 
+import ChannelStoryRing from './ChannelStoryRing'
+
 export default function ChatHeader({
   currentChat,
   isSidebarOpen,
@@ -31,6 +33,9 @@ export default function ChatHeader({
     return null
   }
 
+  // Check if this is the general channel (for stories)
+  const isGeneralChannel = currentChat.type === 'channel' && currentChat.id === 'general'
+
   // Get avatar/icon for mobile header
   const getMobileAvatar = () => {
     if (currentChat.type === 'ai') {
@@ -52,13 +57,57 @@ export default function ChatHeader({
       const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
       return <div className='chat-header-avatar chat-header-avatar-initials'>{initials}</div>
     }
-    // Channel
-    return <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
+    // Channel - wrap with story ring if general
+    const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
+    
+    if (isGeneralChannel) {
+      return (
+        <ChannelStoryRing channelId={currentChat.id} size="medium">
+          {channelAvatar}
+        </ChannelStoryRing>
+      )
+    }
+    
+    return channelAvatar
+  }
+
+  // Get avatar for desktop header (iMessage style)
+  const getDesktopAvatar = () => {
+    if (currentChat.type === 'ai') {
+      return (
+        <img
+          src='/poppy-icon.png'
+          alt='Poppy'
+          className='chat-header-avatar-desktop'
+        />
+      )
+    }
+    if (currentChat.type === 'dm') {
+      const photo = getUserPhoto()
+      if (photo) {
+        return <img src={photo} alt={currentChat.name} className='chat-header-avatar-desktop' />
+      }
+      // Fallback to initials
+      const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
+      return <div className='chat-header-avatar-desktop chat-header-avatar-initials'>{initials}</div>
+    }
+    // Channel - wrap with story ring if general
+    const channelAvatar = <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
+    
+    if (isGeneralChannel) {
+      return (
+        <ChannelStoryRing channelId={currentChat.id} size="small">
+          {channelAvatar}
+        </ChannelStoryRing>
+      )
+    }
+    
+    return channelAvatar
   }
 
   return (
     <>
-      {/* Desktop Header */}
+      {/* Desktop Header - iMessage style with avatar and name pill */}
       <div className='chat-header'>
         <button
           className='mobile-menu-button'
@@ -78,9 +127,17 @@ export default function ChatHeader({
             <line x1='3' y1='18' x2='21' y2='18'></line>
           </svg>
         </button>
-        <span className='chat-header-icon'>{getIcon()}</span>
-        <h1>{currentChat.name?.replace('🤖 ', '').replace('🤖', '')}</h1>
-        <span className='chat-header-subtitle'>{getSubtitle()}</span>
+        
+        {/* iMessage-style header content */}
+        <div className='chat-header-imessage'>
+          {getDesktopAvatar()}
+          <div className='chat-header-name-pill'>
+            <span className='chat-header-name-text'>
+              {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
+            </span>
+            <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
+          </div>
+        </div>
 
         {viewMode && onViewModeChange && (
           <div className='view-mode-toggle'>

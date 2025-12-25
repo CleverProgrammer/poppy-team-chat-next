@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import SignOutButton from '../auth/SignOutButton'
+import ChannelStoryRing from '../chat/ChannelStoryRing'
 
 export default function Sidebar({
   currentChat,
@@ -237,6 +238,13 @@ export default function Sidebar({
           const channelId = channel.id
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
+          const isGeneralChannel = channelId === 'general'
+          
+          const avatarContent = (
+            <div className='collapsed-avatar-fallback channel-avatar'>
+              #
+            </div>
+          )
           
           return (
             <div
@@ -245,9 +253,13 @@ export default function Sidebar({
               onClick={() => handleChannelClick(channelId, channel.name)}
             >
               {isUnread && <div className="collapsed-unread-dot" />}
-              <div className='collapsed-avatar-fallback channel-avatar'>
-                #
-              </div>
+              {isGeneralChannel ? (
+                <ChannelStoryRing channelId={channelId} size="medium">
+                  {avatarContent}
+                </ChannelStoryRing>
+              ) : (
+                avatarContent
+              )}
             </div>
           )
         })}
@@ -356,6 +368,13 @@ export default function Sidebar({
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
           const lastMsg = channelLastMessages[channelId]
+          const isGeneralChannel = channelId === 'general'
+          
+          const avatarContent = (
+            <div className='dm-avatar-fallback channel-avatar'>
+              #
+            </div>
+          )
           
           return (
             <div
@@ -366,9 +385,13 @@ export default function Sidebar({
               <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
               
               <div className='dm-avatar-container'>
-                <div className='dm-avatar-fallback channel-avatar'>
-                  #
-                </div>
+                {isGeneralChannel ? (
+                  <ChannelStoryRing channelId={channelId} size="small">
+                    {avatarContent}
+                  </ChannelStoryRing>
+                ) : (
+                  avatarContent
+                )}
               </div>
               
               <div className='dm-content'>
