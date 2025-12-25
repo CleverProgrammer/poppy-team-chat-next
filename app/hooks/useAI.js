@@ -135,10 +135,12 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
         
         if (currentChat.type === 'channel') {
-          await sendMessage(currentChat.id, AI_USER, aiResponse, messageOptions)
+          // sendMessage signature: (channelId, user, text, linkPreview, options)
+          await sendMessage(currentChat.id, AI_USER, aiResponse, null, messageOptions)
         } else {
           const dmId = getDMId(user.uid, currentChat.id)
-          await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id, null, messageOptions)
+          // sendMessageDM signature: (dmId, user, text, recipientId, recipient, linkPreview, options)
+          await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id, null, null, messageOptions)
         }
 
         console.log(`📤 [${requestId}] Message posted to channel`)
@@ -153,10 +155,12 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
         
         if (currentChat.type === 'channel') {
-          await sendMessage(currentChat.id, AI_USER, errorMsg, messageOptions)
+          // sendMessage signature: (channelId, user, text, linkPreview, options)
+          await sendMessage(currentChat.id, AI_USER, errorMsg, null, messageOptions)
         } else {
           const dmId = getDMId(user.uid, currentChat.id)
-          await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id, null, messageOptions)
+          // sendMessageDM signature: (dmId, user, text, recipientId, recipient, linkPreview, options)
+          await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id, null, null, messageOptions)
         }
       } finally {
         setAiProcessing(false)

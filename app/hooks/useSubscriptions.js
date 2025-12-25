@@ -318,16 +318,36 @@ export function useSubscriptions({
         return msg.privateFor === user.uid || msg.senderId === user.uid
       })
     }
+
+    // Helper to check if messages have actually changed (prevents re-renders for private messages from others)
+    const haveMessagesChanged = (newFiltered, oldFiltered) => {
+      if (newFiltered.length !== oldFiltered.length) return true
+      // Check if message IDs have changed (fast comparison)
+      for (let i = 0; i < newFiltered.length; i++) {
+        if (newFiltered[i].id !== oldFiltered[i]?.id) return true
+        // Also check for edits, reactions, or other updates (compare critical fields)
+        if (newFiltered[i].text !== oldFiltered[i]?.text) return true
+        if (newFiltered[i].edited !== oldFiltered[i]?.edited) return true
+        if (JSON.stringify(newFiltered[i].reactions) !== JSON.stringify(oldFiltered[i]?.reactions)) return true
+        if (JSON.stringify(newFiltered[i].readBy) !== JSON.stringify(oldFiltered[i]?.readBy)) return true
+        if (newFiltered[i].isPrivate !== oldFiltered[i]?.isPrivate) return true
+      }
+      return false
+    }
     
     if (currentChat.type === 'channel') {
       unsubscribe = subscribeToMessages(
         currentChat.id,
         newMessages => {
           const filteredMessages = filterPrivateMessages(newMessages)
-          setMessages(filteredMessages)
-          messagesRef.current = filteredMessages
-          setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages)
+          // Only update state if the visible messages have actually changed
+          // This prevents re-renders when private messages from other users are added
+          if (haveMessagesChanged(filteredMessages, messagesRef.current)) {
+            setMessages(filteredMessages)
+            messagesRef.current = filteredMessages
+            setCurrentMessages(filteredMessages)
+            cacheMessages(filteredMessages)
+          }
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100
@@ -338,10 +358,14 @@ export function useSubscriptions({
         dmId,
         newMessages => {
           const filteredMessages = filterPrivateMessages(newMessages)
-          setMessages(filteredMessages)
-          messagesRef.current = filteredMessages
-          setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages)
+          // Only update state if the visible messages have actually changed
+          // This prevents re-renders when private messages from other users are added
+          if (haveMessagesChanged(filteredMessages, messagesRef.current)) {
+            setMessages(filteredMessages)
+            messagesRef.current = filteredMessages
+            setCurrentMessages(filteredMessages)
+            cacheMessages(filteredMessages)
+          }
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100

@@ -359,6 +359,8 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
 
   const unsubscribes = []
   const lastMessages = {}
+  // Track last known message IDs to prevent unnecessary callbacks when private messages are added
+  const lastMessageIds = {}
 
   dmUserIds.forEach(otherUserId => {
     const dmId = getDMId(userId, otherUserId)
@@ -369,6 +371,9 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
     const unsubscribe = onSnapshot(
       q,
       snapshot => {
+        let newMessageId = null
+        let newMessage = null
+        
         if (!snapshot.empty) {
           // Find the first message that's NOT private (or is private but visible to this user)
           const visibleMessage = snapshot.docs.find(doc => {
@@ -378,18 +383,21 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
           })
           
           if (visibleMessage) {
-            lastMessages[otherUserId] = {
+            newMessageId = visibleMessage.id
+            newMessage = {
               id: visibleMessage.id,
               ...visibleMessage.data(),
             }
-          } else {
-            lastMessages[otherUserId] = null
           }
-        } else {
-          lastMessages[otherUserId] = null
         }
-        // Callback with updated lastMessages object
-        callback({ ...lastMessages })
+        
+        // Only update and callback if the visible last message has actually changed
+        // This prevents re-renders when private messages from other users are added
+        if (lastMessageIds[otherUserId] !== newMessageId) {
+          lastMessageIds[otherUserId] = newMessageId
+          lastMessages[otherUserId] = newMessage
+          callback({ ...lastMessages })
+        }
       },
       error => {
         console.error(`Error loading last message for DM ${dmId}:`, error)
@@ -415,6 +423,8 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
 
   const unsubscribes = []
   const lastMessages = {}
+  // Track last known message IDs to prevent unnecessary callbacks when private messages are added
+  const lastMessageIds = {}
 
   channelIds.forEach(channelId => {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -424,6 +434,9 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
     const unsubscribe = onSnapshot(
       q,
       snapshot => {
+        let newMessageId = null
+        let newMessage = null
+        
         if (!snapshot.empty) {
           // Find the first message that's NOT private (or is private but visible to this user)
           const visibleMessage = snapshot.docs.find(doc => {
@@ -433,17 +446,21 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
           })
           
           if (visibleMessage) {
-            lastMessages[channelId] = {
+            newMessageId = visibleMessage.id
+            newMessage = {
               id: visibleMessage.id,
               ...visibleMessage.data(),
             }
-          } else {
-            lastMessages[channelId] = null
           }
-        } else {
-          lastMessages[channelId] = null
         }
-        callback({ ...lastMessages })
+        
+        // Only update and callback if the visible last message has actually changed
+        // This prevents re-renders when private messages from other users are added
+        if (lastMessageIds[channelId] !== newMessageId) {
+          lastMessageIds[channelId] = newMessageId
+          lastMessages[channelId] = newMessage
+          callback({ ...lastMessages })
+        }
       },
       error => {
         console.error(`Error loading last message for channel ${channelId}:`, error)
