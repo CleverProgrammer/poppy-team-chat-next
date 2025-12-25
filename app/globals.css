@@ -960,12 +960,19 @@ html {
 }
 
 .ai-mode-toggle.private {
-  background: rgba(55, 45, 65, 0.95) !important;
-  border-color: rgba(140, 100, 180, 0.25) !important;
+  background: rgba(70, 60, 20, 0.95) !important;
+  border-color: rgba(250, 204, 21, 0.4) !important;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.3) !important;
 }
 
 .ai-mode-toggle.private:hover {
-  background: rgba(65, 50, 75, 0.98) !important;
+  background: rgba(85, 70, 25, 0.98) !important;
+  border-color: rgba(250, 204, 21, 0.5) !important;
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.4) !important;
+}
+
+.ai-mode-toggle.private .ai-mode-label {
+  color: rgba(250, 220, 100, 0.95) !important;
 }
 
 .ai-mode-emoji {
@@ -979,6 +986,12 @@ html {
   color: rgba(255, 255, 255, 0.85) !important;
   white-space: nowrap !important;
   line-height: 1 !important;
+}
+
+.ai-mode-hint {
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.45) !important;
 }
 
 .ai-mode-close {
