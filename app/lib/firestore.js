@@ -457,12 +457,9 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
         // Only update and callback if the visible last message has actually changed
         // This prevents re-renders when private messages from other users are added
         if (lastMessageIds[channelId] !== newMessageId) {
-          console.log(`📝 [CHANNEL LAST MSG] ${channelId}: ID changed from ${lastMessageIds[channelId]} to ${newMessageId}`)
           lastMessageIds[channelId] = newMessageId
           lastMessages[channelId] = newMessage
           callback({ ...lastMessages })
-        } else {
-          console.log(`⏭️ [CHANNEL LAST MSG] ${channelId}: No change, skipping callback`)
         }
       },
       error => {

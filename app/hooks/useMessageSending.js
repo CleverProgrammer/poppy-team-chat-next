@@ -144,6 +144,7 @@ export function useMessageSending({
       replyTo: replyingTo,
       optimistic: true, // Mark as optimistic
       isPrivate: isPrivate, // Mark as private if in private AI mode
+      privateFor: isPrivate ? user.uid : null, // Set privateFor for filter to work correctly
     };
 
     // Add optimistic message to UI instantly
