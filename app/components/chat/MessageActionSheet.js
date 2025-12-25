@@ -22,6 +22,7 @@ export default function MessageActionSheet({
   onPromote,
   onDemote,
   onAddToTeamMemory,
+  onMakePublic,
 }) {
   const openTimeRef = useRef(0);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -193,6 +194,13 @@ export default function MessageActionSheet({
               <button className="action-sheet-action-btn" onClick={handleCopy}>
                 <span className="action-icon">📋</span>
                 <span>Copy</span>
+              </button>
+            )}
+            {/* Make Public - only for own private messages */}
+            {isOwnMessage && message?.isPrivate && (
+              <button className="action-sheet-action-btn make-public-btn" onClick={() => handleAction(onMakePublic)}>
+                <span className="action-icon">👀</span>
+                <span>Show to everyone</span>
               </button>
             )}
             {isOwnMessage && !isPost && (

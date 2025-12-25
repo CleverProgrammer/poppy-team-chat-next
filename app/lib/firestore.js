@@ -39,18 +39,28 @@ export async function saveUser(user) {
   }
 }
 
-export async function sendMessage(channelId, user, text) {
+export async function sendMessage(channelId, user, text, options = {}) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = user.uid // Only visible to this user
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
     fetch('/api/ragie/sync', {
@@ -968,6 +978,29 @@ export async function editMessage(channelId, messageId, newText, isDM = false) {
     })
   } catch (error) {
     console.error('Error editing message:', error)
+    throw error
+  }
+}
+
+// Toggle message visibility (private <-> public)
+export async function toggleMessageVisibility(channelId, messageId, makePublic, isDM = false) {
+  try {
+    const messageRef = isDM
+      ? doc(db, 'dms', channelId, 'messages', messageId)
+      : doc(db, 'channels', channelId, 'messages', messageId)
+
+    if (makePublic) {
+      // Make public - remove private flags
+      await updateDoc(messageRef, {
+        isPrivate: false,
+        privateFor: null,
+      })
+    } else {
+      // This shouldn't normally be called (can't make public messages private after the fact)
+      console.warn('Cannot make public messages private after sending')
+    }
+  } catch (error) {
+    console.error('Error toggling message visibility:', error)
     throw error
   }
 }

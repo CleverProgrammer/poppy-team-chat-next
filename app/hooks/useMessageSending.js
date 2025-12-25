@@ -38,7 +38,9 @@ export function useMessageSending({
   setUploading,
   allUsers,
   askPoppy,
-  askPoppyDirectly
+  askPoppyDirectly,
+  aiMode = false,
+  privateMode = false,
 }) {
   const [sending, setSending] = useState(false);
   const typingTimeoutRef = useRef(null);
@@ -112,7 +114,13 @@ export function useMessageSending({
     // Check for @poppy mention - match @poppy anywhere in text and capture everything after
     const poppyMention = messageText.match(/@poppy\s*(.*)/i);
     const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null;
-    const shouldTriggerAI = !!aiQuestion;
+    
+    // AI Mode: treat all messages as AI questions (even without @poppy prefix)
+    const shouldTriggerAI = aiMode ? true : !!aiQuestion;
+    const actualAiQuestion = aiMode ? messageText.trim() : aiQuestion;
+    
+    // Private mode: mark message as private (only visible to sender)
+    const isPrivate = aiMode && privateMode;
 
     // Create optimistic message immediately
     const optimisticId = `temp-${Date.now()}`;
@@ -127,7 +135,8 @@ export function useMessageSending({
       imageUrl: imagePreviews[0] || null,
       imageUrls: imagePreviews.length > 0 ? imagePreviews : null,
       replyTo: replyingTo,
-      optimistic: true // Mark as optimistic
+      optimistic: true, // Mark as optimistic
+      isPrivate: isPrivate, // Mark as private if in private AI mode
     };
 
     // Add optimistic message to UI instantly
@@ -235,7 +244,7 @@ export function useMessageSending({
         } else if (currentReplyingTo) {
           await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo);
         } else {
-          await sendMessage(currentChat.id, user, messageText);
+          await sendMessage(currentChat.id, user, messageText, { isPrivate });
         }
 
         // Mark as unread for all other users (async, non-blocking)
@@ -273,9 +282,9 @@ export function useMessageSending({
       // Remove optimistic message once real one arrives (Firestore subscription will add it)
       setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
 
-      // Trigger AI response if @poppy was mentioned
-      if (shouldTriggerAI) {
-        askPoppy(aiQuestion);
+      // Trigger AI response if @poppy was mentioned or AI mode is active
+      if (shouldTriggerAI && actualAiQuestion) {
+        askPoppy(actualAiQuestion);
       }
     } catch (error) {
       console.error('Error sending message:', error);

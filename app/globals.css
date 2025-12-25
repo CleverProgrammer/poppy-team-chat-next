@@ -567,6 +567,39 @@ html {
   font-size: 10px;
 }
 
+/* Private message styling - subtle yellow tint */
+.message-wrapper.private-message .message {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.15) 0%, rgba(234, 179, 8, 0.1) 100%);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  box-shadow: 0 2px 8px rgba(250, 204, 21, 0.1);
+}
+
+.message-wrapper.private-message.sent .message {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.25) 0%, rgba(234, 179, 8, 0.15) 100%);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+}
+
+/* Private indicator icon */
+.private-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  color: #fbbf24;
+  opacity: 0.8;
+  vertical-align: middle;
+}
+
+.private-indicator svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Private message sender indicator */
+.message-wrapper.private-message .message-sender::before {
+  content: '🙈 ';
+  font-size: 10px;
+}
+
 .message .text {
   font-size: 15px;
   line-height: 1.4;
@@ -670,6 +703,94 @@ html {
   width: 100%;
   gap: 12px;
   align-items: flex-end;
+}
+
+/* Poppy AI button */
+.input-poppy-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.input-poppy-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.input-poppy-btn.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.2));
+  border-color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4), 0 0 24px rgba(236, 72, 153, 0.2);
+  animation: poppy-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes poppy-glow {
+  0% {
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.4), 0 0 16px rgba(236, 72, 153, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.6), 0 0 32px rgba(236, 72, 153, 0.3);
+  }
+}
+
+.poppy-logo-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.input-poppy-btn.active .poppy-logo-icon {
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+}
+
+/* Private/Public toggle */
+.input-private-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.input-private-toggle.public {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.input-private-toggle.public:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.input-private-toggle.private {
+  background: rgba(250, 204, 21, 0.15);
+  border-color: rgba(250, 204, 21, 0.4);
+  color: #fbbf24;
+}
+
+.input-private-toggle.private:hover {
+  background: rgba(250, 204, 21, 0.25);
+  border-color: rgba(250, 204, 21, 0.6);
+}
+
+.input-private-toggle span {
+  white-space: nowrap;
 }
 
 .input-field-wrapper {
