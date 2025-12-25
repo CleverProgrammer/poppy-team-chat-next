@@ -22,6 +22,12 @@ exports.sendChannelNotification = onDocumentCreated(
 
     console.log(`New message in channel ${channelId}:`, message.text?.substring(0, 50));
 
+    // Skip notifications for private messages (AI private mode)
+    if (message.isPrivate) {
+      console.log('Skipping notification - message is private');
+      return;
+    }
+
     try {
       // Get all users with push tokens (except the sender)
       const usersSnapshot = await db.collection('users').get();
@@ -96,7 +102,14 @@ exports.sendDMNotification = onDocumentCreated(
     console.log(`📝 Message ID: ${messageId}`);
     console.log(`👤 Sender: ${message.sender} (${message.senderId})`);
     console.log(`💬 Text: "${message.text?.substring(0, 50)}..."`);
+    console.log(`🔒 Private: ${message.isPrivate ? 'YES' : 'NO'}`);
     console.log('───────────────────────────────────────────────────────────');
+
+    // Skip notifications for private messages (AI private mode)
+    if (message.isPrivate) {
+      console.log('⏭️ Skipping notification - message is private (AI private mode)');
+      return;
+    }
 
     try {
       // DM ID format is "{userId1}_{userId2}" (sorted alphabetically)

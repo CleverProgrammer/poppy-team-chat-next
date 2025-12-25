@@ -5,15 +5,26 @@ import { createPortal } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
 import { hapticLight, hapticMedium } from '../../utils/haptics'
 
-// Only import CameraPreview on native platforms
+// CameraPreview module reference - loaded dynamically when needed
 let CameraPreview = null
-if (typeof window !== 'undefined') {
-  import('@capgo/camera-preview').then(mod => {
-    CameraPreview = mod.CameraPreview
-  })
+let cameraPreviewPromise = null
+
+// Helper to ensure CameraPreview is loaded
+const ensureCameraPreview = async () => {
+  if (CameraPreview) return CameraPreview
+  
+  if (!cameraPreviewPromise) {
+    cameraPreviewPromise = import('@capgo/camera-preview').then(mod => {
+      CameraPreview = mod.CameraPreview
+      return CameraPreview
+    })
+  }
+  
+  return cameraPreviewPromise
 }
 
 export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
+  const [isLoading, setIsLoading] = useState(false) // Loading state while module loads
   const [isInitialized, setIsInitialized] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -39,12 +50,17 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     setVideoPath(null)
     setError(null)
     setRecordingTime(0)
+    setIsLoading(true)
 
     const initCamera = async () => {
       try {
+        // Ensure CameraPreview module is loaded before proceeding
+        console.log('📹 Loading camera module...')
+        await ensureCameraPreview()
+        console.log('📹 Camera module loaded!')
+        
         if (!CameraPreview) {
-          const mod = await import('@capgo/camera-preview')
-          CameraPreview = mod.CameraPreview
+          throw new Error('Camera module failed to load')
         }
 
         // Calculate exact position for camera bubble
@@ -67,11 +83,13 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
           y: y,
         })
         setIsInitialized(true)
+        setIsLoading(false)
         setError(null)
         console.log('📹 Camera initialized (compact bubble)')
       } catch (err) {
         console.error('Failed to initialize camera:', err)
         setError(err.message || 'Failed to open camera')
+        setIsLoading(false)
       }
     }
 
@@ -82,6 +100,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
         CameraPreview.stop().catch(e => console.log('Error stopping camera:', e))
       }
       setIsInitialized(false)
+      setIsLoading(false)
       setIsRecording(false)
       setRecordingTime(0)
       setVideoPath(null)
@@ -162,9 +181,11 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     setRecordingTime(0)
 
     try {
+      // Ensure CameraPreview module is loaded
+      await ensureCameraPreview()
+      
       if (!CameraPreview) {
-        const mod = await import('@capgo/camera-preview')
-        CameraPreview = mod.CameraPreview
+        throw new Error('Camera module failed to load')
       }
 
       // Calculate exact position for camera bubble (same as init)
@@ -207,6 +228,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     }
 
     setIsInitialized(false)
+    setIsLoading(false)
     setIsRecording(false)
     setRecordingTime(0)
     setVideoPath(null)
@@ -269,6 +291,7 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
       {/* Loading state - only show before camera initializes */}
       {!showPreview && !isInitialized && !error && (
         <div
+          onClick={e => e.stopPropagation()}
           style={{
             width: BUBBLE_WIDTH,
             height: BUBBLE_HEIGHT,
@@ -277,12 +300,24 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
             boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
             marginBottom: '20px',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: '12px',
             background: '#000',
           }}
         >
-          <span style={{ color: 'white', fontSize: '14px', opacity: 0.8 }}>Opening camera...</span>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '3px solid rgba(255,255,255,0.2)',
+            borderTopColor: 'white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <span style={{ color: 'white', fontSize: '14px', opacity: 0.8 }}>
+            {isLoading ? 'Loading camera...' : 'Opening camera...'}
+          </span>
         </div>
       )}
 
@@ -539,6 +574,14 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
           }
           50% {
             opacity: 0.5;
+          }
+        }
+        @keyframes spin {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
           }
         }
       `}</style>

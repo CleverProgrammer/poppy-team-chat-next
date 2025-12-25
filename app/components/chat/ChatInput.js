@@ -27,9 +27,19 @@ export default function ChatInput({
   setMentionMenuIndex,
   onScrollToBottom,
   onKeyboardHeightChange,
+  // AI mode props
+  aiMode = false,
+  setAiMode,
+  privateMode = false,
+  setPrivateMode,
+  // Media picker
+  openFilePicker,
+  handleImageSelect,
+  onOpenVideoRecorder,
 }) {
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [hasContent, setHasContent] = useState(false)
+  const [showMediaMenu, setShowMediaMenu] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [recordedAudio, setRecordedAudio] = useState(null) // Blob after stopping
   const [recordedAudioUrl, setRecordedAudioUrl] = useState(null) // Blob URL for WaveSurfer
@@ -80,6 +90,20 @@ export default function ChatInput({
       subscriptions.forEach((unsub) => unsub())
     }
   }, [previewWavesurfer])
+
+  // Close media menu when clicking outside
+  useEffect(() => {
+    if (!showMediaMenu) return
+    
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.media-btn-container')) {
+        setShowMediaMenu(false)
+      }
+    }
+    
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showMediaMenu])
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
@@ -664,32 +688,87 @@ export default function ChatInput({
           </div>
         )}
         <div className='input-row'>
-          {/* Plus button for attachments (mobile) */}
+          {/* Camera/Media button - shows on both mobile and desktop */}
+          <div className='media-btn-container'>
+            <button
+              className='input-media-btn'
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                // On mobile, skip the menu and open native picker directly
+                if (Capacitor.isNativePlatform()) {
+                  openFilePicker && openFilePicker()
+                } else {
+                  setShowMediaMenu(!showMediaMenu)
+                }
+              }}
+              aria-label='Add photo or video'
+              title='Add photo or video'
+            >
+              🎥
+            </button>
+            {/* Menu only shows on desktop */}
+            {showMediaMenu && !Capacitor.isNativePlatform() && (
+              <div className='media-menu'>
+                <button
+                  className='media-menu-item'
+                  onClick={() => {
+                    setShowMediaMenu(false)
+                    onOpenVideoRecorder && onOpenVideoRecorder()
+                  }}
+                >
+                  🎬 Video
+                </button>
+                <button
+                  className='media-menu-item'
+                  onClick={() => {
+                    setShowMediaMenu(false)
+                    openFilePicker && openFilePicker()
+                  }}
+                >
+                  📁 File
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Poppy AI button */}
           <button
-            className='input-plus-btn'
-            onClick={() => {
-              const fileInput = document.querySelector('input[type="file"]')
-              if (fileInput) fileInput.click()
-            }}
-            aria-label='Add attachment'
+            className={`input-poppy-btn ${aiMode ? 'active' : ''}`}
+            onMouseDown={(e) => e.preventDefault()} // Prevent keyboard close on mobile
+            onClick={() => setAiMode && setAiMode(!aiMode)}
+            aria-label={aiMode ? 'Disable AI mode' : 'Enable AI mode'}
+            title={aiMode ? 'Chatting with Poppy ✨' : 'Click to chat with Poppy'}
           >
-            <svg width='20' height='20' viewBox='0 0 24 24' fill='none'>
-              <path
-                d='M12 5V19M5 12H19'
-                stroke='currentColor'
-                strokeWidth='2.5'
-                strokeLinecap='round'
-              />
-            </svg>
+            <img 
+              src='/poppy-icon.png' 
+              alt='Poppy AI' 
+              className='poppy-logo-icon'
+            />
           </button>
 
-          <div className='input-field-wrapper'>
+          <div className={`input-field-wrapper ${aiMode ? 'ai-active' : ''}`}>
+            {/* Subtle private/public toggle inside input - only when AI mode */}
+            {aiMode && (
+              <button
+                className={`inline-privacy-toggle ${privateMode ? 'private' : 'public'}`}
+                onMouseDown={(e) => e.preventDefault()} // Prevent keyboard close on mobile
+                onClick={() => setPrivateMode && setPrivateMode(!privateMode)}
+                aria-label={privateMode ? 'Messages are private' : 'Messages are public'}
+                title={privateMode ? 'Only you can see this' : 'Everyone can see this'}
+              >
+                {privateMode ? '🙈' : '👀'}
+              </button>
+            )}
             <textarea
               ref={inputRef}
               placeholder={
                 editingMessage
                   ? 'Edit your message...'
-                  : 'Message, press @ for AI'
+                  : aiMode
+                    ? privateMode 
+                      ? 'Ask Poppy privately... 🙈'
+                      : 'Ask Poppy anything... ✨'
+                    : 'Message, press @ for AI'
               }
               rows='1'
               onInput={handleInput}

@@ -42,7 +42,9 @@ export function useMessageSending({
   setUploading,
   allUsers,
   askPoppy,
-  askPoppyDirectly
+  askPoppyDirectly,
+  aiMode = false,
+  privateMode = false,
 }) {
   const [sending, setSending] = useState(false);
   const typingTimeoutRef = useRef(null);
@@ -61,6 +63,9 @@ export function useMessageSending({
 
   // Update typing indicator on input change
   const updateTypingIndicator = useCallback(() => {
+    // Skip typing indicator for private AI mode - don't reveal you're typing to recipient
+    if (aiMode && privateMode) return;
+    
     if (currentChat?.type === 'dm' && user) {
       const dmId = getDMId(user.uid, currentChat.id);
 
@@ -77,7 +82,7 @@ export function useMessageSending({
         setUserTyping(dmId, user.uid, false);
       }, 2000);
     }
-  }, [currentChat, user]);
+  }, [currentChat, user, aiMode, privateMode]);
 
   // Handle editing a message
   const handleEdit = useCallback(async () => {
@@ -116,7 +121,13 @@ export function useMessageSending({
     // Check for @poppy mention - match @poppy anywhere in text and capture everything after
     const poppyMention = messageText.match(/@poppy\s*(.*)/i);
     const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null;
-    const shouldTriggerAI = !!aiQuestion;
+    
+    // AI Mode: treat all messages as AI questions (even without @poppy prefix)
+    const shouldTriggerAI = aiMode ? true : !!aiQuestion;
+    const actualAiQuestion = aiMode ? messageText.trim() : aiQuestion;
+    
+    // Private mode: mark message as private (only visible to sender)
+    const isPrivate = aiMode && privateMode;
 
     // Create optimistic message immediately
     const optimisticId = `temp-${Date.now()}`;
@@ -131,7 +142,8 @@ export function useMessageSending({
       imageUrl: imagePreviews[0] || null,
       imageUrls: imagePreviews.length > 0 ? imagePreviews : null,
       replyTo: replyingTo,
-      optimistic: true // Mark as optimistic
+      optimistic: true, // Mark as optimistic
+      isPrivate: isPrivate, // Mark as private if in private AI mode
     };
 
     // Add optimistic message to UI instantly
@@ -244,6 +256,7 @@ export function useMessageSending({
       }
 
       const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0;
+      const privateOptions = { isPrivate, privateFor: user.uid };
 
       // Fetch link preview if message contains a URL (not Loom - those are embedded)
       let linkPreview = null;
@@ -263,23 +276,26 @@ export function useMessageSending({
       } else if (currentChat.type === 'channel') {
         // Send message with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview);
+          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions);
         } else if (currentReplyingTo) {
-          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview);
+          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview, privateOptions);
         } else {
-          await sendMessage(currentChat.id, user, messageText, linkPreview);
+          await sendMessage(currentChat.id, user, messageText, linkPreview, privateOptions);
         }
 
         // Mark as unread for all other users (async, non-blocking)
-        setTimeout(() => {
-          allUsers.forEach(otherUser => {
-            if (otherUser.uid !== user.uid) {
-              markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
-                console.error('Failed to mark as unread:', err)
-              );
-            }
-          });
-        }, 0);
+        // Skip for private messages - they shouldn't notify others
+        if (!isPrivate) {
+          setTimeout(() => {
+            allUsers.forEach(otherUser => {
+              if (otherUser.uid !== user.uid) {
+                markChatAsUnread(otherUser.uid, 'channel', currentChat.id).catch(err =>
+                  console.error('Failed to mark as unread:', err)
+                );
+              }
+            });
+          }, 0);
+        }
       } else {
         const dmId = getDMId(user.uid, currentChat.id);
         // Find recipient from allUsers for Ragie metadata
@@ -287,27 +303,30 @@ export function useMessageSending({
 
         // Send DM with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview);
+          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions);
         } else if (currentReplyingTo) {
-          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient, linkPreview);
+          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient, linkPreview, privateOptions);
         } else {
-          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient, linkPreview);
+          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient, linkPreview, privateOptions);
         }
 
         // Mark as unread for the recipient (async, non-blocking)
-        setTimeout(() => {
-          markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
-            console.error('Failed to mark DM as unread:', err)
-          );
-        }, 0);
+        // Skip for private messages - they shouldn't notify the recipient
+        if (!isPrivate) {
+          setTimeout(() => {
+            markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
+              console.error('Failed to mark DM as unread:', err)
+            );
+          }, 0);
+        }
       }
 
       // Remove optimistic message once real one arrives (Firestore subscription will add it)
       setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
 
-      // Trigger AI response if @poppy was mentioned
-      if (shouldTriggerAI) {
-        askPoppy(aiQuestion);
+      // Trigger AI response if @poppy was mentioned or AI mode is active
+      if (shouldTriggerAI && actualAiQuestion) {
+        askPoppy(actualAiQuestion, { isPrivate, privateFor: user.uid });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -338,7 +357,9 @@ export function useMessageSending({
     askPoppyDirectly,
     sending,
     handleEdit,
-    clearTypingIndicator
+    clearTypingIndicator,
+    aiMode,
+    privateMode
   ]);
 
   // Send a video reply directly with mux playback ID

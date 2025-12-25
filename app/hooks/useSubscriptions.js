@@ -122,12 +122,13 @@ export function useSubscriptions({
 
   // Subscribe to last messages for channels
   useEffect(() => {
+    if (!user) return
     const channels = ['general', 'dev-gang', 'test']
     const unsubscribe = subscribeToChannelLastMessages(channels, messages => {
       setChannelLastMessages(messages)
-    })
+    }, user.uid)
     return () => unsubscribe()
-  }, [])
+  }, [user])
 
   // Subscribe to last AI message
   useEffect(() => {
@@ -148,6 +149,18 @@ export function useSubscriptions({
 
     const unsubscribers = []
 
+    // Helper to check if a message is visible to the current user
+    const isMessageVisibleToUser = (message) => {
+      // If not private, it's visible
+      if (!message.isPrivate) return true
+      // If private but for this user, it's visible
+      if (message.privateFor === user.uid) return true
+      // If private and sent by this user, it's visible
+      if (message.senderId === user.uid) return true
+      // Otherwise, not visible
+      return false
+    }
+
     // Subscribe to channels (only notify on mentions) - load only 1 message for performance
     const channels = ['general', 'dev-gang', 'test']
     channels.forEach(channelId => {
@@ -159,6 +172,11 @@ export function useSubscriptions({
           if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1]
             const lastMessageId = globalMessageCountsRef.current[chatKey]
+
+            // Skip private messages that aren't for this user
+            if (!isMessageVisibleToUser(lastMessage)) {
+              return
+            }
 
             // Only notify if this is a new message
             if (lastMessageId && lastMessageId !== lastMessage.id) {
@@ -201,6 +219,11 @@ export function useSubscriptions({
           if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1]
             const lastMessageId = globalMessageCountsRef.current[chatKey]
+
+            // Skip private messages that aren't for this user
+            if (!isMessageVisibleToUser(lastMessage)) {
+              return
+            }
 
             // Only notify if this is a new message
             if (lastMessageId && lastMessageId !== lastMessage.id) {
@@ -285,15 +308,26 @@ export function useSubscriptions({
       }
     }
 
+    // Filter out private messages from other users
+    // Private messages are only visible to the sender (privateFor field)
+    const filterPrivateMessages = (messages) => {
+      return messages.filter(msg => {
+        // If message is not private, show it
+        if (!msg.isPrivate) return true
+        // If private, only show to the user who owns it (privateFor) or the sender
+        return msg.privateFor === user.uid || msg.senderId === user.uid
+      })
+    }
+    
     if (currentChat.type === 'channel') {
       unsubscribe = subscribeToMessages(
         currentChat.id,
         newMessages => {
-          setMessages(newMessages)
-          messagesRef.current = newMessages
-          setCurrentMessages(newMessages)
-          cacheMessages(newMessages) // Cache for instant load
-          // Mark as read whenever new messages arrive while viewing this chat
+          const filteredMessages = filterPrivateMessages(newMessages)
+          setMessages(filteredMessages)
+          messagesRef.current = filteredMessages
+          setCurrentMessages(filteredMessages)
+          cacheMessages(filteredMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100
@@ -303,11 +337,11 @@ export function useSubscriptions({
       unsubscribe = subscribeToMessagesDM(
         dmId,
         newMessages => {
-          setMessages(newMessages)
-          messagesRef.current = newMessages
-          setCurrentMessages(newMessages)
-          cacheMessages(newMessages) // Cache for instant load
-          // Mark as read whenever new messages arrive while viewing this chat
+          const filteredMessages = filterPrivateMessages(newMessages)
+          setMessages(filteredMessages)
+          messagesRef.current = filteredMessages
+          setCurrentMessages(filteredMessages)
+          cacheMessages(filteredMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100

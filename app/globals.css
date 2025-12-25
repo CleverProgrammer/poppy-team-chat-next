@@ -276,9 +276,11 @@ html {
 }
 
 .chat-header {
-  background: var(--bg-app);
-  padding: 20px;
-  border-bottom: 1px solid var(--border-light);
+  background: rgba(30, 30, 35, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -368,7 +370,7 @@ html {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 20px;
-  padding-bottom: 140px;
+  padding-bottom: 70px; /* Reduced - input is now slimmer & transparent */
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -567,6 +569,39 @@ html {
   font-size: 10px;
 }
 
+/* Private message styling - subtle yellow tint */
+.message-wrapper.private-message .message {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.15) 0%, rgba(234, 179, 8, 0.1) 100%);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  box-shadow: 0 2px 8px rgba(250, 204, 21, 0.1);
+}
+
+.message-wrapper.private-message.sent .message {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.25) 0%, rgba(234, 179, 8, 0.15) 100%);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+}
+
+/* Private indicator icon */
+.private-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  color: #fbbf24;
+  opacity: 0.8;
+  vertical-align: middle;
+}
+
+.private-indicator svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Private message sender indicator */
+.message-wrapper.private-message .message-sender::before {
+  content: '🙈 ';
+  font-size: 10px;
+}
+
 .message .text {
   font-size: 15px;
   line-height: 1.4;
@@ -656,11 +691,11 @@ html {
   left: 0;
   right: 0;
   z-index: 10;
-  background: var(--bg-messages);
-  padding: 40px 50px;
+  background: transparent;
+  padding: 8px 16px;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   align-items: flex-end;
 }
 
@@ -668,9 +703,158 @@ html {
 .input-row {
   display: flex;
   width: 100%;
-  gap: 12px;
-  align-items: flex-end;
+  gap: 2px;
+  align-items: center;
 }
+
+/* Media button (camera emoji) */
+.input-media-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.input-media-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Media button container for menu positioning */
+.media-btn-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Media menu dropdown */
+.media-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: rgba(40, 40, 45, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.media-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: none !important;
+  border: none !important;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.media-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Poppy button needs margin before input */
+.input-poppy-btn {
+  margin-right: 6px;
+}
+
+/* Poppy AI button - clean, no background */
+.input-poppy-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.input-poppy-btn:hover {
+  transform: scale(1.1);
+}
+
+.input-poppy-btn.active {
+  animation: poppy-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes poppy-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.5)) drop-shadow(0 0 12px rgba(236, 72, 153, 0.3));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.7)) drop-shadow(0 0 20px rgba(236, 72, 153, 0.4));
+  }
+}
+
+.poppy-logo-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  transition: filter 0.3s ease;
+}
+
+.input-poppy-btn.active .poppy-logo-icon {
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.6)) drop-shadow(0 0 16px rgba(236, 72, 153, 0.4));
+}
+
+/* Input field glow when AI mode is active */
+.input-field-wrapper.ai-active {
+  position: relative;
+}
+
+.input-field-wrapper.ai-active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.2), rgba(168, 85, 247, 0.3));
+  background-size: 200% 200%;
+  z-index: -1;
+  animation: ai-field-glow 3s ease-in-out infinite;
+  filter: blur(4px);
+  opacity: 0.7;
+}
+
+@keyframes ai-field-glow {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.5;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 0.8;
+  }
+}
+
 
 .input-field-wrapper {
   flex: 1;
@@ -680,19 +864,21 @@ html {
 
 .input-section textarea {
   flex: 1;
-  padding: 12px 48px 12px 16px; /* Extra right padding for mic button */
-  border: 1px solid var(--border-input);
+  padding: 12px 80px 12px 16px; /* Extra right padding for mic button + privacy toggle */
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   font-size: 15px;
   outline: none;
-  transition: border-color 0.2s, height 0.1s;
+  transition: border-color 0.2s, height 0.1s, background 0.2s;
   resize: none;
   font-family: inherit;
   line-height: 1.5;
   min-height: 44px;
   max-height: 200px;
   overflow-y: auto;
-  background: var(--bg-input);
+  background: rgba(30, 30, 35, 0.7); /* Semi-transparent */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--text-primary);
 }
 
@@ -704,7 +890,7 @@ html {
   border-color: #667eea;
 }
 
-.input-section button {
+.input-section button:not(.input-poppy-btn):not(.inline-privacy-toggle) {
   width: 44px;
   height: 44px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -717,7 +903,7 @@ html {
   flex-shrink: 0;
 }
 
-.input-section button:hover:not(:disabled) {
+.input-section button:hover:not(:disabled):not(.input-poppy-btn):not(.inline-privacy-toggle):not(.mobile-send-btn):not(.input-mic-btn) {
   transform: scale(1.05);
 }
 
@@ -771,19 +957,76 @@ html {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* Hide mobile-only buttons on desktop */
-.input-section .input-plus-btn,
-.input-section .mobile-send-btn {
+/* Hide the separate send button on desktop - use inline send icon instead */
+.input-section .input-send-btn {
   display: none;
 }
 
-@media (max-width: 768px) {
-  /* Show mobile buttons on mobile */
-  .input-section .input-plus-btn,
-  .input-section .mobile-send-btn {
-    display: flex;
-  }
+/* Show inline send button on both mobile and desktop */
+.input-section .mobile-send-btn {
+  display: flex;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%) !important;
+  width: 28px !important;
+  height: 28px !important;
+  border: none !important;
+  background: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
 }
+
+.input-section .mobile-send-btn:hover {
+  transform: translateY(-50%) scale(1.05) !important;
+  background: none !important;
+}
+
+.mobile-send-btn-inner {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%; /* Circle! */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Inline privacy toggle - subtle, inside input field */
+.inline-privacy-toggle {
+  position: absolute;
+  right: 44px; /* Left of mic/send button */
+  top: 50%;
+  transform: translateY(-50%) !important;
+  background: none !important;
+  border: none !important;
+  padding: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+  z-index: 5;
+  line-height: 1;
+  width: auto !important;
+  height: auto !important;
+}
+
+.inline-privacy-toggle:hover {
+  opacity: 0.7;
+  transform: translateY(-50%) !important;
+}
+
+.inline-privacy-toggle.private {
+  opacity: 0.8;
+}
+
+.inline-privacy-toggle.private:hover {
+  opacity: 1;
+  transform: translateY(-50%) !important;
+}
+
 
 /* Sidebar */
 .sidebar {

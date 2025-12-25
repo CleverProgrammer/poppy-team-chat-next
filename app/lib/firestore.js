@@ -39,8 +39,10 @@ export async function saveUser(user) {
   }
 }
 
-export async function sendMessage(channelId, user, text, linkPreview = null) {
+export async function sendMessage(channelId, user, text, linkPreview = null, options = {}) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -55,6 +57,13 @@ export async function sendMessage(channelId, user, text, linkPreview = null) {
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      // Use explicitly passed privateFor, or fall back to sender's uid
+      messageData.privateFor = privateFor || user.uid
     }
     
     const docRef = await addDoc(messagesRef, messageData)
@@ -165,8 +174,10 @@ export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 
   return messages.reverse()
 }
 
-export async function sendMessageDM(dmId, user, text, recipientId, recipient = null, linkPreview = null) {
+export async function sendMessageDM(dmId, user, text, recipientId, recipient = null, linkPreview = null, options = {}) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   console.log('═══════════════════════════════════════════════════════════')
   console.log('📤 [SEND DM] SENDING MESSAGE')
@@ -175,6 +186,7 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
   console.log(`👤 Sender: ${user.displayName || user.email} (${user.uid})`)
   console.log(`🎯 Recipient ID: ${recipientId}`)
   console.log(`💬 Text: "${text.substring(0, 50)}..."`)
+  console.log(`🔒 Private: ${isPrivate}`)
   console.log('───────────────────────────────────────────────────────────')
 
   try {
@@ -194,6 +206,12 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
       messageData.linkPreview = linkPreview
     }
     
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
     const docRef = await addDoc(messagesRef, messageData)
 
     console.log('✅ [SEND DM] Message written to Firestore!')
@@ -332,6 +350,7 @@ export function subscribeToActiveDMs(userId, callback) {
 }
 
 // Subscribe to last message for each DM (for sidebar previews)
+// Filters out private messages so they don't show in preview
 export function subscribeToLastMessages(userId, dmUserIds, callback) {
   if (!userId || !dmUserIds || dmUserIds.length === 0) {
     callback({})
@@ -344,16 +363,27 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
   dmUserIds.forEach(otherUserId => {
     const dmId = getDMId(userId, otherUserId)
     const messagesRef = collection(db, 'dms', dmId, 'messages')
-    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+    // Get more messages to find first non-private one
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(10))
 
     const unsubscribe = onSnapshot(
       q,
       snapshot => {
         if (!snapshot.empty) {
-          const doc = snapshot.docs[0]
-          lastMessages[otherUserId] = {
-            id: doc.id,
-            ...doc.data(),
+          // Find the first message that's NOT private (or is private but visible to this user)
+          const visibleMessage = snapshot.docs.find(doc => {
+            const data = doc.data()
+            // Show if: not private, OR private but for this user, OR sent by this user
+            return !data.isPrivate || data.privateFor === userId || data.senderId === userId
+          })
+          
+          if (visibleMessage) {
+            lastMessages[otherUserId] = {
+              id: visibleMessage.id,
+              ...visibleMessage.data(),
+            }
+          } else {
+            lastMessages[otherUserId] = null
           }
         } else {
           lastMessages[otherUserId] = null
@@ -375,7 +405,9 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
 }
 
 // Subscribe to last message for channels (for sidebar previews)
-export function subscribeToChannelLastMessages(channelIds, callback) {
+// Filters out private messages so they don't show in preview
+// Note: userId is needed to check if private messages are visible to the current user
+export function subscribeToChannelLastMessages(channelIds, callback, userId = null) {
   if (!channelIds || channelIds.length === 0) {
     callback({})
     return () => {}
@@ -386,16 +418,27 @@ export function subscribeToChannelLastMessages(channelIds, callback) {
 
   channelIds.forEach(channelId => {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
-    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+    // Get more messages to find first non-private one
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(10))
 
     const unsubscribe = onSnapshot(
       q,
       snapshot => {
         if (!snapshot.empty) {
-          const doc = snapshot.docs[0]
-          lastMessages[channelId] = {
-            id: doc.id,
-            ...doc.data(),
+          // Find the first message that's NOT private (or is private but visible to this user)
+          const visibleMessage = snapshot.docs.find(doc => {
+            const data = doc.data()
+            // Show if: not private, OR private but for this user, OR sent by this user
+            return !data.isPrivate || (userId && (data.privateFor === userId || data.senderId === userId))
+          })
+          
+          if (visibleMessage) {
+            lastMessages[channelId] = {
+              id: visibleMessage.id,
+              ...visibleMessage.data(),
+            }
+          } else {
+            lastMessages[channelId] = null
           }
         } else {
           lastMessages[channelId] = null
@@ -738,9 +781,12 @@ export async function sendMessageWithMedia(
   muxPlaybackIds = [],
   replyTo = null,
   mediaDimensions = [], // Array of { width, height } for each media item
-  linkPreview = null
+  linkPreview = null,
+  options = {}
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -760,6 +806,11 @@ export async function sendMessageWithMedia(
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
+    }
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
     }
 
     // Add reply reference if replying
@@ -814,9 +865,12 @@ export async function sendMessageDMWithMedia(
   muxPlaybackIds = [],
   replyTo = null,
   mediaDimensions = [], // Array of { width, height } for each media item
-  linkPreview = null
+  linkPreview = null,
+  options = {}
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
@@ -836,6 +890,11 @@ export async function sendMessageDMWithMedia(
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
+    }
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
     }
 
     // Add reply reference if replying
@@ -1135,6 +1194,28 @@ export async function updateMessageLinkPreview(chatId, messageId, isDM = false, 
   } catch (error) {
     // Silent fail - this is a background migration, don't disrupt user
     console.warn('Failed to migrate link preview:', error)
+}
+}
+// Toggle message visibility (private <-> public)
+export async function toggleMessageVisibility(channelId, messageId, makePublic, isDM = false) {
+  try {
+    const messageRef = isDM
+      ? doc(db, 'dms', channelId, 'messages', messageId)
+      : doc(db, 'channels', channelId, 'messages', messageId)
+
+    if (makePublic) {
+      // Make public - remove private flags
+      await updateDoc(messageRef, {
+        isPrivate: false,
+        privateFor: null,
+      })
+    } else {
+      // This shouldn't normally be called (can't make public messages private after the fact)
+      console.warn('Cannot make public messages private after sending')
+    }
+  } catch (error) {
+    console.error('Error toggling message visibility:', error)
+    throw error
   }
 }
 
@@ -1153,8 +1234,10 @@ export async function deleteMessage(channelId, messageId, isDM = false) {
 }
 
 // Send message with reply
-export async function sendMessageWithReply(channelId, user, text, replyTo, linkPreview = null) {
+export async function sendMessageWithReply(channelId, user, text, replyTo, linkPreview = null, options = {}) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -1184,6 +1267,12 @@ export async function sendMessageWithReply(channelId, user, text, replyTo, linkP
       messageData.linkPreview = linkPreview
     }
     
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
@@ -1215,9 +1304,12 @@ export async function sendMessageDMWithReply(
   recipientId,
   replyTo,
   recipient = null,
-  linkPreview = null
+  linkPreview = null,
+  options = {}
 ) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
@@ -1247,6 +1339,12 @@ export async function sendMessageDMWithReply(
       messageData.linkPreview = linkPreview
     }
     
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Index to Ragie (fire and forget, don't block send)
