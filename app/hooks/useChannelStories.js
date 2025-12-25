@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   collection,
   query,
@@ -10,16 +10,20 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { subscribeToViewedStories } from '../lib/firestore'
 
 /**
  * Hook to fetch and manage channel stories (video messages/replies from the last 24 hours)
  * Stories are videos posted to the general channel that expire after 24 hours
+ * Now includes view tracking to show gray ring for viewed stories
  */
-export function useChannelStories(channelId = 'general') {
+export function useChannelStories(channelId = 'general', currentUserId = null) {
   const [stories, setStories] = useState([])
+  const [viewedStoryIds, setViewedStoryIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [hasStories, setHasStories] = useState(false)
 
+  // Subscribe to stories
   useEffect(() => {
     if (!channelId) {
       setLoading(false)
@@ -78,15 +82,50 @@ export function useChannelStories(channelId = 'general') {
     return () => unsubscribe()
   }, [channelId])
 
+  // Subscribe to viewed stories for current user
+  useEffect(() => {
+    if (!currentUserId || !channelId) {
+      setViewedStoryIds(new Set())
+      return
+    }
+
+    const unsubscribe = subscribeToViewedStories(
+      currentUserId,
+      'channel',
+      channelId,
+      (viewedIds) => {
+        setViewedStoryIds(viewedIds)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [currentUserId, channelId])
+
+  // Check if there are any unviewed stories
+  const hasUnviewedStories = useMemo(() => {
+    if (stories.length === 0) return false
+    return stories.some(story => !viewedStoryIds.has(story.id))
+  }, [stories, viewedStoryIds])
+
+  // Get the index of the first unviewed story
+  const firstUnviewedIndex = useMemo(() => {
+    const index = stories.findIndex(story => !viewedStoryIds.has(story.id))
+    return index >= 0 ? index : 0
+  }, [stories, viewedStoryIds])
+
   // Get stories formatted for StoriesViewer component
   const getStoriesForViewer = useCallback(() => {
     return stories.map(story => ({
+      id: story.id,
       playbackId: story.playbackId,
       sender: story.sender,
+      senderId: story.senderId,
+      photoURL: story.photoURL,
       timestamp: story.timestamp,
       msgId: story.messageId,
+      isViewed: viewedStoryIds.has(story.id),
     }))
-  }, [stories])
+  }, [stories, viewedStoryIds])
 
   // Check if a specific timestamp is still within 24 hours
   const isStoryActive = useCallback(timestamp => {
@@ -120,11 +159,15 @@ export function useChannelStories(channelId = 'general') {
   return {
     stories,
     hasStories,
+    hasUnviewedStories,
+    firstUnviewedIndex,
+    viewedStoryIds,
     loading,
     getStoriesForViewer,
     isStoryActive,
     getTimeRemaining,
     storiesCount: stories.length,
+    unviewedCount: stories.filter(s => !viewedStoryIds.has(s.id)).length,
   }
 }
 

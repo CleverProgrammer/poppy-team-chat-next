@@ -253,7 +253,7 @@ export default function Sidebar({
               onClick={() => handleChannelClick(channelId, channel.name)}
             >
               {isUnread && <div className="collapsed-unread-dot" />}
-              <ChannelStoryRing channelId={channelId} size="medium">
+              <ChannelStoryRing channelId={channelId} size="medium" currentUser={user}>
                 {avatarContent}
               </ChannelStoryRing>
             </div>
@@ -294,6 +294,7 @@ export default function Sidebar({
               <DMStoryRing
                 currentUserId={user?.uid}
                 otherUserId={dmUserId}
+                currentUser={user}
                 size="medium"
               >
                 {avatarContent}
@@ -388,7 +389,7 @@ export default function Sidebar({
               <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
               
               <div className='dm-avatar-container'>
-                <ChannelStoryRing channelId={channelId} size="small">
+                <ChannelStoryRing channelId={channelId} size="small" currentUser={user}>
                   {avatarContent}
                 </ChannelStoryRing>
               </div>
@@ -464,6 +465,7 @@ export default function Sidebar({
                 <DMStoryRing
                   currentUserId={user?.uid}
                   otherUserId={dmUserId}
+                  currentUser={user}
                   size="small"
                 >
                   {avatarContent}

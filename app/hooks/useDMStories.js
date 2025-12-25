@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   collection,
   query,
@@ -10,32 +10,39 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { subscribeToViewedStories } from '../lib/firestore'
 
 /**
  * Hook to fetch private DM stories (videos sent TO the current user from a specific sender)
- * 
+ *
  * Privacy logic:
  * - Only the RECIPIENT of a video sees it as a story
  * - If User A sends a video to User B, only User B sees the story ring on User A's avatar
  * - Stories expire after 24 hours
- * 
+ * - Now includes view tracking to show gray ring for viewed stories
+ *
  * @param {string} currentUserId - The current logged-in user's ID
  * @param {string} otherUserId - The other user in the DM conversation
  * @returns {object} - Stories data and helper functions
  */
 export function useDMStories(currentUserId, otherUserId) {
   const [stories, setStories] = useState([])
+  const [viewedStoryIds, setViewedStoryIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [hasStories, setHasStories] = useState(false)
 
+  // Generate DM ID (sorted user IDs)
+  const dmId = useMemo(() => {
+    if (!currentUserId || !otherUserId) return null
+    return [currentUserId, otherUserId].sort().join('_')
+  }, [currentUserId, otherUserId])
+
+  // Subscribe to stories
   useEffect(() => {
-    if (!currentUserId || !otherUserId) {
+    if (!currentUserId || !otherUserId || !dmId) {
       setLoading(false)
       return
     }
-
-    // Generate DM ID (sorted user IDs)
-    const dmId = [currentUserId, otherUserId].sort().join('_')
 
     // Calculate 24 hours ago timestamp
     const twentyFourHoursAgo = new Date()
@@ -44,7 +51,7 @@ export function useDMStories(currentUserId, otherUserId) {
 
     // Query messages in this DM that:
     // 1. Have video content (muxPlaybackIds)
-    // 2. Were sent BY the other user (senderId === otherUserId) 
+    // 2. Were sent BY the other user (senderId === otherUserId)
     // 3. Are within 24 hours
     // This means we only see stories from videos sent TO us, not by us
     const messagesRef = collection(db, 'dms', dmId, 'messages')
@@ -66,7 +73,7 @@ export function useDMStories(currentUserId, otherUserId) {
           // 2. Sent BY the other user (not by current user)
           // This ensures privacy - you only see stories from videos sent TO you
           if (
-            data.muxPlaybackIds && 
+            data.muxPlaybackIds &&
             data.muxPlaybackIds.length > 0 &&
             data.senderId === otherUserId
           ) {
@@ -97,17 +104,52 @@ export function useDMStories(currentUserId, otherUserId) {
     )
 
     return () => unsubscribe()
-  }, [currentUserId, otherUserId])
+  }, [currentUserId, otherUserId, dmId])
+
+  // Subscribe to viewed stories for current user
+  useEffect(() => {
+    if (!currentUserId || !dmId) {
+      setViewedStoryIds(new Set())
+      return
+    }
+
+    const unsubscribe = subscribeToViewedStories(
+      currentUserId,
+      'dm',
+      dmId,
+      (viewedIds) => {
+        setViewedStoryIds(viewedIds)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [currentUserId, dmId])
+
+  // Check if there are any unviewed stories
+  const hasUnviewedStories = useMemo(() => {
+    if (stories.length === 0) return false
+    return stories.some(story => !viewedStoryIds.has(story.id))
+  }, [stories, viewedStoryIds])
+
+  // Get the index of the first unviewed story
+  const firstUnviewedIndex = useMemo(() => {
+    const index = stories.findIndex(story => !viewedStoryIds.has(story.id))
+    return index >= 0 ? index : 0
+  }, [stories, viewedStoryIds])
 
   // Get stories formatted for StoriesViewer component
   const getStoriesForViewer = useCallback(() => {
     return stories.map(story => ({
+      id: story.id,
       playbackId: story.playbackId,
       sender: story.sender,
+      senderId: story.senderId,
+      photoURL: story.photoURL,
       timestamp: story.timestamp,
       msgId: story.messageId,
+      isViewed: viewedStoryIds.has(story.id),
     }))
-  }, [stories])
+  }, [stories, viewedStoryIds])
 
   // Check if a specific timestamp is still within 24 hours
   const isStoryActive = useCallback(timestamp => {
@@ -141,11 +183,16 @@ export function useDMStories(currentUserId, otherUserId) {
   return {
     stories,
     hasStories,
+    hasUnviewedStories,
+    firstUnviewedIndex,
+    viewedStoryIds,
+    dmId,
     loading,
     getStoriesForViewer,
     isStoryActive,
     getTimeRemaining,
     storiesCount: stories.length,
+    unviewedCount: stories.filter(s => !viewedStoryIds.has(s.id)).length,
   }
 }
 

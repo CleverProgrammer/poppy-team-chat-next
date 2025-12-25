@@ -12,6 +12,7 @@ export default function ChatHeader({
   onBack,
   allUsers,
   currentUserId, // Current logged-in user's ID for DM stories
+  currentUser = null, // Current user object for story view tracking
 }) {
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#'
@@ -61,6 +62,7 @@ export default function ChatHeader({
         <DMStoryRing
           currentUserId={currentUserId}
           otherUserId={currentChat.id}
+          currentUser={currentUser}
           size="medium"
         >
           {avatarContent}
@@ -70,7 +72,7 @@ export default function ChatHeader({
     // Channel - wrap with story ring for all channels
     const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
     return (
-      <ChannelStoryRing channelId={currentChat.id} size="medium">
+      <ChannelStoryRing channelId={currentChat.id} size="medium" currentUser={currentUser}>
         {channelAvatar}
       </ChannelStoryRing>
     )
@@ -101,6 +103,7 @@ export default function ChatHeader({
         <DMStoryRing
           currentUserId={currentUserId}
           otherUserId={currentChat.id}
+          currentUser={currentUser}
           size="small"
         >
           {avatarContent}
@@ -110,7 +113,7 @@ export default function ChatHeader({
     // Channel - wrap with story ring for all channels
     const channelAvatar = <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
     return (
-      <ChannelStoryRing channelId={currentChat.id} size="small">
+      <ChannelStoryRing channelId={currentChat.id} size="small" currentUser={currentUser}>
         {channelAvatar}
       </ChannelStoryRing>
     )

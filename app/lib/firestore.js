@@ -1509,3 +1509,111 @@ export async function demotePostToMessage(chatType, chatId, postId) {
     throw error
   }
 }
+
+// Story views tracking functions
+
+/**
+ * Mark a story as viewed by a user
+ * @param {string} storyId - The unique story ID (messageId_index)
+ * @param {string} viewerId - The user ID who viewed the story
+ * @param {string} viewerName - The display name of the viewer
+ * @param {string} viewerPhotoURL - The photo URL of the viewer
+ * @param {string} chatType - 'channel' or 'dm'
+ * @param {string} chatId - The channel ID or DM ID
+ */
+export async function markStoryAsViewed(storyId, viewerId, viewerName, viewerPhotoURL, chatType, chatId) {
+  if (!storyId || !viewerId || !chatId) return
+
+  try {
+    // Store view in storyViews collection
+    // Structure: storyViews/{chatType}_{chatId}/stories/{storyId}/viewers/{viewerId}
+    const viewerRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId, 'viewers', viewerId)
+    
+    await setDoc(viewerRef, {
+      viewerId,
+      viewerName: viewerName || 'Unknown',
+      viewerPhotoURL: viewerPhotoURL || '',
+      viewedAt: serverTimestamp(),
+    }, { merge: true })
+
+    console.log(`✅ Marked story ${storyId} as viewed by ${viewerName}`)
+  } catch (error) {
+    console.error('Error marking story as viewed:', error)
+  }
+}
+
+/**
+ * Subscribe to viewers of a specific story
+ * @param {string} storyId - The unique story ID
+ * @param {string} chatType - 'channel' or 'dm'
+ * @param {string} chatId - The channel ID or DM ID
+ * @param {function} callback - Callback with array of viewers
+ */
+export function subscribeToStoryViewers(storyId, chatType, chatId, callback) {
+  if (!storyId || !chatId) {
+    callback([])
+    return () => {}
+  }
+
+  const viewersRef = collection(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId, 'viewers')
+  const q = query(viewersRef, orderBy('viewedAt', 'desc'))
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const viewers = []
+      snapshot.forEach(doc => {
+        viewers.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(viewers)
+    },
+    error => {
+      console.error('Error loading story viewers:', error)
+      callback([])
+    }
+  )
+}
+
+/**
+ * Get all stories that a user has viewed in a specific chat
+ * @param {string} userId - The user ID
+ * @param {string} chatType - 'channel' or 'dm'
+ * @param {string} chatId - The channel ID or DM ID
+ * @param {function} callback - Callback with Set of viewed story IDs
+ */
+export function subscribeToViewedStories(userId, chatType, chatId, callback) {
+  if (!userId || !chatId) {
+    callback(new Set())
+    return () => {}
+  }
+
+  // We need to query all stories in this chat and check if user is a viewer
+  // This is done by querying the storyViews collection
+  const storiesRef = collection(db, 'storyViews', `${chatType}_${chatId}`, 'stories')
+
+  return onSnapshot(
+    storiesRef,
+    async snapshot => {
+      const viewedStoryIds = new Set()
+      
+      // For each story, check if the user has viewed it
+      const checkPromises = snapshot.docs.map(async storyDoc => {
+        const viewerRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyDoc.id, 'viewers', userId)
+        const viewerSnap = await getDoc(viewerRef)
+        if (viewerSnap.exists()) {
+          viewedStoryIds.add(storyDoc.id)
+        }
+      })
+
+      await Promise.all(checkPromises)
+      callback(viewedStoryIds)
+    },
+    error => {
+      console.error('Error loading viewed stories:', error)
+      callback(new Set())
+    }
+  )
+}

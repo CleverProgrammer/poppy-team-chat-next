@@ -3,21 +3,30 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import MuxPlayer from '@mux/mux-player-react'
+import { markStoryAsViewed, subscribeToStoryViewers } from '../../lib/firestore'
 
 export default function StoriesViewer({
   isOpen,
   onClose,
-  videos = [], // Array of { playbackId, sender, timestamp }
+  videos = [], // Array of { id, playbackId, sender, senderId, photoURL, timestamp, msgId, isViewed }
   initialIndex = 0,
+  chatType = 'channel', // 'channel' or 'dm'
+  chatId = 'general', // channel ID or DM ID
+  currentUser = null, // Current user object { uid, displayName, photoURL }
+  onStoryViewed = null, // Callback when a story is marked as viewed
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isSpeedUp, setIsSpeedUp] = useState(false)
   const [isHorizontal, setIsHorizontal] = useState(false)
+  const [viewers, setViewers] = useState([])
+  const [showViewersModal, setShowViewersModal] = useState(false)
+  const [hasMarkedViewed, setHasMarkedViewed] = useState(new Set())
   const playerRef = useRef(null)
   const touchStartY = useRef(0)
   const speedZoneRef = useRef(null)
+  const viewTimerRef = useRef(null)
 
   // Reset index when opening
   useEffect(() => {
@@ -25,6 +34,7 @@ export default function StoriesViewer({
       setCurrentIndex(initialIndex)
       setProgress(0)
       setIsHorizontal(false)
+      setHasMarkedViewed(new Set())
     }
   }, [isOpen, initialIndex])
 
@@ -32,6 +42,67 @@ export default function StoriesViewer({
   useEffect(() => {
     setIsHorizontal(false)
   }, [currentIndex])
+
+  // Mark story as viewed after 2 seconds of viewing
+  useEffect(() => {
+    if (!isOpen || videos.length === 0 || !currentUser) return
+
+    const currentVideo = videos[currentIndex]
+    if (!currentVideo || !currentVideo.id) return
+
+    // Don't mark again if already marked in this session
+    if (hasMarkedViewed.has(currentVideo.id)) return
+
+    // Clear any existing timer
+    if (viewTimerRef.current) {
+      clearTimeout(viewTimerRef.current)
+    }
+
+    // Set timer to mark as viewed after 2 seconds
+    viewTimerRef.current = setTimeout(() => {
+      markStoryAsViewed(
+        currentVideo.id,
+        currentUser.uid,
+        currentUser.displayName || currentUser.email,
+        currentUser.photoURL || '',
+        chatType,
+        chatId
+      )
+      setHasMarkedViewed(prev => new Set([...prev, currentVideo.id]))
+      onStoryViewed?.(currentVideo.id)
+    }, 2000)
+
+    return () => {
+      if (viewTimerRef.current) {
+        clearTimeout(viewTimerRef.current)
+      }
+    }
+  }, [isOpen, currentIndex, videos, currentUser, chatType, chatId, hasMarkedViewed, onStoryViewed])
+
+  // Subscribe to viewers for current story
+  useEffect(() => {
+    if (!isOpen || videos.length === 0) {
+      setViewers([])
+      return
+    }
+
+    const currentVideo = videos[currentIndex]
+    if (!currentVideo || !currentVideo.id) {
+      setViewers([])
+      return
+    }
+
+    const unsubscribe = subscribeToStoryViewers(
+      currentVideo.id,
+      chatType,
+      chatId,
+      (viewersList) => {
+        setViewers(viewersList)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [isOpen, currentIndex, videos, chatType, chatId])
 
   // Lock body scroll when open
   useEffect(() => {
@@ -354,7 +425,217 @@ export default function StoriesViewer({
             ⚡ 2x
           </div>
         )}
+
+        {/* Viewers display - bottom left */}
+        {viewers.length > 0 && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowViewersModal(true)
+            }}
+            style={{
+              position: 'absolute',
+              bottom: '24px',
+              left: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              zIndex: 10,
+              background: 'rgba(0, 0, 0, 0.5)',
+              padding: '8px 12px',
+              borderRadius: '20px',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {/* Stacked avatars */}
+            <div style={{ display: 'flex', marginLeft: '4px' }}>
+              {viewers.slice(0, 3).map((viewer, idx) => (
+                <div
+                  key={viewer.id}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    border: '2px solid #000',
+                    marginLeft: idx > 0 ? '-8px' : '0',
+                    overflow: 'hidden',
+                    background: '#333',
+                    zIndex: 3 - idx,
+                  }}
+                >
+                  {viewer.viewerPhotoURL ? (
+                    <img
+                      src={viewer.viewerPhotoURL}
+                      alt={viewer.viewerName}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        color: '#fff',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      }}
+                    >
+                      {viewer.viewerName?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <span style={{ color: '#fff', fontSize: '13px', fontWeight: 500 }}>
+              {viewers.length === 1
+                ? '1 view'
+                : `${viewers.length} views`}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Viewers Modal */}
+      {showViewersModal && (
+        <div
+          onClick={() => setShowViewersModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 10001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1e1e2f',
+              borderRadius: '16px',
+              width: '90%',
+              maxWidth: '320px',
+              maxHeight: '60vh',
+              overflow: 'hidden',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            {/* Modal header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <h3 style={{ margin: 0, color: '#fff', fontSize: '16px', fontWeight: 600 }}>
+                Viewed by
+              </h3>
+              <button
+                onClick={() => setShowViewersModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#888',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  fontSize: '20px',
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Viewers list */}
+            <div
+              style={{
+                padding: '8px 0',
+                maxHeight: 'calc(60vh - 60px)',
+                overflowY: 'auto',
+              }}
+            >
+              {viewers.map((viewer) => (
+                <div
+                  key={viewer.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 20px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      background: '#333',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {viewer.viewerPhotoURL ? (
+                      <img
+                        src={viewer.viewerPhotoURL}
+                        alt={viewer.viewerName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '16px',
+                          fontWeight: 600,
+                          color: '#fff',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        }}
+                      >
+                        {viewer.viewerName?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        color: '#fff',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {viewer.viewerName || 'Unknown'}
+                    </div>
+                    {viewer.viewedAt && (
+                      <div style={{ color: '#888', fontSize: '12px' }}>
+                        {new Date(viewer.viewedAt?.seconds * 1000).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes pulse {

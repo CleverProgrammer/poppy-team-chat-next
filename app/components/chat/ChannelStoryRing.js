@@ -7,19 +7,30 @@ import { useChannelStories } from '../../hooks/useChannelStories'
 /**
  * A wrapper component that adds an Instagram-style story ring around a channel avatar
  * When clicked (if stories exist), it opens the StoriesViewer
+ * Shows colorful gradient ring for unviewed stories, gray ring for all viewed
  */
 export default function ChannelStoryRing({
   channelId = 'general',
+  currentUser = null, // Current user object { uid, displayName, photoURL }
   children,
   size = 'medium', // 'small' | 'medium' | 'large'
   className = '',
   onClick, // Optional callback when ring is clicked
 }) {
   const [storiesOpen, setStoriesOpen] = useState(false)
-  const { stories, hasStories, getStoriesForViewer } = useChannelStories(channelId)
+  const {
+    stories,
+    hasStories,
+    hasUnviewedStories,
+    firstUnviewedIndex,
+    getStoriesForViewer
+  } = useChannelStories(channelId, currentUser?.uid)
 
   // Show ring for any channel that has stories
   const showRing = hasStories
+
+  // Determine if ring should be gray (all stories viewed) or colorful (has unviewed)
+  const isAllViewed = hasStories && !hasUnviewedStories
 
   const handleClick = e => {
     if (hasStories) {
@@ -48,11 +59,11 @@ export default function ChannelStoryRing({
   return (
     <>
       <div
-        className={`channel-story-ring-wrapper ${showRing ? 'has-stories' : ''} ${getRingSize()} ${className}`}
+        className={`channel-story-ring-wrapper ${showRing ? 'has-stories' : ''} ${isAllViewed ? 'all-viewed' : ''} ${getRingSize()} ${className}`}
         onClick={showRing ? handleClick : undefined}
         style={{ cursor: showRing ? 'pointer' : 'default' }}
       >
-        {showRing && <div className="story-ring-gradient" />}
+        {showRing && <div className={`story-ring-gradient ${isAllViewed ? 'viewed' : ''}`} />}
         <div className="story-ring-content">
           {children}
         </div>
@@ -63,7 +74,10 @@ export default function ChannelStoryRing({
         isOpen={storiesOpen}
         onClose={handleCloseStories}
         videos={getStoriesForViewer()}
-        initialIndex={0}
+        initialIndex={firstUnviewedIndex}
+        chatType="channel"
+        chatId={channelId}
+        currentUser={currentUser}
       />
     </>
   )

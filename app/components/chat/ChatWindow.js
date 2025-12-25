@@ -1145,6 +1145,7 @@ export default function ChatWindow() {
             onBack={() => setIsSidebarOpen(true)}
             allUsers={allUsers}
             currentUserId={user?.uid}
+            currentUser={user}
           />
 
           {viewMode === 'posts' ? (

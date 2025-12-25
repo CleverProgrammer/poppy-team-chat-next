@@ -4882,13 +4882,18 @@ iframe[src*="vercel"] {
   padding: 3px;
 }
 
-/* The gradient ring itself */
+/* The gradient ring itself - colorful for unviewed stories */
 .story-ring-gradient {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
   z-index: 0;
+}
+
+/* Gray ring for viewed stories */
+.story-ring-gradient.viewed {
+  background: linear-gradient(45deg, #6b6b6b, #8a8a8a, #6b6b6b, #8a8a8a);
 }
 
 /* Inner content with gap */
@@ -4925,10 +4930,16 @@ iframe[src*="vercel"] {
   padding: 4px;
 }
 
-/* Hover effect for clickable story rings */
-.channel-story-ring-wrapper.has-stories:hover .story-ring-gradient {
+/* Hover effect for clickable story rings - colorful */
+.channel-story-ring-wrapper.has-stories:hover .story-ring-gradient:not(.viewed) {
   background: linear-gradient(45deg, #ff9f43, #ee5a24, #e74c3c, #d63384, #c71585);
   box-shadow: 0 0 12px rgba(238, 90, 36, 0.5);
+}
+
+/* Hover effect for viewed stories - subtle gray glow */
+.channel-story-ring-wrapper.has-stories:hover .story-ring-gradient.viewed {
+  background: linear-gradient(45deg, #7a7a7a, #9a9a9a, #7a7a7a, #9a9a9a);
+  box-shadow: 0 0 8px rgba(150, 150, 150, 0.3);
 }
 
 .channel-story-ring-wrapper.has-stories:active {
@@ -4945,7 +4956,7 @@ iframe[src*="vercel"] {
   }
 }
 
-.channel-story-ring-wrapper.has-stories.new-stories .story-ring-gradient {
+.channel-story-ring-wrapper.has-stories.new-stories .story-ring-gradient:not(.viewed) {
   animation: storyRingPulse 2s ease-in-out infinite;
 }
 
