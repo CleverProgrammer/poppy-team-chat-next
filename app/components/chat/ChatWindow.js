@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Virtuoso } from 'react-virtuoso'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Howl } from 'howler'
 import { Capacitor } from '@capacitor/core'
 import Sidebar from '../layout/Sidebar'
@@ -69,14 +69,17 @@ export default function ChatWindow() {
   const [threadView, setThreadView] = useState({ open: false, originalMessage: null }) // Thread view state
   const [aiMode, setAiMode] = useState(false) // AI mode toggle for input
   const [privateMode, setPrivateMode] = useState(false) // Private messages (only visible to sender)
+  const [userHasScrolled, setUserHasScrolled] = useState(false) // Track if user scrolled away from bottom
+  
+  // Refs for TanStack Virtual
   const messageListRef = useRef(null)
-  const virtuosoRef = useRef(null)
-  const scrollerRef = useRef(null)
+  const messagesContainerRef = useRef(null) // Scroll container for virtualizer
   const lastScrollTopRef = useRef(0)
   const isAutoScrollingRef = useRef(false) // Flag to prevent blur during programmatic scroll
   const isTouchingRef = useRef(false) // Track if user is actively touching the screen
-  const shouldStayAtBottomRef = useRef(true) // Track if we should auto-scroll when content loads
-  const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
+  const prevMessagesLengthRef = useRef(0) // Track message count for new message detection
+  const prevChatIdRef = useRef(null) // Track chat ID for chat switching
+  const loadOlderRef = useRef(null) // Store loadOlder function to avoid circular dependency
 
   // Load AI mode settings from localStorage
   useEffect(() => {
@@ -201,23 +204,154 @@ export default function ChatWindow() {
       inputRef,
     })
 
-  // AI hook (must be after virtuosoRef is defined)
+  // Scroll to bottom helper - scrolls the container to its bottom
+  const scrollToBottom = useCallback(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [])
+
+  // Stable ref shim for AI hook (mimics virtuosoRef API)
+  const scrollShimRef = useRef({ scrollToIndex: () => {} })
+  scrollShimRef.current.scrollToIndex = scrollToBottom
+
+  // AI hook - pass stable ref instead of virtuosoRef
   const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } = useAI(
     user,
     currentChat,
     messages,
     setMessages,
-    virtuosoRef
+    scrollShimRef
   )
 
-  // Scroll to bottom helper (for mobile keyboard)
-  const scrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({
-      index: 'LAST',
-      align: 'end',
-      behavior: 'smooth',
+  // Combine and sort messages + posts
+  const sortedItems = useMemo(() => {
+    return [...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort((a, b) => {
+      const aTime = a.timestamp?.seconds || 0
+      const bTime = b.timestamp?.seconds || 0
+      return aTime - bTime
     })
+  }, [messages, posts])
+
+  // Split into history (virtualized) and last item (not virtualized for instant updates)
+  const historyItems = useMemo(() => {
+    return sortedItems.length > 1 ? sortedItems.slice(0, sortedItems.length - 1) : []
+  }, [sortedItems])
+  
+  const lastItem = sortedItems.length > 0 ? sortedItems[sortedItems.length - 1] : null
+  const hasItems = sortedItems.length > 0
+
+  // Stable virtualizer callbacks
+  const getScrollElement = useCallback(() => messagesContainerRef.current, [])
+  const estimateSize = useCallback(() => 80, [])
+  const getItemKey = useCallback((index) => historyItems[index]?.id ?? index, [historyItems])
+
+  // TanStack Virtualizer setup
+  const virtualizer = useVirtualizer({
+    count: historyItems.length,
+    getScrollElement,
+    estimateSize,
+    getItemKey,
+    overscan: 10,
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+  const virtualizerTotalSize = virtualizer.getTotalSize()
+
+  // Track virtualizer size changes for scroll adjustment
+  const prevVirtualizerTotalSizeRef = useRef([virtualizerTotalSize, sortedItems.length])
+  const userHasScrolledBeforeRef = useRef(false)
+
+  // Track if user has scrolled before (in this session)
+  useEffect(() => {
+    if (userHasScrolled) {
+      userHasScrolledBeforeRef.current = true
+    }
+  }, [userHasScrolled])
+
+  // Scroll handler - detect if user scrolled away from bottom
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+
+    const { scrollTop, scrollHeight, clientHeight } = el
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 100
+    setUserHasScrolled(!atBottom)
+
+    // Mobile keyboard dismissal - blur on upward scroll when touching
+    if (
+      Capacitor.isNativePlatform() &&
+      isTouchingRef.current &&
+      !isAutoScrollingRef.current &&
+      scrollTop < lastScrollTopRef.current - 5 &&
+      inputRef.current
+    ) {
+      inputRef.current.blur()
+    }
+    lastScrollTopRef.current = scrollTop
+
+    // Load older messages when near top (use ref to avoid circular dependency)
+    if (scrollTop < 200) {
+      loadOlderRef.current?.()
+    }
   }, [])
+
+  // Disable scroll position adjustment on item size change (run once on mount)
+  useEffect(() => {
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Initial load OR items resized - scroll to bottom if user hasn't scrolled before
+  useEffect(() => {
+    const currentLength = sortedItems.length
+    if (currentLength === 0) return
+
+    const prevLength = prevMessagesLengthRef.current
+    const [prevTotalSize] = prevVirtualizerTotalSizeRef.current
+    const isNewMessagesAdded = prevLength > 0 && currentLength > prevLength
+
+    // Initial load - scroll to bottom
+    if (prevLength === 0 && currentLength > 0) {
+      requestAnimationFrame(() => scrollToBottom())
+    } 
+    // Items resized (virtualizer total size changed but message count stayed same)
+    // Only scroll if user hasn't scrolled yet in this session
+    else if (
+      prevLength === currentLength &&
+      prevTotalSize !== virtualizerTotalSize &&
+      !isNewMessagesAdded &&
+      !userHasScrolledBeforeRef.current
+    ) {
+      requestAnimationFrame(() => scrollToBottom())
+    }
+
+    prevVirtualizerTotalSizeRef.current = [virtualizerTotalSize, currentLength]
+  }, [sortedItems.length, virtualizerTotalSize, scrollToBottom])
+
+  // Scroll to bottom on NEW messages (always scroll on new message)
+  useEffect(() => {
+    const currentLength = sortedItems.length
+    const prevLength = prevMessagesLengthRef.current
+
+    if (prevLength > 0 && currentLength > prevLength) {
+      requestAnimationFrame(() => scrollToBottom())
+    }
+
+    prevMessagesLengthRef.current = currentLength
+  }, [sortedItems.length, scrollToBottom])
+
+  // Reset on chat switch
+  useEffect(() => {
+    const currentChatId = currentChat?.id || null
+    if (prevChatIdRef.current !== currentChatId) {
+      setUserHasScrolled(false)
+      userHasScrolledBeforeRef.current = false
+      prevChatIdRef.current = currentChatId
+      prevMessagesLengthRef.current = 0
+      prevVirtualizerTotalSizeRef.current = [0, 0]
+    }
+  }, [currentChat?.id])
 
   // Message sending hook
   const {
@@ -233,7 +367,7 @@ export default function ChatWindow() {
     user,
     currentChat,
     inputRef,
-    virtuosoRef,
+    scrollToBottom,
     isAutoScrollingRef,
     imageFile,
     imagePreview,
@@ -917,10 +1051,20 @@ export default function ChatWindow() {
         console.log('📜 No more messages, setting hasMoreMessages to false')
         setHasMoreMessages(false)
       } else {
-        // Prepend older messages
-        console.log(`📜 Prepending ${olderMessages.length} messages, updating firstItemIndex`)
-        setFirstItemIndex(prev => prev - olderMessages.length)
+        // Prepend older messages - preserve scroll position
+        console.log(`📜 Prepending ${olderMessages.length} messages`)
+        const el = messagesContainerRef.current
+        const prevScrollHeight = el?.scrollHeight || 0
+        
         setMessages(prev => [...olderMessages, ...prev])
+        
+        // After render, restore scroll position
+        requestAnimationFrame(() => {
+          if (el) {
+            const newScrollHeight = el.scrollHeight
+            el.scrollTop = newScrollHeight - prevScrollHeight
+          }
+        })
       }
     } catch (error) {
       console.error('📜 Error loading older messages:', error)
@@ -929,21 +1073,16 @@ export default function ChatWindow() {
     }
   }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
 
-  // Reset hasMoreMessages and firstItemIndex when switching chats
+  // Keep loadOlderRef in sync with loadOlder
+  useEffect(() => {
+    loadOlderRef.current = loadOlder
+  }, [loadOlder])
+
+  // Reset hasMoreMessages when switching chats
   useEffect(() => {
     console.log('📜 Chat changed, resetting pagination state')
     setHasMoreMessages(true)
-    setFirstItemIndex(10000) // Reset to starting position
     setLoadingOlder(false)
-
-    // Scroll to bottom when switching chats
-    setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: 'LAST',
-        align: 'end',
-        behavior: 'auto',
-      })
-    }, 100)
   }, [currentChat])
 
   // Close context menu on click outside
@@ -1220,112 +1359,126 @@ export default function ChatWindow() {
                     <div className='drag-overlay-content'>📎 Drop image or video here</div>
                   </div>
                 )}
-                {messages.length === 0 && posts.length === 0 ? (
+                {!hasItems ? (
                   <div className='empty-state'>
                     <p>Welcome to the chat! Start a conversation. 😱</p>
                   </div>
                 ) : (
-                  <Virtuoso
-                    ref={virtuosoRef}
-                    style={{ height: '100%' }}
-                    data={[...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
-                      (a, b) => {
-                        const aTime = a.timestamp?.seconds || 0
-                        const bTime = b.timestamp?.seconds || 0
-                        return aTime - bTime
-                      }
+                  <div
+                    ref={messagesContainerRef}
+                    onScroll={handleScroll}
+                    onTouchStart={() => { isTouchingRef.current = true }}
+                    onTouchEnd={() => { setTimeout(() => { isTouchingRef.current = false }, 100) }}
+                    style={{
+                      height: '100%',
+                      overflow: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    {/* Virtualized history items - only render if we have history */}
+                    {historyItems.length > 0 && (
+                      <div
+                        style={{
+                          height: virtualizerTotalSize,
+                          width: '100%',
+                          position: 'relative',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {/* Loading indicator at top */}
+                        {loadingOlder && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            right: 0, 
+                            textAlign: 'center', 
+                            padding: '12px',
+                            color: 'var(--text-secondary)',
+                            fontSize: '14px',
+                          }}>
+                            Loading older messages...
+                          </div>
+                        )}
+                        
+                        {virtualItems.map(virtualRow => {
+                          const item = historyItems[virtualRow.index]
+                          if (!item) return null
+                          
+                          return (
+                            <div
+                              key={virtualRow.key}
+                              data-index={virtualRow.index}
+                              ref={virtualizer.measureElement}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${virtualRow.start}px)`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                              }}
+                            >
+                              {item.isPost ? (
+                                <PostPreview
+                                  post={item}
+                                  onClick={() => {
+                                    setSelectedPost(item)
+                                    setViewMode('posts')
+                                  }}
+                                  onContextMenu={handleContextMenu}
+                                />
+                              ) : (
+                                <MessageItem
+                                  msg={item}
+                                  index={messages.findIndex(m => m.id === item.id)}
+                                  messages={messages}
+                                  totalMessages={messages.length}
+                                  user={user}
+                                  currentChat={currentChat}
+                                  allUsers={allUsers}
+                                  replyingTo={replyingTo}
+                                  topReactions={topReactions}
+                                  onReply={startReply}
+                                  onVideoReply={startVideoReply}
+                                  onEdit={startEdit}
+                                  onDelete={handleDeleteMessage}
+                                  onPromote={handlePromoteMessage}
+                                  onAddToTeamMemory={handleAddToTeamMemory}
+                                  onAddReaction={handleAddReaction}
+                                  onImageClick={(images, startIndex) =>
+                                    setLightboxData({ open: true, images, startIndex })
+                                  }
+                                  onScrollToMessage={scrollToMessage}
+                                  messageRef={el => (messageRefs.current[item.id] = el)}
+                                  onOpenThread={openThreadView}
+                                  onMakePublic={handleMakePublic}
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     )}
-                    firstItemIndex={firstItemIndex}
-                    initialTopMostItemIndex={999999}
-                    alignToBottom={true}
-                    followOutput={(isAtBottom) => {
-                      // Auto-scroll to bottom when new messages arrive if user is at bottom
-                      if (shouldStayAtBottomRef.current || isAtBottom) {
-                        return 'smooth'
-                      }
-                      return false
-                    }}
-                    atBottomStateChange={(atBottom) => {
-                      // Track if user is at bottom to know if we should auto-scroll on media load
-                      shouldStayAtBottomRef.current = atBottom
-                    }}
-                    atBottomThreshold={150}
-                    startReached={loadOlder}
-                    // Keep all 50 messages rendered to prevent image re-rendering jitter
-                    overscan={{ main: 2000, reverse: 2000 }}
-                    increaseViewportBy={{ top: 1500, bottom: 1500 }}
-                    // Add spacer at bottom for keyboard + extra padding on mobile for read receipts
-                    components={{
-                      Footer: () => {
-                        // On mobile (native), always add base padding for read receipts to not overlap input
-                        // When keyboard is open, add keyboard height on top of that
-                        const basePadding = Capacitor.isNativePlatform() ? 60 : 0
-                        const totalHeight =
-                          keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
 
-                        if (totalHeight > 0) {
-                          return <div style={{ height: totalHeight, background: 'transparent' }} />
-                        }
-                        return null
-                      },
-                    }}
-                    atTopStateChange={atTop => {
-                      console.log('📜 atTopStateChange:', atTop)
-                      if (atTop) {
-                        loadOlder()
-                      }
-                    }}
-                    scrollerRef={scroller => {
-                      scrollerRef.current = scroller
-                      // Add touch event listeners to track when user is actually touching
-                      if (scroller && Capacitor.isNativePlatform()) {
-                        scroller.ontouchstart = () => {
-                          isTouchingRef.current = true
-                        }
-                        scroller.ontouchend = () => {
-                          // Small delay to catch the final scroll events from the touch
-                          setTimeout(() => {
-                            isTouchingRef.current = false
-                          }, 100)
-                        }
-                      }
-                    }}
-                    onScroll={e => {
-                      const currentScrollTop = e.target.scrollTop
-                      // Blur on upward scroll ONLY when user is actively touching (dragging)
-                      // This prevents keyboard from closing when new messages arrive and auto-scroll
-                      // ONLY on mobile - desktop should never lose focus from scrolling
-                      if (
-                        Capacitor.isNativePlatform() &&
-                        isTouchingRef.current && // Only blur if user is touching the screen
-                        !isAutoScrollingRef.current &&
-                        currentScrollTop < lastScrollTopRef.current - 5 &&
-                        inputRef.current
-                      ) {
-                        inputRef.current.blur()
-                      }
-                      lastScrollTopRef.current = currentScrollTop
-                    }}
-                    itemContent={(index, item) => {
-                      if (item.isPost) {
-                        return (
+                    {/* Last item - NOT virtualized for instant updates */}
+                    {lastItem && (
+                      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                        {lastItem.isPost ? (
                           <PostPreview
-                            key={`post-${item.id}`}
-                            post={item}
+                            post={lastItem}
                             onClick={() => {
-                              setSelectedPost(item)
+                              setSelectedPost(lastItem)
                               setViewMode('posts')
                             }}
                             onContextMenu={handleContextMenu}
                           />
-                        )
-                      } else {
-                        const msgIndex = messages.findIndex(m => m.id === item.id)
-                        return (
+                        ) : (
                           <MessageItem
-                            key={item.id}
-                            msg={item}
-                            index={msgIndex}
+                            msg={lastItem}
+                            index={messages.findIndex(m => m.id === lastItem.id)}
                             messages={messages}
                             totalMessages={messages.length}
                             user={user}
@@ -1344,14 +1497,24 @@ export default function ChatWindow() {
                               setLightboxData({ open: true, images, startIndex })
                             }
                             onScrollToMessage={scrollToMessage}
-                            messageRef={el => (messageRefs.current[item.id] = el)}
+                            messageRef={el => (messageRefs.current[lastItem.id] = el)}
                             onOpenThread={openThreadView}
                             onMakePublic={handleMakePublic}
                           />
-                        )
+                        )}
+                      </div>
+                    )}
+
+                    {/* Footer spacer for keyboard */}
+                    {(() => {
+                      const basePadding = Capacitor.isNativePlatform() ? 60 : 0
+                      const totalHeight = keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
+                      if (totalHeight > 0) {
+                        return <div style={{ height: totalHeight, flexShrink: 0 }} />
                       }
-                    }}
-                  />
+                      return null
+                    })()}
+                  </div>
                 )}
 
                 {/* DM Typing Indicator - Inside messages div so it's visible */}

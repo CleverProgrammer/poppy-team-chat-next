@@ -27,7 +27,7 @@ export function useMessageSending({
   user,
   currentChat,
   inputRef,
-  virtuosoRef,
+  scrollToBottom, // Function to scroll chat to bottom
   isAutoScrollingRef,
   imageFile,
   imagePreview,
@@ -172,11 +172,7 @@ export function useMessageSending({
     
     // Scroll after a tiny delay to let the optimistic message render
     setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: 'LAST',
-        align: 'end',
-        behavior: 'auto'
-      });
+      scrollToBottom?.();
     }, 10);
     
     // Clear the auto-scroll flag and ensure focus after everything settles
@@ -343,7 +339,7 @@ export function useMessageSending({
     user,
     currentChat,
     inputRef,
-    virtuosoRef,
+    scrollToBottom,
     imageFiles,
     imagePreviews,
     clearImage,
@@ -430,11 +426,7 @@ export function useMessageSending({
       // Scroll to bottom
       if (isAutoScrollingRef) isAutoScrollingRef.current = true;
       setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: 'LAST',
-          align: 'end',
-          behavior: 'auto'
-        });
+        scrollToBottom?.();
       }, 10);
 
       // Send message with audio
@@ -475,7 +467,7 @@ export function useMessageSending({
       setUploading(false);
       if (isAutoScrollingRef) isAutoScrollingRef.current = false;
     }
-  }, [user, currentChat, sending, setMessages, setUploading, allUsers, virtuosoRef, isAutoScrollingRef, sendMessageWithAudio, sendMessageDMWithAudio, uploadAudio, markChatAsUnread, getDMId]);
+  }, [user, currentChat, sending, setMessages, setUploading, allUsers, scrollToBottom, isAutoScrollingRef, sendMessageWithAudio, sendMessageDMWithAudio, uploadAudio, markChatAsUnread, getDMId]);
 
   return {
     sending,
