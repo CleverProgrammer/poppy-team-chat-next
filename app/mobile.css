@@ -775,4 +775,14 @@ body:has(.action-sheet-overlay) * {
     width: 100px !important;
     height: 22px !important;
   }
+
+  /* Sidebar message preview - easier to read */
+  .dm-preview {
+    font-size: 15px !important;
+  }
+
+  /* Message text - slightly larger for mobile readability */
+  .message .text {
+    font-size: 16px !important;
+  }
 }

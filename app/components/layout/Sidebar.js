@@ -168,23 +168,19 @@ export default function Sidebar({
   const getPreviewText = (message, dmUserId) => {
     if (!message) return 'No messages yet'
     
-    const dmUser = allUsers.find(u => u.uid === dmUserId)
-    const isSentByMe = message.senderId === user?.uid
-    const prefix = isSentByMe ? 'You: ' : ''
-    
     if (message.imageUrl || message.imageUrls?.length > 0) {
       const imageCount = message.imageUrls?.length || 1
-      return `${prefix}Attachments: ${imageCount} Photo${imageCount > 1 ? 's' : ''}`
+      return `${imageCount} Photo${imageCount > 1 ? 's' : ''}`
     }
     
     if (message.muxPlaybackIds?.length > 0) {
-      return `${prefix}Video message`
+      return 'Video message'
     }
     
     const text = message.text || ''
     const maxLength = 80 // Allow more text for 2 lines
     const truncated = text.length > maxLength ? text.substring(0, maxLength) + '...' : text
-    return prefix + truncated
+    return truncated
   }
 
   // Sort DMs by most recent message
@@ -425,7 +421,7 @@ export default function Sidebar({
                   <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
                 </div>
                 <div className='dm-preview'>
-                  {lastMsg ? `${lastMsg.sender}: ${lastMsg.text?.substring(0, 50) || 'Attachment'}` : 'No messages yet'}
+                  {lastMsg ? (lastMsg.text?.substring(0, 80) || 'Attachment') : 'No messages yet'}
                 </div>
               </div>
             </div>
@@ -454,7 +450,7 @@ export default function Sidebar({
                   <span className='dm-timestamp'>{formatTimestamp(aiLastMessage?.timestamp)}</span>
                 </div>
                 <div className='dm-preview'>
-                  {aiLastMessage ? (aiLastMessage.role === 'user' ? 'You: ' : 'Poppy: ') + (aiLastMessage.content?.substring(0, 50) || '') : 'Chat with AI assistant'}
+                  {aiLastMessage ? (aiLastMessage.content?.substring(0, 80) || '') : 'Chat with AI assistant'}
                 </div>
               </div>
             </div>
