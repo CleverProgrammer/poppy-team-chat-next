@@ -749,7 +749,7 @@ export default function ChatInput({
 
           {/* Poppy AI button */}
           <button
-            className={`input-poppy-btn ${aiMode ? 'active' : ''}`}
+            className={`input-poppy-btn ${aiMode ? 'active' : ''} ${aiMode && privateMode ? 'private-mode' : ''}`}
             onMouseDown={(e) => e.preventDefault()} // Prevent keyboard close on mobile
             onClick={() => setAiMode && setAiMode(!aiMode)}
             aria-label={aiMode ? 'Disable AI mode' : 'Enable AI mode'}
@@ -762,7 +762,7 @@ export default function ChatInput({
             />
           </button>
 
-          <div className={`input-field-wrapper ${aiMode ? 'ai-active' : ''}`}>
+          <div className={`input-field-wrapper ${aiMode ? 'ai-active' : ''} ${aiMode && privateMode ? 'private-mode' : ''}`}>
             <textarea
               ref={inputRef}
               placeholder={

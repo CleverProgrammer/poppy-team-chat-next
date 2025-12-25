@@ -280,6 +280,13 @@
     border-radius: 20px;
     border: 1px solid #3a3a3c;
   }
+  
+  /* Private mode yellow glow on mobile */
+  .input-field-wrapper.ai-active.private-mode {
+    border-color: rgba(250, 204, 21, 0.5) !important;
+    box-shadow: 0 0 20px rgba(250, 204, 21, 0.4), 0 0 40px rgba(250, 204, 21, 0.2) !important;
+    background: rgba(40, 38, 25, 0.95) !important;
+  }
 
   .input-field-wrapper textarea {
     flex: 1;
