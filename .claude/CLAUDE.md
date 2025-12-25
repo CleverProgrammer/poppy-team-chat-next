@@ -254,7 +254,7 @@ All database operations centralized in `lib/firestore.js`:
 
 ## Commands
 ```bash
-yarn dev          # Start development server (http://localhost:3000)
+yarn dev          # Start development server (http://localhost:3007)
 yarn build        # Build for production
 yarn start        # Start production server
 yarn lint         # Run ESLint
