@@ -588,41 +588,95 @@ export default function ChatWindow() {
   }
 
   // Handle web video recorded (from WebVideoRecorder component - desktop)
-  // WebVideoRecorder already handles Mux upload and returns playbackId
-  const handleWebVideoRecorded = async playbackId => {
-    console.log('📹 Web video recorded, playbackId:', playbackId)
+  // Now receives a video blob instead of playbackId - handles upload asynchronously like mobile
+  const handleWebVideoRecorded = async videoBlob => {
+    console.log('📹 Web video recorded, blob size:', videoBlob.size)
     setWebVideoRecorderOpen(false)
 
     // Check if this is a standalone video (not a reply)
     const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
-    if (isStandalone) {
-      // Standalone video - send as new message
-      console.log('📹 Sending standalone video...')
-      pendingVideoReplyRef.current = null
-      try {
-        await sendVideoReply(playbackId, null) // null replyTo = standalone
-        console.log('📹 Standalone video sent!')
-      } catch (error) {
-        console.error('Failed to send standalone video:', error)
-        alert('Failed to send video. Please try again.')
-      }
-      return
-    }
-
-    // Store reply context locally and clear the reply state
-    const replyContext = pendingVideoReplyRef.current
+    // Store reply context locally and IMMEDIATELY clear the reply state
+    // User has "replied" from their perspective the moment they hit Send
+    const replyContext = isStandalone ? null : pendingVideoReplyRef.current
     pendingVideoReplyRef.current = null
-    setReplyingTo(null)
+    if (!isStandalone) setReplyingTo(null)
 
     try {
+      // Get Mux upload URL
+      console.log('📹 Getting Mux upload URL...')
+      const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' })
+      const { uploadUrl, uploadId } = await uploadResponse.json()
+      console.log('📹 Got Mux upload URL, uploadId:', uploadId)
+
+      // Show upload progress indicator
+      setVideoUploadProgress({ percent: 0, status: 'uploading' })
+
+      // Upload the blob to Mux using XMLHttpRequest for progress tracking
+      console.log('📹 Starting web upload to Mux...')
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        
+        xhr.upload.addEventListener('progress', event => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100)
+            setVideoUploadProgress({ percent, status: 'uploading' })
+          }
+        })
+        
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setVideoUploadProgress({ percent: 100, status: 'processing' })
+            resolve()
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`))
+          }
+        })
+        
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
+        
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', videoBlob.type || 'video/webm')
+        xhr.send(videoBlob)
+      })
+      console.log('📹 Web upload completed!')
+
+      // Poll for playback ID
+      console.log('📹 Polling for playback ID...')
+      let playbackId = null
+      for (let i = 0; i < 60; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
+        const assetData = await assetResponse.json()
+
+        // Wait for BOTH playbackId AND ready status to ensure video is playable
+        if (assetData.playbackId && assetData.ready) {
+          playbackId = assetData.playbackId
+          console.log('📹 Got playback ID (asset ready):', playbackId)
+          break
+        }
+        console.log('📹 Waiting for asset to be ready, attempt', i + 1, 'status:', assetData.status)
+      }
+
+      if (!playbackId) {
+        throw new Error('Failed to get Mux playback ID')
+      }
+
       // Send the message with the video
       console.log('📹 Sending message with video...')
+      setVideoUploadProgress({ percent: 100, status: 'sending' })
       await sendVideoReply(playbackId, replyContext)
+
+      // Clear progress and show success briefly
+      setVideoUploadProgress({ percent: 100, status: 'done' })
+      setTimeout(() => setVideoUploadProgress(null), 2000)
+
       console.log('📹 Web video reply sent!')
     } catch (error) {
-      console.error('Failed to send web video reply:', error)
-      alert('Failed to send video. Please try again.')
+      console.error('Failed to process web video:', error)
+      setVideoUploadProgress({ percent: 0, status: 'error' })
+      setTimeout(() => setVideoUploadProgress(null), 3000)
     }
   }
 
