@@ -616,14 +616,14 @@ export default function ChatWindow() {
       console.log('📹 Starting web upload to Mux...')
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        
+
         xhr.upload.addEventListener('progress', event => {
           if (event.lengthComputable) {
             const percent = Math.round((event.loaded / event.total) * 100)
             setVideoUploadProgress({ percent, status: 'uploading' })
           }
         })
-        
+
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             setVideoUploadProgress({ percent: 100, status: 'processing' })
@@ -632,10 +632,10 @@ export default function ChatWindow() {
             reject(new Error(`Upload failed with status ${xhr.status}`))
           }
         })
-        
+
         xhr.addEventListener('error', () => reject(new Error('Upload failed')))
         xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
-        
+
         xhr.open('PUT', uploadUrl)
         xhr.setRequestHeader('Content-Type', videoBlob.type || 'video/webm')
         xhr.send(videoBlob)
