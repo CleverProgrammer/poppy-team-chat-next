@@ -40,6 +40,7 @@ import {
   loadOlderMessagesDM,
   sendMessageWithReply,
   sendMessageDMWithReply,
+  toggleMessageVisibility,
 } from '../../lib/firestore'
 
 export default function ChatWindow() {
@@ -66,6 +67,8 @@ export default function ChatWindow() {
   const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder (iOS)
   const [webVideoRecorderOpen, setWebVideoRecorderOpen] = useState(false) // Web video recorder (desktop)
   const [threadView, setThreadView] = useState({ open: false, originalMessage: null }) // Thread view state
+  const [aiMode, setAiMode] = useState(false) // AI mode toggle for input
+  const [privateMode, setPrivateMode] = useState(false) // Private messages (only visible to sender)
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -74,6 +77,24 @@ export default function ChatWindow() {
   const isTouchingRef = useRef(false) // Track if user is actively touching the screen
   const shouldStayAtBottomRef = useRef(true) // Track if we should auto-scroll when content loads
   const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
+
+  // Load AI mode settings from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedAiMode = localStorage.getItem('poppy-ai-mode')
+      const savedPrivateMode = localStorage.getItem('poppy-private-mode')
+      if (savedAiMode !== null) setAiMode(savedAiMode === 'true')
+      if (savedPrivateMode !== null) setPrivateMode(savedPrivateMode === 'true')
+    }
+  }, [])
+
+  // Save AI mode settings to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('poppy-ai-mode', aiMode.toString())
+      localStorage.setItem('poppy-private-mode', privateMode.toString())
+    }
+  }, [aiMode, privateMode])
 
   // Swipe from left edge to open sidebar (mobile)
   const touchStartX = useRef(0)
@@ -156,6 +177,7 @@ export default function ChatWindow() {
     handleRemoveImageAtIndex,
     clearImage,
     dropzoneProps,
+    openFilePicker,
   } = useImageUpload()
   const { getRootProps, getInputProps, isDragActive } = dropzoneProps
 
@@ -241,6 +263,8 @@ export default function ChatWindow() {
     allUsers,
     askPoppy,
     askPoppyDirectly,
+    aiMode,
+    privateMode,
   })
 
   // AI Modal helper (needed by useMentionMenu)
@@ -465,16 +489,14 @@ export default function ChatWindow() {
     console.log('📹 Native video recorded:', videoFilePath)
     setVideoRecorderOpen(false)
 
-    if (!pendingVideoReplyRef.current) {
-      console.warn('No pending video reply context')
-      return
-    }
+    // Check if this is a standalone video (not a reply)
+    const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
     // Store reply context locally and IMMEDIATELY clear the reply state
     // User has "replied" from their perspective the moment they hit Send
-    const replyContext = pendingVideoReplyRef.current
+    const replyContext = isStandalone ? null : pendingVideoReplyRef.current
     pendingVideoReplyRef.current = null
-    setReplyingTo(null)
+    if (!isStandalone) setReplyingTo(null)
 
     try {
       // Get Mux upload URL
@@ -568,8 +590,20 @@ export default function ChatWindow() {
     console.log('📹 Web video recorded, playbackId:', playbackId)
     setWebVideoRecorderOpen(false)
 
-    if (!pendingVideoReplyRef.current) {
-      console.warn('No pending video reply context')
+    // Check if this is a standalone video (not a reply)
+    const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
+
+    if (isStandalone) {
+      // Standalone video - send as new message
+      console.log('📹 Sending standalone video...')
+      pendingVideoReplyRef.current = null
+      try {
+        await sendVideoReply(playbackId, null) // null replyTo = standalone
+        console.log('📹 Standalone video sent!')
+      } catch (error) {
+        console.error('Failed to send standalone video:', error)
+        alert('Failed to send video. Please try again.')
+      }
       return
     }
 
@@ -665,6 +699,23 @@ export default function ChatWindow() {
     } catch (error) {
       console.error('Error deleting message:', error)
       alert('Failed to delete message. Please try again.')
+    }
+  }
+
+  // Make private message public handler
+  const handleMakePublic = async messageId => {
+    const isDM = currentChat.type === 'dm'
+    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
+
+    try {
+      await toggleMessageVisibility(chatId, messageId, true, isDM)
+      // Update local state immediately for responsiveness
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId ? { ...msg, isPrivate: false, privateFor: null } : msg
+      ))
+    } catch (error) {
+      console.error('Error making message public:', error)
+      alert('Failed to make message public. Please try again.')
     }
   }
 
@@ -788,10 +839,14 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!user) return
 
-    console.log('🔔 Subscribing to unread chats for user:', user.uid)
-    const unsubscribe = subscribeToUnreadChats(user.uid, unreadChats => {
-      console.log('📬 Unread chats updated:', unreadChats)
-      setUnreadChats(unreadChats)
+    let lastUnreadString = ''
+    const unsubscribe = subscribeToUnreadChats(user.uid, newUnreadChats => {
+      // Only update if unread chats actually changed (prevents unnecessary re-renders)
+      const newUnreadString = JSON.stringify(newUnreadChats.sort())
+      if (newUnreadString !== lastUnreadString) {
+        lastUnreadString = newUnreadString
+        setUnreadChats(newUnreadChats)
+      }
     })
 
     return () => {
@@ -1306,6 +1361,7 @@ export default function ChatWindow() {
                             messageRef={el => (messageRefs.current[item.id] = el)}
                             onOpenThread={openThreadView}
                             onMediaLoaded={handleMediaLoaded}
+                            onMakePublic={handleMakePublic}
                           />
                         )
                       }
@@ -1416,6 +1472,21 @@ export default function ChatWindow() {
                 setMentionMenuIndex={setMentionMenuIndex}
                 onScrollToBottom={scrollToBottom}
                 onKeyboardHeightChange={setKeyboardHeight}
+                aiMode={aiMode}
+                setAiMode={setAiMode}
+                privateMode={privateMode}
+                setPrivateMode={setPrivateMode}
+                openFilePicker={openFilePicker}
+                handleImageSelect={handleImageSelect}
+                onOpenVideoRecorder={() => {
+                  // Mark as standalone video (not a reply)
+                  pendingVideoReplyRef.current = { standalone: true }
+                  if (Capacitor.isNativePlatform()) {
+                    setVideoRecorderOpen(true)
+                  } else {
+                    setWebVideoRecorderOpen(true)
+                  }
+                }}
               />
             </>
           )}
