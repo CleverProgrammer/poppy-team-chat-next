@@ -1,6 +1,7 @@
 'use client'
 
 import ChannelStoryRing from './ChannelStoryRing'
+import DMStoryRing from './DMStoryRing'
 
 export default function ChatHeader({
   currentChat,
@@ -10,6 +11,7 @@ export default function ChatHeader({
   onViewModeChange,
   onBack,
   allUsers,
+  currentUserId, // Current logged-in user's ID for DM stories
 }) {
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#'
@@ -33,9 +35,6 @@ export default function ChatHeader({
     return null
   }
 
-  // Check if this is the general channel (for stories)
-  const isGeneralChannel = currentChat.type === 'channel' && currentChat.id === 'general'
-
   // Get avatar/icon for mobile header
   const getMobileAvatar = () => {
     if (currentChat.type === 'ai') {
@@ -50,25 +49,31 @@ export default function ChatHeader({
     }
     if (currentChat.type === 'dm') {
       const photo = getUserPhoto()
-      if (photo) {
-        return <img src={photo} alt={currentChat.name} className='chat-header-avatar' />
-      }
-      // Fallback to initials
-      const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
-      return <div className='chat-header-avatar chat-header-avatar-initials'>{initials}</div>
-    }
-    // Channel - wrap with story ring if general
-    const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
-    
-    if (isGeneralChannel) {
+      const avatarContent = photo ? (
+        <img src={photo} alt={currentChat.name} className='chat-header-avatar' />
+      ) : (
+        <div className='chat-header-avatar chat-header-avatar-initials'>
+          {currentChat.name?.substring(0, 2).toUpperCase() || '??'}
+        </div>
+      )
+      // Wrap with DMStoryRing for private stories
       return (
-        <ChannelStoryRing channelId={currentChat.id} size="medium">
-          {channelAvatar}
-        </ChannelStoryRing>
+        <DMStoryRing
+          currentUserId={currentUserId}
+          otherUserId={currentChat.id}
+          size="medium"
+        >
+          {avatarContent}
+        </DMStoryRing>
       )
     }
-    
-    return channelAvatar
+    // Channel - wrap with story ring for all channels
+    const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
+    return (
+      <ChannelStoryRing channelId={currentChat.id} size="medium">
+        {channelAvatar}
+      </ChannelStoryRing>
+    )
   }
 
   // Get avatar for desktop header (iMessage style)
@@ -84,25 +89,31 @@ export default function ChatHeader({
     }
     if (currentChat.type === 'dm') {
       const photo = getUserPhoto()
-      if (photo) {
-        return <img src={photo} alt={currentChat.name} className='chat-header-avatar-desktop' />
-      }
-      // Fallback to initials
-      const initials = currentChat.name?.substring(0, 2).toUpperCase() || '??'
-      return <div className='chat-header-avatar-desktop chat-header-avatar-initials'>{initials}</div>
-    }
-    // Channel - wrap with story ring if general
-    const channelAvatar = <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
-    
-    if (isGeneralChannel) {
+      const avatarContent = photo ? (
+        <img src={photo} alt={currentChat.name} className='chat-header-avatar-desktop' />
+      ) : (
+        <div className='chat-header-avatar-desktop chat-header-avatar-initials'>
+          {currentChat.name?.substring(0, 2).toUpperCase() || '??'}
+        </div>
+      )
+      // Wrap with DMStoryRing for private stories
       return (
-        <ChannelStoryRing channelId={currentChat.id} size="small">
-          {channelAvatar}
-        </ChannelStoryRing>
+        <DMStoryRing
+          currentUserId={currentUserId}
+          otherUserId={currentChat.id}
+          size="small"
+        >
+          {avatarContent}
+        </DMStoryRing>
       )
     }
-    
-    return channelAvatar
+    // Channel - wrap with story ring for all channels
+    const channelAvatar = <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
+    return (
+      <ChannelStoryRing channelId={currentChat.id} size="small">
+        {channelAvatar}
+      </ChannelStoryRing>
+    )
   }
 
   return (

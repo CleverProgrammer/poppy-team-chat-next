@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import SignOutButton from '../auth/SignOutButton'
 import ChannelStoryRing from '../chat/ChannelStoryRing'
+import DMStoryRing from '../chat/DMStoryRing'
 
 export default function Sidebar({
   currentChat,
@@ -238,7 +239,6 @@ export default function Sidebar({
           const channelId = channel.id
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
-          const isGeneralChannel = channelId === 'general'
           
           const avatarContent = (
             <div className='collapsed-avatar-fallback channel-avatar'>
@@ -253,13 +253,9 @@ export default function Sidebar({
               onClick={() => handleChannelClick(channelId, channel.name)}
             >
               {isUnread && <div className="collapsed-unread-dot" />}
-              {isGeneralChannel ? (
-                <ChannelStoryRing channelId={channelId} size="medium">
-                  {avatarContent}
-                </ChannelStoryRing>
-              ) : (
-                avatarContent
-              )}
+              <ChannelStoryRing channelId={channelId} size="medium">
+                {avatarContent}
+              </ChannelStoryRing>
             </div>
           )
         })}
@@ -280,6 +276,14 @@ export default function Sidebar({
           const isActive = currentChat?.type === 'dm' && currentChat?.id === dmUserId
           const isUnread = unreadChats.includes(`dm:${dmUserId}`)
           
+          const avatarContent = dmUser.photoURL ? (
+            <img src={dmUser.photoURL} alt={dmUser.displayName} className='collapsed-avatar' />
+          ) : (
+            <div className='collapsed-avatar-fallback'>
+              {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
+            </div>
+          )
+          
           return (
             <div
               key={dmUserId}
@@ -287,13 +291,13 @@ export default function Sidebar({
               onClick={() => handleDMClick(dmUser)}
             >
               {isUnread && <div className="collapsed-unread-dot" />}
-              {dmUser.photoURL ? (
-                <img src={dmUser.photoURL} alt={dmUser.displayName} className='collapsed-avatar' />
-              ) : (
-                <div className='collapsed-avatar-fallback'>
-                  {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
-                </div>
-              )}
+              <DMStoryRing
+                currentUserId={user?.uid}
+                otherUserId={dmUserId}
+                size="medium"
+              >
+                {avatarContent}
+              </DMStoryRing>
             </div>
           )
         })}
@@ -368,7 +372,6 @@ export default function Sidebar({
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
           const lastMsg = channelLastMessages[channelId]
-          const isGeneralChannel = channelId === 'general'
           
           const avatarContent = (
             <div className='dm-avatar-fallback channel-avatar'>
@@ -385,13 +388,9 @@ export default function Sidebar({
               <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
               
               <div className='dm-avatar-container'>
-                {isGeneralChannel ? (
-                  <ChannelStoryRing channelId={channelId} size="small">
-                    {avatarContent}
-                  </ChannelStoryRing>
-                ) : (
-                  avatarContent
-                )}
+                <ChannelStoryRing channelId={channelId} size="small">
+                  {avatarContent}
+                </ChannelStoryRing>
               </div>
               
               <div className='dm-content'>
@@ -445,6 +444,14 @@ export default function Sidebar({
           const isUnread = unreadChats.includes(`dm:${dmUserId}`)
           const lastMsg = lastMessages[dmUserId]
           
+          const avatarContent = dmUser.photoURL ? (
+            <img src={dmUser.photoURL} alt={dmUser.displayName} className='dm-avatar' />
+          ) : (
+            <div className='dm-avatar-fallback'>
+              {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
+            </div>
+          )
+          
           return (
             <div
               key={dmUserId}
@@ -454,13 +461,13 @@ export default function Sidebar({
               <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
               
               <div className='dm-avatar-container'>
-                {dmUser.photoURL ? (
-                  <img src={dmUser.photoURL} alt={dmUser.displayName} className='dm-avatar' />
-                ) : (
-                  <div className='dm-avatar-fallback'>
-                    {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
-                  </div>
-                )}
+                <DMStoryRing
+                  currentUserId={user?.uid}
+                  otherUserId={dmUserId}
+                  size="small"
+                >
+                  {avatarContent}
+                </DMStoryRing>
               </div>
               
               <div className='dm-content'>
