@@ -340,6 +340,7 @@ export function subscribeToActiveDMs(userId, callback) {
 }
 
 // Subscribe to last message for each DM (for sidebar previews)
+// Filters out private messages so they don't show in preview
 export function subscribeToLastMessages(userId, dmUserIds, callback) {
   if (!userId || !dmUserIds || dmUserIds.length === 0) {
     callback({})
@@ -352,16 +353,27 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
   dmUserIds.forEach(otherUserId => {
     const dmId = getDMId(userId, otherUserId)
     const messagesRef = collection(db, 'dms', dmId, 'messages')
-    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+    // Get more messages to find first non-private one
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(10))
 
     const unsubscribe = onSnapshot(
       q,
       snapshot => {
         if (!snapshot.empty) {
-          const doc = snapshot.docs[0]
-          lastMessages[otherUserId] = {
-            id: doc.id,
-            ...doc.data(),
+          // Find the first message that's NOT private (or is private but visible to this user)
+          const visibleMessage = snapshot.docs.find(doc => {
+            const data = doc.data()
+            // Show if: not private, OR private but for this user, OR sent by this user
+            return !data.isPrivate || data.privateFor === userId || data.senderId === userId
+          })
+          
+          if (visibleMessage) {
+            lastMessages[otherUserId] = {
+              id: visibleMessage.id,
+              ...visibleMessage.data(),
+            }
+          } else {
+            lastMessages[otherUserId] = null
           }
         } else {
           lastMessages[otherUserId] = null
@@ -383,7 +395,9 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
 }
 
 // Subscribe to last message for channels (for sidebar previews)
-export function subscribeToChannelLastMessages(channelIds, callback) {
+// Filters out private messages so they don't show in preview
+// Note: userId is needed to check if private messages are visible to the current user
+export function subscribeToChannelLastMessages(channelIds, callback, userId = null) {
   if (!channelIds || channelIds.length === 0) {
     callback({})
     return () => {}
@@ -394,16 +408,27 @@ export function subscribeToChannelLastMessages(channelIds, callback) {
 
   channelIds.forEach(channelId => {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
-    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
+    // Get more messages to find first non-private one
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(10))
 
     const unsubscribe = onSnapshot(
       q,
       snapshot => {
         if (!snapshot.empty) {
-          const doc = snapshot.docs[0]
-          lastMessages[channelId] = {
-            id: doc.id,
-            ...doc.data(),
+          // Find the first message that's NOT private (or is private but visible to this user)
+          const visibleMessage = snapshot.docs.find(doc => {
+            const data = doc.data()
+            // Show if: not private, OR private but for this user, OR sent by this user
+            return !data.isPrivate || (userId && (data.privateFor === userId || data.senderId === userId))
+          })
+          
+          if (visibleMessage) {
+            lastMessages[channelId] = {
+              id: visibleMessage.id,
+              ...visibleMessage.data(),
+            }
+          } else {
+            lastMessages[channelId] = null
           }
         } else {
           lastMessages[channelId] = null
