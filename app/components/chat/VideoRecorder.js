@@ -5,22 +5,12 @@ import { createPortal } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
 import { hapticLight, hapticMedium } from '../../utils/haptics'
 
-// CameraPreview module reference - loaded dynamically when needed
+// Only import CameraPreview on native platforms - start loading eagerly at module load
 let CameraPreview = null
-let cameraPreviewPromise = null
-
-// Helper to ensure CameraPreview is loaded
-const ensureCameraPreview = async () => {
-  if (CameraPreview) return CameraPreview
-  
-  if (!cameraPreviewPromise) {
-    cameraPreviewPromise = import('@capgo/camera-preview').then(mod => {
-      CameraPreview = mod.CameraPreview
-      return CameraPreview
-    })
-  }
-  
-  return cameraPreviewPromise
+if (typeof window !== 'undefined') {
+  import('@capgo/camera-preview').then(mod => {
+    CameraPreview = mod.CameraPreview
+  })
 }
 
 export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
@@ -54,13 +44,12 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
 
     const initCamera = async () => {
       try {
-        // Ensure CameraPreview module is loaded before proceeding
-        console.log('📹 Loading camera module...')
-        await ensureCameraPreview()
-        console.log('📹 Camera module loaded!')
-        
+        // Wait for CameraPreview if not loaded yet (fallback import)
         if (!CameraPreview) {
-          throw new Error('Camera module failed to load')
+          console.log('📹 Loading camera module...')
+          const mod = await import('@capgo/camera-preview')
+          CameraPreview = mod.CameraPreview
+          console.log('📹 Camera module loaded!')
         }
 
         // Calculate exact position for camera bubble
@@ -181,11 +170,10 @@ export default function VideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     setRecordingTime(0)
 
     try {
-      // Ensure CameraPreview module is loaded
-      await ensureCameraPreview()
-      
+      // Wait for CameraPreview if not loaded yet (fallback import)
       if (!CameraPreview) {
-        throw new Error('Camera module failed to load')
+        const mod = await import('@capgo/camera-preview')
+        CameraPreview = mod.CameraPreview
       }
 
       // Calculate exact position for camera bubble (same as init)
