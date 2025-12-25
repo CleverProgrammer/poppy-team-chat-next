@@ -1527,6 +1527,18 @@ export async function markStoryAsViewed(storyId, viewerId, viewerName, viewerPho
   try {
     // Store view in storyViews collection
     // Structure: storyViews/{chatType}_{chatId}/stories/{storyId}/viewers/{viewerId}
+    
+    // IMPORTANT: Also create the parent story document so subscribeToViewedStories can find it
+    // Firestore subcollections don't create parent docs automatically
+    const storyRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId)
+    await setDoc(storyRef, {
+      storyId,
+      chatType,
+      chatId,
+      lastViewedAt: serverTimestamp(),
+    }, { merge: true })
+    
+    // Now create the viewer document in the subcollection
     const viewerRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId, 'viewers', viewerId)
     
     await setDoc(viewerRef, {

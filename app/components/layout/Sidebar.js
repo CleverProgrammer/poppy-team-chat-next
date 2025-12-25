@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import SignOutButton from '../auth/SignOutButton'
 import ChannelStoryRing from '../chat/ChannelStoryRing'
 import DMStoryRing from '../chat/DMStoryRing'
+import MyStoriesRing from '../chat/MyStoriesRing'
 
 export default function Sidebar({
   currentChat,
@@ -200,6 +201,14 @@ export default function Sidebar({
     return timeB - timeA // Most recent first
   })
 
+  // Compute active DM IDs for MyStoriesRing (sorted user ID pairs)
+  const activeDMIds = useMemo(() => {
+    if (!user?.uid) return []
+    return activeDMs.map(otherUserId => {
+      return [user.uid, otherUserId].sort().join('_')
+    })
+  }, [user?.uid, activeDMs])
+
   // Collapsed view - only show avatars (but NOT on mobile when sidebar is open)
   // On mobile, isOpen means full-screen sidebar, so never show collapsed
   if (isCollapsed && !isOpen) {
@@ -216,15 +225,21 @@ export default function Sidebar({
           onDoubleClick={handleDoubleClick}
         />
         
-        {/* User avatar */}
+        {/* User avatar with story ring if user has posted videos today */}
         <div className="collapsed-item" onClick={() => setShowUserMenu(!showUserMenu)}>
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt='Profile' className='collapsed-avatar' />
-          ) : (
-            <div className='collapsed-avatar-fallback'>
-              {(user?.displayName || user?.email || '?')[0].toUpperCase()}
-            </div>
-          )}
+          <MyStoriesRing
+            currentUser={user}
+            activeDMIds={activeDMIds}
+            size="medium"
+          >
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt='Profile' className='collapsed-avatar' />
+            ) : (
+              <div className='collapsed-avatar-fallback'>
+                {(user?.displayName || user?.email || '?')[0].toUpperCase()}
+              </div>
+            )}
+          </MyStoriesRing>
         </div>
         
         {/* Divider - separates user profile from conversations */}
@@ -324,9 +339,19 @@ export default function Sidebar({
           className='user-panel-clickable'
           onClick={() => setShowUserMenu(!showUserMenu)}
         >
-          {user?.photoURL && (
-            <img src={user.photoURL} alt='Profile' className='header-avatar' />
-          )}
+          <MyStoriesRing
+            currentUser={user}
+            activeDMIds={activeDMIds}
+            size="small"
+          >
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt='Profile' className='header-avatar' />
+            ) : (
+              <div className='header-avatar header-avatar-fallback'>
+                {(user?.displayName || user?.email || '?')[0].toUpperCase()}
+              </div>
+            )}
+          </MyStoriesRing>
           <div className='user-panel-info'>
             <div className='user-panel-name'>
               {user?.displayName || user?.email}

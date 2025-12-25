@@ -53,6 +53,10 @@ export default function StoriesViewer({
     // Don't mark again if already marked in this session
     if (hasMarkedViewed.has(currentVideo.id)) return
 
+    // Use video's chatType/chatId if available (for mixed stories like user's own)
+    const videoChatType = currentVideo.chatType || chatType
+    const videoChatId = currentVideo.chatId || chatId
+
     // Clear any existing timer
     if (viewTimerRef.current) {
       clearTimeout(viewTimerRef.current)
@@ -65,8 +69,8 @@ export default function StoriesViewer({
         currentUser.uid,
         currentUser.displayName || currentUser.email,
         currentUser.photoURL || '',
-        chatType,
-        chatId
+        videoChatType,
+        videoChatId
       )
       setHasMarkedViewed(prev => new Set([...prev, currentVideo.id]))
       onStoryViewed?.(currentVideo.id)
@@ -92,10 +96,14 @@ export default function StoriesViewer({
       return
     }
 
+    // Use video's chatType/chatId if available (for mixed stories like user's own)
+    const videoChatType = currentVideo.chatType || chatType
+    const videoChatId = currentVideo.chatId || chatId
+
     const unsubscribe = subscribeToStoryViewers(
       currentVideo.id,
-      chatType,
-      chatId,
+      videoChatType,
+      videoChatId,
       (viewersList) => {
         setViewers(viewersList)
       }
