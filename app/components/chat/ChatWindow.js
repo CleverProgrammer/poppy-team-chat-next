@@ -284,6 +284,23 @@ export default function ChatWindow() {
     // On desktop, Enter sends the message unless Shift is pressed
     const isMobile = Capacitor.isNativePlatform()
 
+    // Quick AI shortcuts (like Shift for a single capital letter):
+    // Cmd+Enter (Mac) or Ctrl+Enter (Windows): Send to public AI
+    // Cmd+Shift+Enter (Mac) or Ctrl+Shift+Enter (Windows): Send to private AI
+    const isCmdOrCtrl = e.metaKey || e.ctrlKey
+
+    if (e.key === 'Enter' && isCmdOrCtrl && !isMobile) {
+      e.preventDefault()
+      if (e.shiftKey) {
+        // Cmd+Shift+Enter: Send to private AI (incognito mode)
+        handleSend({ forceAI: true, forcePrivate: true })
+      } else {
+        // Cmd+Enter: Send to public AI
+        handleSend({ forceAI: true, forcePrivate: false })
+      }
+      return
+    }
+
     if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
       e.preventDefault()
       handleSend()
@@ -696,9 +713,11 @@ export default function ChatWindow() {
     try {
       await toggleMessageVisibility(chatId, messageId, true, isDM)
       // Update local state immediately for responsiveness
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId ? { ...msg, isPrivate: false, privateFor: null } : msg
-      ))
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === messageId ? { ...msg, isPrivate: false, privateFor: null } : msg
+        )
+      )
     } catch (error) {
       console.error('Error making message public:', error)
       alert('Failed to make message public. Please try again.')
@@ -1238,14 +1257,14 @@ export default function ChatWindow() {
                     firstItemIndex={firstItemIndex}
                     initialTopMostItemIndex={999999}
                     alignToBottom={true}
-                    followOutput={(isAtBottom) => {
+                    followOutput={isAtBottom => {
                       // Auto-scroll to bottom when new messages arrive if user is at bottom
                       if (shouldStayAtBottomRef.current || isAtBottom) {
                         return 'smooth'
                       }
                       return false
                     }}
-                    atBottomStateChange={(atBottom) => {
+                    atBottomStateChange={atBottom => {
                       // Track if user is at bottom to know if we should auto-scroll on media load
                       shouldStayAtBottomRef.current = atBottom
                     }}
