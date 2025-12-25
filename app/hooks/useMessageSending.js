@@ -284,7 +284,7 @@ export function useMessageSending({
 
       // Trigger AI response if @poppy was mentioned or AI mode is active
       if (shouldTriggerAI && actualAiQuestion) {
-        askPoppy(actualAiQuestion);
+        askPoppy(actualAiQuestion, { isPrivate, privateFor: user.uid });
       }
     } catch (error) {
       console.error('Error sending message:', error);

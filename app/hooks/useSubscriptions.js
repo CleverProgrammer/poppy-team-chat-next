@@ -285,14 +285,26 @@ export function useSubscriptions({
       }
     }
 
+    // Filter out private messages from other users
+    // Private messages are only visible to the sender (privateFor field)
+    const filterPrivateMessages = (messages) => {
+      return messages.filter(msg => {
+        // If message is not private, show it
+        if (!msg.isPrivate) return true
+        // If private, only show to the user who owns it (privateFor) or the sender
+        return msg.privateFor === user.uid || msg.senderId === user.uid
+      })
+    }
+
     if (currentChat.type === 'channel') {
       unsubscribe = subscribeToMessages(
         currentChat.id,
         newMessages => {
-          setMessages(newMessages)
-          messagesRef.current = newMessages
-          setCurrentMessages(newMessages)
-          cacheMessages(newMessages) // Cache for instant load
+          const filteredMessages = filterPrivateMessages(newMessages)
+          setMessages(filteredMessages)
+          messagesRef.current = filteredMessages
+          setCurrentMessages(filteredMessages)
+          cacheMessages(filteredMessages) // Cache for instant load
           // Mark as read whenever new messages arrive while viewing this chat
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
@@ -303,10 +315,11 @@ export function useSubscriptions({
       unsubscribe = subscribeToMessagesDM(
         dmId,
         newMessages => {
-          setMessages(newMessages)
-          messagesRef.current = newMessages
-          setCurrentMessages(newMessages)
-          cacheMessages(newMessages) // Cache for instant load
+          const filteredMessages = filterPrivateMessages(newMessages)
+          setMessages(filteredMessages)
+          messagesRef.current = filteredMessages
+          setCurrentMessages(filteredMessages)
+          cacheMessages(filteredMessages) // Cache for instant load
           // Mark as read whenever new messages arrive while viewing this chat
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },

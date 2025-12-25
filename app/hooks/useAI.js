@@ -91,14 +91,16 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
   // Ask Poppy in channel/DM (posts response as message)
   const askPoppy = useCallback(
-    async userQuestion => {
+    async (userQuestion, options = {}) => {
+      const { isPrivate = false, privateFor = null } = options
+      
       // Generate unique request ID for tracing concurrent requests
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       
       // Only check for currentChat - allow concurrent requests (no aiProcessing block)
       if (!currentChat) return
 
-      console.log(`🚀 [${requestId}] Starting: "${userQuestion.substring(0, 40)}..."`)
+      console.log(`🚀 [${requestId}] Starting: "${userQuestion.substring(0, 40)}..." (private: ${isPrivate})`)
 
       setAiProcessing(true)
 
@@ -129,12 +131,14 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Remove typing indicator
         setAiTyping(false)
 
-        // Post AI response as a real message
+        // Post AI response as a real message (with same privacy as the question)
+        const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
+        
         if (currentChat.type === 'channel') {
-          await sendMessage(currentChat.id, AI_USER, aiResponse)
+          await sendMessage(currentChat.id, AI_USER, aiResponse, messageOptions)
         } else {
           const dmId = getDMId(user.uid, currentChat.id)
-          await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id)
+          await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id, null, messageOptions)
         }
 
         console.log(`📤 [${requestId}] Message posted to channel`)
@@ -144,13 +148,15 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Remove typing indicator
         setAiTyping(false)
 
-        // Post error message
+        // Post error message (also private if original was private)
         const errorMsg = `Sorry, I had a problem: ${error.message}. Try again!`
+        const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
+        
         if (currentChat.type === 'channel') {
-          await sendMessage(currentChat.id, AI_USER, errorMsg)
+          await sendMessage(currentChat.id, AI_USER, errorMsg, messageOptions)
         } else {
           const dmId = getDMId(user.uid, currentChat.id)
-          await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id)
+          await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id, null, messageOptions)
         }
       } finally {
         setAiProcessing(false)

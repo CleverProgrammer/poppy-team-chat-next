@@ -168,8 +168,10 @@ export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 
   return messages.reverse()
 }
 
-export async function sendMessageDM(dmId, user, text, recipientId, recipient = null) {
+export async function sendMessageDM(dmId, user, text, recipientId, recipient = null, options = {}) {
   if (!user || !text.trim()) return
+
+  const { isPrivate = false, privateFor = null } = options
 
   console.log('═══════════════════════════════════════════════════════════')
   console.log('📤 [SEND DM] SENDING MESSAGE')
@@ -178,19 +180,28 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
   console.log(`👤 Sender: ${user.displayName || user.email} (${user.uid})`)
   console.log(`🎯 Recipient ID: ${recipientId}`)
   console.log(`💬 Text: "${text.substring(0, 50)}..."`)
+  console.log(`🔒 Private: ${isPrivate}`)
   console.log('───────────────────────────────────────────────────────────')
 
   try {
     const messagesRef = collection(db, 'dms', dmId, 'messages')
     console.log('📝 Writing to Firestore: dms/' + dmId + '/messages')
 
-    const docRef = await addDoc(messagesRef, {
+    const messageData = {
       text: text,
       sender: user.displayName || user.email,
       senderId: user.uid,
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add private flag if message is private
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
 
     console.log('✅ [SEND DM] Message written to Firestore!')
     console.log(`📝 Document ID: ${docRef.id}`)
