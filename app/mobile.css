@@ -222,28 +222,52 @@
   .input-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 2px;
     width: 100%;
   }
 
-  /* Subtle gray plus button - no background, no border */
-  .input-section .input-plus-btn {
+  /* Media button on mobile */
+  .input-section .input-media-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    color: #8E8E93;
+    width: 28px;
+    height: 28px;
+    background: transparent !important;
+    border: none !important;
+    font-size: 18px;
+    opacity: 0.7;
     cursor: pointer;
     flex-shrink: 0;
-    transition: opacity 0.2s;
+    padding: 0;
   }
 
-  .input-section .input-plus-btn:active {
+  .input-section .input-media-btn:active {
     opacity: 0.5;
+  }
+
+  /* Poppy AI button on mobile - clean, no background */
+  .input-section .input-poppy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    margin-right: 4px;
+  }
+
+  .input-section .input-poppy-btn .poppy-logo-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .input-section .input-poppy-btn:active {
+    opacity: 0.6;
   }
 
   /* Input field wrapper with mic inside */

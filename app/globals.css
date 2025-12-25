@@ -276,9 +276,11 @@ html {
 }
 
 .chat-header {
-  background: var(--bg-app);
-  padding: 20px;
-  border-bottom: 1px solid var(--border-light);
+  background: rgba(30, 30, 35, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -701,8 +703,82 @@ html {
 .input-row {
   display: flex;
   width: 100%;
-  gap: 6px;
-  align-items: flex-end;
+  gap: 2px;
+  align-items: center;
+}
+
+/* Media button (camera emoji) */
+.input-media-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.input-media-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Media button container for menu positioning */
+.media-btn-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Media menu dropdown */
+.media-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: rgba(40, 40, 45, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.media-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: none !important;
+  border: none !important;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.media-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Poppy button needs margin before input */
+.input-poppy-btn {
+  margin-right: 6px;
 }
 
 /* Poppy AI button - clean, no background */
@@ -951,17 +1027,6 @@ html {
   transform: translateY(-50%) !important;
 }
 
-/* Hide plus button on desktop */
-.input-section .input-plus-btn {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  /* Show plus button on mobile */
-  .input-section .input-plus-btn {
-    display: flex;
-  }
-}
 
 /* Sidebar */
 .sidebar {

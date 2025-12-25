@@ -177,6 +177,7 @@ export default function ChatWindow() {
     handleRemoveImageAtIndex,
     clearImage,
     dropzoneProps,
+    openFilePicker,
   } = useImageUpload()
   const { getRootProps, getInputProps, isDragActive } = dropzoneProps
 
@@ -488,16 +489,14 @@ export default function ChatWindow() {
     console.log('📹 Native video recorded:', videoFilePath)
     setVideoRecorderOpen(false)
 
-    if (!pendingVideoReplyRef.current) {
-      console.warn('No pending video reply context')
-      return
-    }
+    // Check if this is a standalone video (not a reply)
+    const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
     // Store reply context locally and IMMEDIATELY clear the reply state
     // User has "replied" from their perspective the moment they hit Send
-    const replyContext = pendingVideoReplyRef.current
+    const replyContext = isStandalone ? null : pendingVideoReplyRef.current
     pendingVideoReplyRef.current = null
-    setReplyingTo(null)
+    if (!isStandalone) setReplyingTo(null)
 
     try {
       // Get Mux upload URL
@@ -591,8 +590,20 @@ export default function ChatWindow() {
     console.log('📹 Web video recorded, playbackId:', playbackId)
     setWebVideoRecorderOpen(false)
 
-    if (!pendingVideoReplyRef.current) {
-      console.warn('No pending video reply context')
+    // Check if this is a standalone video (not a reply)
+    const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
+
+    if (isStandalone) {
+      // Standalone video - send as new message
+      console.log('📹 Sending standalone video...')
+      pendingVideoReplyRef.current = null
+      try {
+        await sendVideoReply(playbackId, null) // null replyTo = standalone
+        console.log('📹 Standalone video sent!')
+      } catch (error) {
+        console.error('Failed to send standalone video:', error)
+        alert('Failed to send video. Please try again.')
+      }
       return
     }
 
@@ -1465,6 +1476,17 @@ export default function ChatWindow() {
                 setAiMode={setAiMode}
                 privateMode={privateMode}
                 setPrivateMode={setPrivateMode}
+                openFilePicker={openFilePicker}
+                handleImageSelect={handleImageSelect}
+                onOpenVideoRecorder={() => {
+                  // Mark as standalone video (not a reply)
+                  pendingVideoReplyRef.current = { standalone: true }
+                  if (Capacitor.isNativePlatform()) {
+                    setVideoRecorderOpen(true)
+                  } else {
+                    setWebVideoRecorderOpen(true)
+                  }
+                }}
               />
             </>
           )}
