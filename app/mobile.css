@@ -214,9 +214,9 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-top: none !important;
-    mask-image: linear-gradient(to top, black 80%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to top, black 80%, transparent 100%);
     width: 100%;
+    overflow: visible !important; /* Allow AI banner to show above */
+    /* Removed mask-image to allow AI banner to be visible */
   }
 
   .input-row {

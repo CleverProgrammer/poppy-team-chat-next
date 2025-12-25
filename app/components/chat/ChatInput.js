@@ -664,6 +664,31 @@ export default function ChatInput({
           transition: 'bottom 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
       >
+        {/* AI Mode Indicator - Subtle centered pill above input */}
+        {aiMode && (
+          <div className="ai-mode-indicator">
+            <button
+              className={`ai-mode-toggle ${privateMode ? 'private' : 'public'}`}
+              onClick={() => setPrivateMode && setPrivateMode(!privateMode)}
+              onMouseDown={(e) => e.preventDefault()}
+              aria-label={privateMode ? 'Switch to public mode' : 'Switch to private mode'}
+            >
+              <span className="ai-mode-emoji">{privateMode ? '🙈' : '👀'}</span>
+              <span className="ai-mode-label">
+                {privateMode ? 'Private AI' : 'Public AI'}
+              </span>
+            </button>
+            <button
+              className="ai-mode-close"
+              onClick={() => setAiMode && setAiMode(false)}
+              onMouseDown={(e) => e.preventDefault()}
+              aria-label='Exit AI mode'
+              title='Exit AI mode'
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {imagePreviews.length > 0 && (
           <div className={`image-preview-container ${imagePreviews.length > 1 ? 'multi-image' : ''}`}>
             {imagePreviews.map((preview, index) => {
@@ -747,27 +772,13 @@ export default function ChatInput({
           </button>
 
           <div className={`input-field-wrapper ${aiMode ? 'ai-active' : ''}`}>
-            {/* Subtle private/public toggle inside input - only when AI mode */}
-            {aiMode && (
-              <button
-                className={`inline-privacy-toggle ${privateMode ? 'private' : 'public'}`}
-                onMouseDown={(e) => e.preventDefault()} // Prevent keyboard close on mobile
-                onClick={() => setPrivateMode && setPrivateMode(!privateMode)}
-                aria-label={privateMode ? 'Messages are private' : 'Messages are public'}
-                title={privateMode ? 'Only you can see this' : 'Everyone can see this'}
-              >
-                {privateMode ? '🙈' : '👀'}
-              </button>
-            )}
             <textarea
               ref={inputRef}
               placeholder={
                 editingMessage
                   ? 'Edit your message...'
                   : aiMode
-                    ? privateMode 
-                      ? 'Ask Poppy privately... 🙈'
-                      : 'Ask Poppy anything... ✨'
+                    ? 'Ask Poppy anything...'
                     : 'Message, press @ for AI'
               }
               rows='1'
