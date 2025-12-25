@@ -92,7 +92,13 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   // Ask Poppy in channel/DM (posts response as message)
   const askPoppy = useCallback(
     async userQuestion => {
-      if (aiProcessing || !currentChat) return
+      // Generate unique request ID for tracing concurrent requests
+      const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      
+      // Only check for currentChat - allow concurrent requests (no aiProcessing block)
+      if (!currentChat) return
+
+      console.log(`🚀 [${requestId}] Starting: "${userQuestion.substring(0, 40)}..."`)
 
       setAiProcessing(true)
 
@@ -108,15 +114,17 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
       }, 0)
 
       try {
-        console.log('🤖 Poppy AI: Calling API...')
+        console.log(`📡 [${requestId}] API call started`)
 
         // Update typing indicator with status updates
         const onStatus = status => {
-          console.log('🔄 Poppy Status Update:', status)
+          console.log(`🔄 [${requestId}] Status: ${status}`)
           setAiTypingStatus(status)
         }
 
         const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
+
+        console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
 
         // Remove typing indicator
         setAiTyping(false)
@@ -129,9 +137,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id)
         }
 
-        console.log('🤖 Poppy AI: Response posted')
+        console.log(`📤 [${requestId}] Message posted to channel`)
       } catch (error) {
-        console.error('🤖 Poppy AI: Error:', error)
+        console.error(`❌ [${requestId}] Error:`, error)
 
         // Remove typing indicator
         setAiTyping(false)
@@ -146,15 +154,22 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         }
       } finally {
         setAiProcessing(false)
+        console.log(`🏁 [${requestId}] Request complete`)
       }
     },
-    [aiProcessing, currentChat, user, messages, setMessages, virtuosoRef, callAI]
+    [currentChat, user, messages, setMessages, virtuosoRef, callAI]
   )
 
   // Direct chat with Poppy (for AI chat type - saves to Firestore)
   const askPoppyDirectly = useCallback(
     async userQuestion => {
-      if (aiProcessing || !user) return
+      // Generate unique request ID for tracing concurrent requests
+      const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      
+      // Only check for user - allow concurrent requests (no aiProcessing block)
+      if (!user) return
+
+      console.log(`🚀 [${requestId}] Starting direct chat: "${userQuestion.substring(0, 40)}..."`)
 
       setAiProcessing(true)
 
@@ -170,16 +185,18 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
       }, 0)
 
       try {
-        console.log('🤖 Poppy AI: Calling API for direct chat...')
+        console.log(`📡 [${requestId}] API call started`)
 
         // Update typing indicator with status updates
         const onStatus = status => {
-          console.log('🔄 Poppy Status Update:', status)
+          console.log(`🔄 [${requestId}] Status: ${status}`)
           setAiTypingStatus(status)
         }
 
         // Pass raw messages (same format as askPoppy) - API handles formatting
         const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
+
+        console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
 
         // Remove typing indicator
         setAiTyping(false)
@@ -190,9 +207,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Mark AI chat as unread for the user
         markChatAsUnread(user.uid, 'ai', 'poppy-ai')
 
-        console.log('🤖 Poppy AI: Response added to direct chat')
+        console.log(`📤 [${requestId}] Response saved to direct chat`)
       } catch (error) {
-        console.error('🤖 Poppy AI: Error:', error)
+        console.error(`❌ [${requestId}] Error:`, error)
 
         // Remove typing indicator
         setAiTyping(false)
@@ -204,9 +221,10 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         markChatAsUnread(user.uid, 'ai', 'poppy-ai')
       } finally {
         setAiProcessing(false)
+        console.log(`🏁 [${requestId}] Request complete`)
       }
     },
-    [aiProcessing, user, messages, setMessages, virtuosoRef, callAI]
+    [user, messages, setMessages, virtuosoRef, callAI]
   )
 
   return {

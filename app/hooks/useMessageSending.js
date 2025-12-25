@@ -226,8 +226,8 @@ export function useMessageSending({
         // Send user message to Firestore
         await sendAIMessage(user.uid, messageText, false, user);
 
-        // Get AI response
-        await askPoppyDirectly(messageText);
+        // Get AI response (fire and forget - don't block message sending)
+        askPoppyDirectly(messageText);
       } else if (currentChat.type === 'channel') {
         // Send message with optional media and reply
         if (hasMedia) {
