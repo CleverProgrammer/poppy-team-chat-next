@@ -926,7 +926,7 @@ html {
   bottom: 100% !important;
   top: auto !important;
   transform: translateX(-50%) !important;
-  margin-bottom: 8px !important;
+  margin-bottom: 4px !important;
   z-index: 100 !important;
   animation: slideUp 0.2s ease-out;
   width: auto !important;
