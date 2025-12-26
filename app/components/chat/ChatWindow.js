@@ -80,6 +80,7 @@ export default function ChatWindow() {
     const prevMessagesLengthRef = useRef(0); // Track message count for new message detection
     const prevChatIdRef = useRef(null); // Track chat ID for chat switching
     const loadOlderRef = useRef(null); // Store loadOlder function to avoid circular dependency
+    const loadingOlderRef = useRef(false); // Sync guard to prevent duplicate loadOlder calls
 
     // Load AI mode settings from localStorage
     useEffect(() => {
@@ -298,12 +299,14 @@ export default function ChatWindow() {
         prevVirtualizerTotalSizeRef.current = [virtualizerTotalSize, currentLength];
     }, [sortedItems.length, virtualizerTotalSize, scrollToBottom]);
 
-    // Scroll to bottom on NEW messages (always scroll on new message)
+    // Scroll to bottom on NEW messages (but not when loading older messages)
     useEffect(() => {
         const currentLength = sortedItems.length;
         const prevLength = prevMessagesLengthRef.current;
 
-        if (prevLength > 0 && currentLength > prevLength) {
+        // Only scroll if messages were added AND we're not loading older messages
+        // (loadingOlderRef is true during the prepend operation)
+        if (prevLength > 0 && currentLength > prevLength && !loadingOlderRef.current) {
             requestAnimationFrame(() => scrollToBottom());
         }
 
@@ -1011,25 +1014,15 @@ export default function ChatWindow() {
     //   }
     // }, [viewMode]);
 
-    // Load older messages callback for Virtuoso
+    // Load older messages callback
     const loadOlder = useCallback(async () => {
-        console.log("📜 loadOlder called", {
-            loadingOlder,
-            hasMoreMessages,
-            currentChat: currentChat?.id,
-            messagesCount: messages.length,
-        });
-
-        if (loadingOlder || !hasMoreMessages || !currentChat || !user) {
-            console.log("📜 loadOlder skipped:", {
-                loadingOlder,
-                hasMoreMessages,
-                hasCurrentChat: !!currentChat,
-                hasUser: !!user,
-            });
+        // Use ref for immediate sync check (state is async and causes race conditions)
+        if (loadingOlderRef.current || !hasMoreMessages || !currentChat || !user) {
             return;
         }
 
+        // Set ref immediately to block duplicate calls
+        loadingOlderRef.current = true;
         setLoadingOlder(true);
         console.log("📜 Loading older messages...");
 
@@ -1046,6 +1039,7 @@ export default function ChatWindow() {
 
             if (!oldestItem || !oldestItem.timestamp) {
                 console.log("📜 No oldest item found");
+                loadingOlderRef.current = false;
                 setLoadingOlder(false);
                 return;
             }
@@ -1082,9 +1076,10 @@ export default function ChatWindow() {
         } catch (error) {
             console.error("📜 Error loading older messages:", error);
         } finally {
+            loadingOlderRef.current = false;
             setLoadingOlder(false);
         }
-    }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user]);
+    }, [messages, posts, hasMoreMessages, currentChat, user]);
 
     // Keep loadOlderRef in sync with loadOlder
     useEffect(() => {
@@ -1096,6 +1091,7 @@ export default function ChatWindow() {
         console.log("📜 Chat changed, resetting pagination state");
         setHasMoreMessages(true);
         setLoadingOlder(false);
+        loadingOlderRef.current = false;
     }, [currentChat]);
 
     // Close context menu on click outside
@@ -1333,7 +1329,7 @@ export default function ChatWindow() {
                                 className={`messages ${replyingTo ? "replying-active" : ""}`}
                                 {...getRootProps()}
                                 onClick={handleMessagesAreaClick}
-                                style={{ height: "100%", position: "relative" }}
+                                style={{ height: "100%", position: "relative", overflow: "hidden" }}
                             >
                                 <input {...getInputProps()} capture={replyingTo ? "user" : undefined} accept={replyingTo ? "video/*" : undefined} />
                                 {/* Hidden input for video replies - opens camera directly */}
@@ -1361,11 +1357,25 @@ export default function ChatWindow() {
                                         }}
                                         style={{
                                             height: "100%",
-                                            overflow: "auto",
-                                            display: "flex",
-                                            flexDirection: "column",
+                                            overflowY: "auto",
+                                            overflowX: "hidden",
                                         }}
                                     >
+                                        {/* Loading indicator at top - outside virtualized container */}
+                                        {loadingOlder && (
+                                            <div
+                                                style={{
+                                                    textAlign: "center",
+                                                    padding: "12px",
+                                                    color: "var(--text-secondary)",
+                                                    fontSize: "14px",
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                Loading older messages...
+                                            </div>
+                                        )}
+
                                         {/* Virtualized history items - only render if we have history */}
                                         {historyItems.length > 0 && (
                                             <div
@@ -1376,24 +1386,6 @@ export default function ChatWindow() {
                                                     flexShrink: 0,
                                                 }}
                                             >
-                                                {/* Loading indicator at top */}
-                                                {loadingOlder && (
-                                                    <div
-                                                        style={{
-                                                            position: "absolute",
-                                                            top: 0,
-                                                            left: 0,
-                                                            right: 0,
-                                                            textAlign: "center",
-                                                            padding: "12px",
-                                                            color: "var(--text-secondary)",
-                                                            fontSize: "14px",
-                                                        }}
-                                                    >
-                                                        Loading older messages...
-                                                    </div>
-                                                )}
-
                                                 {virtualItems.map((virtualRow) => {
                                                     const item = historyItems[virtualRow.index];
                                                     if (!item) return null;
