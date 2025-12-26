@@ -19,6 +19,7 @@ import { cn } from '../../utils/cn'
  * @param {React.ReactNode} children - Content to render inside (image, video, etc.)
  * @param {string} className - Optional additional class name
  * @param {function} onClick - Optional click handler
+ * @param {string} fallbackAspectRatio - Fallback aspect ratio when dimensions unknown (default: '4 / 3')
  */
 export default function SkeletonView({
   width,
@@ -27,9 +28,11 @@ export default function SkeletonView({
   children,
   className,
   onClick,
+  fallbackAspectRatio = '4 / 3',
 }) {
   // Calculate aspect ratio from original dimensions
-  const aspectRatio = width && height ? `${width} / ${height}` : undefined
+  // Use fallback for legacy messages without stored dimensions
+  const aspectRatio = width && height ? `${width} / ${height}` : fallbackAspectRatio
 
   return (
     <div

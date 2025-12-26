@@ -123,10 +123,12 @@ export default function LinkPreview({
     return null
   }
 
-  // Get the best image (skip GIFs - we don't support them for link previews)
+  // Get the best image (skip GIFs and images without valid dimensions)
+  // If imageDimensions is null, the image couldn't be validated during fetch - skip it to prevent layout shifts
   const rawImage = preview.image || null
   const isGif = rawImage && rawImage.toLowerCase().endsWith('.gif')
-  const image = isGif ? null : rawImage
+  const hasValidDimensions = preview.imageDimensions?.width && preview.imageDimensions?.height
+  const image = (isGif || !hasValidDimensions) ? null : rawImage
   const favicon = preview.favicon || null
   const domain = (() => {
     try {

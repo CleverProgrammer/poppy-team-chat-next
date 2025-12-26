@@ -92,11 +92,16 @@ export default function VideoThumbnail({
     )
   }
 
+  // Calculate actual display width to prevent flex collapse
+  const displayWidth = dimensions
+    ? Math.min(MAX_VIDEO_WIDTH, dimensions.width)
+    : MAX_VIDEO_WIDTH
+
   // Regular videos use SkeletonView with parent max-width and max-height
   return (
     <div 
       className={cn('rounded-xl overflow-hidden cursor-pointer relative')}
-      style={{ maxWidth: MAX_VIDEO_WIDTH, maxHeight: MAX_VIDEO_HEIGHT }}
+      style={{ width: displayWidth, maxWidth: MAX_VIDEO_WIDTH, maxHeight: MAX_VIDEO_HEIGHT }}
       onClick={onClick}
     >
       <SkeletonView
