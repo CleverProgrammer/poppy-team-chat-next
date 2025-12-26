@@ -59,6 +59,7 @@ exports.sendChannelNotification = onDocumentCreated(
           sender: message.sender || '',
           senderId: message.senderId || '',
         },
+        // iOS configuration
         apns: {
           payload: {
             aps: {
@@ -66,6 +67,16 @@ exports.sendChannelNotification = onDocumentCreated(
               sound: 'default',
               'mutable-content': 1,
             },
+          },
+        },
+        // Web Push configuration
+        webpush: {
+          notification: {
+            icon: '/poppy-icon.png',
+            badge: '/poppy-icon.png',
+          },
+          fcmOptions: {
+            link: '/',
           },
         },
         tokens: tokens,
@@ -164,6 +175,7 @@ exports.sendDMNotification = onDocumentCreated(
           sender: message.sender || '',
           senderId: message.senderId || '',
         },
+        // iOS configuration
         apns: {
           payload: {
             aps: {
@@ -171,6 +183,16 @@ exports.sendDMNotification = onDocumentCreated(
               sound: 'default',
               'mutable-content': 1,
             },
+          },
+        },
+        // Web Push configuration
+        webpush: {
+          notification: {
+            icon: '/poppy-icon.png',
+            badge: '/poppy-icon.png',
+          },
+          fcmOptions: {
+            link: '/',
           },
         },
         token: recipientData.pushToken,

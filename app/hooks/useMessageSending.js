@@ -105,7 +105,12 @@ export function useMessageSending({
   }, [editingMessage, currentChat, user, inputRef, setEditingMessage]);
 
   // Main send handler
-  const handleSend = useCallback(async () => {
+  // Optional overrides for one-time AI sends:
+  // - forceAI: true to send to AI even if not in aiMode
+  // - forcePrivate: true/false to override privateMode for this send
+  const handleSend = useCallback(async (options = {}) => {
+    const { forceAI = false, forcePrivate = null } = options;
+    
     // Get the actual value from the textarea
     const messageText = inputRef.current?.value || '';
 
@@ -123,11 +128,15 @@ export function useMessageSending({
     const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null;
     
     // AI Mode: treat all messages as AI questions (even without @poppy prefix)
-    const shouldTriggerAI = aiMode ? true : !!aiQuestion;
-    const actualAiQuestion = aiMode ? messageText.trim() : aiQuestion;
+    // forceAI overrides this for one-time AI sends (Cmd+Enter shortcuts)
+    const effectiveAiMode = aiMode || forceAI;
+    const shouldTriggerAI = effectiveAiMode ? true : !!aiQuestion;
+    const actualAiQuestion = effectiveAiMode ? messageText.trim() : aiQuestion;
     
     // Private mode: mark message as private (only visible to sender)
-    const isPrivate = aiMode && privateMode;
+    // forcePrivate overrides privateMode for one-time sends
+    const effectivePrivateMode = forcePrivate !== null ? forcePrivate : privateMode;
+    const isPrivate = effectiveAiMode && effectivePrivateMode;
 
     // Create optimistic message immediately
     const optimisticId = `temp-${Date.now()}`;
@@ -144,6 +153,7 @@ export function useMessageSending({
       replyTo: replyingTo,
       optimistic: true, // Mark as optimistic
       isPrivate: isPrivate, // Mark as private if in private AI mode
+      privateFor: isPrivate ? user.uid : null, // Set privateFor for filter to work correctly
     };
 
     // Add optimistic message to UI instantly

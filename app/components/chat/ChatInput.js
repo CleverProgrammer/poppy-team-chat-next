@@ -87,20 +87,20 @@ export default function ChatInput({
     ]
 
     return () => {
-      subscriptions.forEach((unsub) => unsub())
+      subscriptions.forEach(unsub => unsub())
     }
   }, [previewWavesurfer])
 
   // Close media menu when clicking outside
   useEffect(() => {
     if (!showMediaMenu) return
-    
-    const handleClickOutside = (e) => {
+
+    const handleClickOutside = e => {
       if (!e.target.closest('.media-btn-container')) {
         setShowMediaMenu(false)
       }
     }
-    
+
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [showMediaMenu])
@@ -168,7 +168,7 @@ export default function ChatInput({
   }
 
   // Handle triple tap to select all text (iOS)
-  const handleTripleTap = useCallback((e) => {
+  const handleTripleTap = useCallback(e => {
     // Only handle on touch devices (iOS/mobile)
     if (!e.touches || e.touches.length === 0) return
 
@@ -192,7 +192,7 @@ export default function ChatInput({
     if (tapCountRef.current >= 3) {
       e.preventDefault()
       e.stopPropagation()
-      
+
       if (inputRef.current) {
         inputRef.current.focus()
         // Use setTimeout to ensure focus happens before selection
@@ -286,7 +286,7 @@ export default function ChatInput({
       }
 
       setWaveformData(samples)
-      
+
       // Continue animation loop
       if (isRecordingRef.current && analyserRef.current) {
         animationFrameRef.current = requestAnimationFrame(updateWaveform)
@@ -296,7 +296,7 @@ export default function ChatInput({
     }
   }, [])
 
-  const formatDuration = (seconds) => {
+  const formatDuration = seconds => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
@@ -306,33 +306,33 @@ export default function ChatInput({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
+        mimeType: 'audio/webm',
       })
-      
+
       // Set up Web Audio API for real-time waveform visualization
       const audioContext = new (window.AudioContext || window.webkitAudioContext)()
       const analyser = audioContext.createAnalyser()
       const microphone = audioContext.createMediaStreamSource(stream)
-      
+
       analyser.fftSize = 256
       analyser.smoothingTimeConstant = 0.8
       microphone.connect(analyser)
-      
+
       audioContextRef.current = audioContext
       analyserRef.current = analyser
-      
+
       audioChunksRef.current = []
-      
-      mediaRecorder.ondataavailable = (event) => {
+
+      mediaRecorder.ondataavailable = event => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data)
         }
       }
-      
+
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         stream.getTracks().forEach(track => track.stop())
-        
+
         // Close audio context
         if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
           audioContextRef.current.close()
@@ -340,7 +340,7 @@ export default function ChatInput({
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current)
         }
-        
+
         // Store the recorded audio for preview instead of sending immediately
         if (audioBlob.size > 0) {
           setRecordedAudio(audioBlob)
@@ -349,21 +349,21 @@ export default function ChatInput({
           const blobUrl = URL.createObjectURL(audioBlob)
           setRecordedAudioUrl(blobUrl)
         }
-        
+
         mediaRecorderRef.current = null
         audioChunksRef.current = []
         analyserRef.current = null
         audioContextRef.current = null
       }
-      
+
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
       isRecordingRef.current = true
       setIsRecording(true)
-      
+
       // Initialize with some default bars so something shows immediately
       setWaveformData(Array.from({ length: 20 }, () => 30))
-      
+
       // Start waveform visualization after a small delay to ensure analyser is ready
       setTimeout(() => {
         if (analyserRef.current && isRecordingRef.current) {
@@ -399,7 +399,7 @@ export default function ChatInput({
     ]
 
     return () => {
-      subscriptions.forEach((unsub) => unsub())
+      subscriptions.forEach(unsub => unsub())
     }
   }, [previewWavesurfer])
 
@@ -447,7 +447,9 @@ export default function ChatInput({
   }
 
   const isMobile = () => {
-    return Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.innerWidth <= 768)
+    return (
+      Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.innerWidth <= 768)
+    )
   }
 
   const handleMicClick = () => {
@@ -456,7 +458,7 @@ export default function ChatInput({
       setShowComingSoonModal(true)
       return
     }
-    
+
     // Desktop functionality - proceed with recording
     if (isRecording) {
       stopRecording()
@@ -476,9 +478,7 @@ export default function ChatInput({
           }}
         >
           <div className='reply-bar-content'>
-            <div className='reply-bar-sender'>
-              Replying to {replyingTo.sender}
-            </div>
+            <div className='reply-bar-sender'>Replying to {replyingTo.sender}</div>
             <div className='reply-bar-text'>
               {replyingTo.text.length > 500
                 ? replyingTo.text.substring(0, 500) + '...'
@@ -530,39 +530,34 @@ export default function ChatInput({
                 {items.map((item, index) => (
                   <div
                     key={item.uid || item.type}
-                    className={`mention-menu-item ${
-                      index === mentionMenuIndex ? 'selected' : ''
-                    }`}
+                    className={`mention-menu-item ${index === mentionMenuIndex ? 'selected' : ''}`}
                     onClick={() => selectMentionItem(item)}
                     onMouseEnter={() => setMentionMenuIndex(index)}
                   >
                     {item.icon ? (
-                      <img src={item.icon} alt={item.name} className='mention-avatar' style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-                    ) : item.photoURL ? (
                       <img
-                        src={item.photoURL}
+                        src={item.icon}
                         alt={item.name}
                         className='mention-avatar'
+                        style={{ width: '32px', height: '32px', borderRadius: '50%' }}
                       />
+                    ) : item.photoURL ? (
+                      <img src={item.photoURL} alt={item.name} className='mention-avatar' />
                     ) : (
-                      <div className='mention-avatar-placeholder'>
-                        {item.name.substring(0, 2)}
-                      </div>
+                      <div className='mention-avatar-placeholder'>{item.name.substring(0, 2)}</div>
                     )}
                     <div className='mention-info'>
                       <div className='mention-name'>{item.name}</div>
                       {item.description && (
-                        <div className='mention-description'>
-                          {item.description}
-                        </div>
+                        <div className='mention-description'>{item.description}</div>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
               <div className='mention-menu-hint'>
-                <kbd>↑</kbd> <kbd>↓</kbd> to navigate • <kbd>↵</kbd> or{' '}
-                <kbd>Tab</kbd> to select • <kbd>Esc</kbd> to cancel
+                <kbd>↑</kbd> <kbd>↓</kbd> to navigate • <kbd>↵</kbd> or <kbd>Tab</kbd> to select •{' '}
+                <kbd>Esc</kbd> to cancel
               </div>
             </div>
           ) : null
@@ -573,27 +568,29 @@ export default function ChatInput({
         <div className='recording-indicator recording-state'>
           <span className='recording-duration'>{formatDuration(recordingDuration)}</span>
           <div className='recording-waveform'>
-            {waveformData.length > 0 ? (
-              waveformData.map((height, index) => {
-                // Convert percentage to pixels (container is 24px tall)
-                const barHeight = Math.max(4, (height / 100) * 24)
-                return (
+            {waveformData.length > 0
+              ? waveformData.map((height, index) => {
+                  // Convert percentage to pixels (container is 24px tall)
+                  const barHeight = Math.max(4, (height / 100) * 24)
+                  return (
+                    <div
+                      key={index}
+                      className='waveform-bar recording-bar'
+                      style={{
+                        height: `${barHeight}px`,
+                        minHeight: '4px',
+                      }}
+                    />
+                  )
+                })
+              : // Show placeholder bars while initializing
+                Array.from({ length: 20 }).map((_, index) => (
                   <div
                     key={index}
                     className='waveform-bar recording-bar'
-                    style={{
-                      height: `${barHeight}px`,
-                      minHeight: '4px',
-                    }}
+                    style={{ height: '8px' }}
                   />
-                )
-              })
-            ) : (
-              // Show placeholder bars while initializing
-              Array.from({ length: 20 }).map((_, index) => (
-                <div key={index} className='waveform-bar recording-bar' style={{ height: '8px' }} />
-              ))
-            )}
+                ))}
           </div>
           <button
             className='recording-stop-btn'
@@ -617,7 +614,16 @@ export default function ChatInput({
             aria-label='Cancel recording'
             title='Cancel'
           >
-            <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+            <svg
+              width='16'
+              height='16'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2.5'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+            >
               <path d='M18 6L6 18M6 6l12 12' />
             </svg>
           </button>
@@ -641,14 +647,25 @@ export default function ChatInput({
           <div className='recording-waveform preview-waveform-container'>
             <div ref={previewWaveformContainerRef} style={{ width: '100%', height: '24px' }} />
           </div>
-          <span className='recording-duration preview-duration'>{formatDuration(recordedDuration)}</span>
+          <span className='recording-duration preview-duration'>
+            {formatDuration(recordedDuration)}
+          </span>
           <button
             className='recording-send-btn'
             onClick={handleSendRecording}
             aria-label='Send recording'
             title='Send'
           >
-            <svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+            <svg
+              width='18'
+              height='18'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='white'
+              strokeWidth='2.5'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+            >
               <path d='M5 12h14M12 5l7 7-7 7' />
             </svg>
           </button>
@@ -664,26 +681,64 @@ export default function ChatInput({
           transition: 'bottom 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
       >
+        {/* AI Mode Indicator - Subtle centered pill above input */}
+        {aiMode && (
+          <div className='ai-mode-indicator'>
+            <button
+              className={`ai-mode-toggle ${privateMode ? 'private' : 'public'}`}
+              onClick={() => setPrivateMode && setPrivateMode(!privateMode)}
+              onMouseDown={e => e.preventDefault()}
+              aria-label={privateMode ? 'Switch to public mode' : 'Switch to private mode'}
+            >
+              <span className='ai-mode-emoji'>{privateMode ? '🙈' : '👀'}</span>
+              <span className='ai-mode-label'>
+                {privateMode ? (
+                  <>
+                    Private AI <span className='ai-mode-hint'>- only you see this</span>
+                  </>
+                ) : (
+                  <>
+                    Public AI <span className='ai-mode-hint'>- tap to make private</span>
+                  </>
+                )}
+              </span>
+            </button>
+          </div>
+        )}
         {imagePreviews.length > 0 && (
-          <div className={`image-preview-container ${imagePreviews.length > 1 ? 'multi-image' : ''}`}>
+          <div
+            className={`image-preview-container ${imagePreviews.length > 1 ? 'multi-image' : ''}`}
+          >
             {imagePreviews.map((preview, index) => {
-              const isVideo = imageFiles[index]?.type?.startsWith('video/');
+              const isVideo = imageFiles[index]?.type?.startsWith('video/')
               return (
                 <div key={index} className='image-preview-wrapper'>
                   <img src={preview} alt={`Preview ${index + 1}`} className='image-preview' />
                   <button
-                    onClick={() => handleRemoveImageAtIndex ? handleRemoveImageAtIndex(index) : handleRemoveImage()}
+                    onClick={() =>
+                      handleRemoveImageAtIndex
+                        ? handleRemoveImageAtIndex(index)
+                        : handleRemoveImage()
+                    }
                     className='remove-image-btn-mini'
                     aria-label='Remove media'
                     type='button'
                   >
-                    <svg width='8' height='8' viewBox='0 0 12 12' fill='none' stroke='white' strokeWidth='2.5' strokeLinecap='round'>
+                    <svg
+                      width='8'
+                      height='8'
+                      viewBox='0 0 12 12'
+                      fill='none'
+                      stroke='white'
+                      strokeWidth='2.5'
+                      strokeLinecap='round'
+                    >
                       <path d='M2 2L10 10M10 2L2 10' />
                     </svg>
                   </button>
                   {isVideo && <div className='video-badge'>🎬</div>}
                 </div>
-              );
+              )
             })}
           </div>
         )}
@@ -692,7 +747,7 @@ export default function ChatInput({
           <div className='media-btn-container'>
             <button
               className='input-media-btn'
-              onMouseDown={(e) => e.preventDefault()}
+              onMouseDown={e => e.preventDefault()}
               onClick={() => {
                 // On mobile, skip the menu and open native picker directly
                 if (Capacitor.isNativePlatform()) {
@@ -733,42 +788,32 @@ export default function ChatInput({
 
           {/* Poppy AI button */}
           <button
-            className={`input-poppy-btn ${aiMode ? 'active' : ''}`}
-            onMouseDown={(e) => e.preventDefault()} // Prevent keyboard close on mobile
+            className={`input-poppy-btn ${aiMode ? 'active' : ''} ${
+              aiMode && privateMode ? 'private-mode' : ''
+            }`}
+            onMouseDown={e => e.preventDefault()} // Prevent keyboard close on mobile
             onClick={() => setAiMode && setAiMode(!aiMode)}
             aria-label={aiMode ? 'Disable AI mode' : 'Enable AI mode'}
             title={aiMode ? 'Chatting with Poppy ✨' : 'Click to chat with Poppy'}
           >
-            <img 
-              src='/poppy-icon.png' 
-              alt='Poppy AI' 
-              className='poppy-logo-icon'
-            />
+            <img src='/poppy-icon.png' alt='Poppy AI' className='poppy-logo-icon' />
           </button>
 
-          <div className={`input-field-wrapper ${aiMode ? 'ai-active' : ''}`}>
-            {/* Subtle private/public toggle inside input - only when AI mode */}
-            {aiMode && (
-              <button
-                className={`inline-privacy-toggle ${privateMode ? 'private' : 'public'}`}
-                onMouseDown={(e) => e.preventDefault()} // Prevent keyboard close on mobile
-                onClick={() => setPrivateMode && setPrivateMode(!privateMode)}
-                aria-label={privateMode ? 'Messages are private' : 'Messages are public'}
-                title={privateMode ? 'Only you can see this' : 'Everyone can see this'}
-              >
-                {privateMode ? '🙈' : '👀'}
-              </button>
-            )}
+          <div
+            className={`input-field-wrapper ${aiMode ? 'ai-active' : ''} ${
+              aiMode && privateMode ? 'private-mode' : ''
+            }`}
+          >
             <textarea
               ref={inputRef}
               placeholder={
                 editingMessage
                   ? 'Edit your message...'
                   : aiMode
-                    ? privateMode 
-                      ? 'Ask Poppy privately... 🙈'
-                      : 'Ask Poppy anything... ✨'
-                    : 'Message, press @ for AI'
+                  ? privateMode
+                    ? 'Ask Poppy privately... 🙈'
+                    : 'Ask Poppy anything... ✨'
+                  : 'Message, press @ for AI'
               }
               rows='1'
               onInput={handleInput}
@@ -793,11 +838,7 @@ export default function ChatInput({
 
             {/* Mic icon or Send icon inside input (mobile) */}
             {hasContent ? (
-              <button
-                onClick={onSend}
-                aria-label='Send message'
-                className='mobile-send-btn'
-              >
+              <button onClick={onSend} aria-label='Send message' className='mobile-send-btn'>
                 <div className='mobile-send-btn-inner'>
                   <svg
                     width='14'
@@ -854,11 +895,7 @@ export default function ChatInput({
             )}
           </div>
 
-          <button
-            className='input-send-btn'
-            onClick={onSend}
-            disabled={sending}
-          >
+          <button className='input-send-btn' onClick={onSend} disabled={sending}>
             {editingMessage ? '✓' : '➤'}
           </button>
         </div>
@@ -867,8 +904,8 @@ export default function ChatInput({
       {/* Coming Soon Modal for Mobile */}
       {showComingSoonModal && (
         <>
-          <div 
-            className='coming-soon-modal-overlay' 
+          <div
+            className='coming-soon-modal-overlay'
             onClick={() => setShowComingSoonModal(false)}
           />
           <div className='coming-soon-modal'>
@@ -876,9 +913,10 @@ export default function ChatInput({
               <div className='coming-soon-modal-icon'>🎤</div>
               <h3 className='coming-soon-modal-title'>Voice Messages Coming Soon</h3>
               <p className='coming-soon-modal-text'>
-                Voice messages are currently available on desktop. This feature will be coming to mobile soon!
+                Voice messages are currently available on desktop. This feature will be coming to
+                mobile soon!
               </p>
-              <button 
+              <button
                 className='coming-soon-modal-button'
                 onClick={() => setShowComingSoonModal(false)}
               >

@@ -11,7 +11,6 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [error, setError] = useState(null)
-  const [isSending, setIsSending] = useState(false)
 
   const timerRef = useRef(null)
   const videoPreviewRef = useRef(null)
@@ -166,56 +165,15 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
     }
   }, [previewUrl])
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(() => {
     if (!videoBlob) return
 
-    console.log('📹 Sending video, size:', videoBlob.size)
-    setIsSending(true)
-
-    try {
-      // Get Mux upload URL
-      const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' })
-      const { uploadUrl, uploadId } = await uploadResponse.json()
-      console.log('📹 Got Mux upload URL, uploadId:', uploadId)
-
-      // Upload the blob to Mux
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        body: videoBlob,
-        headers: {
-          'Content-Type': videoBlob.type || 'video/webm',
-        },
-      })
-      console.log('📹 Upload complete!')
-
-      // Poll for playback ID
-      let playbackId = null
-      for (let i = 0; i < 60; i++) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
-        const assetData = await assetResponse.json()
-
-        if (assetData.playbackId && assetData.ready) {
-          playbackId = assetData.playbackId
-          console.log('📹 Got playback ID:', playbackId)
-          break
-        }
-        console.log('📹 Waiting for asset, attempt', i + 1)
-      }
-
-      if (!playbackId) {
-        throw new Error('Failed to get Mux playback ID')
-      }
-
-      // Pass the playback ID back
-      onVideoRecorded(playbackId)
-      onClose()
-    } catch (err) {
-      console.error('📹 Failed to upload video:', err)
-      alert('Failed to upload video. Please try again.')
-    } finally {
-      setIsSending(false)
-    }
+    console.log('📹 Sending video blob, size:', videoBlob.size)
+    
+    // Pass the video blob immediately (like mobile passes file path)
+    // The parent will handle the async upload with progress indicator
+    onVideoRecorded(videoBlob)
+    onClose()
   }, [videoBlob, onVideoRecorded, onClose])
 
   const handleClose = useCallback(() => {
@@ -470,7 +428,6 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
             {/* Retake */}
             <button
               onClick={handleRetake}
-              disabled={isSending}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -478,8 +435,7 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
                 gap: '8px',
                 background: 'none',
                 border: 'none',
-                cursor: isSending ? 'wait' : 'pointer',
-                opacity: isSending ? 0.5 : 1,
+                cursor: 'pointer',
               }}
             >
               <div
@@ -504,7 +460,6 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
             {/* Send */}
             <button
               onClick={handleSend}
-              disabled={isSending}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -512,7 +467,7 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
                 gap: '8px',
                 background: 'none',
                 border: 'none',
-                cursor: isSending ? 'wait' : 'pointer',
+                cursor: 'pointer',
               }}
             >
               <div
@@ -527,26 +482,11 @@ export default function WebVideoRecorder({ isOpen, onClose, onVideoRecorded }) {
                   justifyContent: 'center',
                 }}
               >
-                {isSending ? (
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      border: '2px solid rgba(255,255,255,0.3)',
-                      borderTopColor: '#fff',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite',
-                    }}
-                  />
-                ) : (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                  </svg>
-                )}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
               </div>
-              <span style={{ color: 'white', fontSize: '12px', opacity: 0.8 }}>
-                {isSending ? 'Sending...' : 'Send'}
-              </span>
+              <span style={{ color: 'white', fontSize: '12px', opacity: 0.8 }}>Send</span>
             </button>
           </div>
         )}

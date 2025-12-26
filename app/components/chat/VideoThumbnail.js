@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import SkeletonView from './SkeletonView'
 import { cn } from '../../utils/cn'
 
-// Maximum width for video thumbnails
-const MAX_VIDEO_WIDTH = 320
+// Maximum dimensions for video thumbnails
+const MAX_VIDEO_WIDTH = 240
+const MAX_VIDEO_HEIGHT = 280
 
 export default function VideoThumbnail({
   playbackId,
@@ -91,11 +92,11 @@ export default function VideoThumbnail({
     )
   }
 
-  // Regular videos use SkeletonView with parent max-width
+  // Regular videos use SkeletonView with parent max-width and max-height
   return (
     <div 
       className={cn('rounded-xl overflow-hidden cursor-pointer relative')}
-      style={{ maxWidth: MAX_VIDEO_WIDTH }}
+      style={{ maxWidth: MAX_VIDEO_WIDTH, maxHeight: MAX_VIDEO_HEIGHT }}
       onClick={onClick}
     >
       <SkeletonView

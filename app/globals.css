@@ -701,6 +701,7 @@ html {
 
 /* Wrappers for structure compatibility with mobile */
 .input-row {
+  position: relative;
   display: flex;
   width: 100%;
   gap: 2px;
@@ -804,6 +805,11 @@ html {
   animation: poppy-pulse 2.5s ease-in-out infinite;
 }
 
+/* Private mode - yellow glow for Poppy icon */
+.input-poppy-btn.active.private-mode {
+  animation: poppy-pulse-private 2.5s ease-in-out infinite;
+}
+
 @keyframes poppy-pulse {
   0%, 100% {
     transform: scale(1);
@@ -812,6 +818,17 @@ html {
   50% {
     transform: scale(1.05);
     filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.7)) drop-shadow(0 0 20px rgba(236, 72, 153, 0.4));
+  }
+}
+
+@keyframes poppy-pulse-private {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.35)) drop-shadow(0 0 10px rgba(234, 179, 8, 0.2));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.5)) drop-shadow(0 0 14px rgba(234, 179, 8, 0.3));
   }
 }
 
@@ -844,6 +861,35 @@ html {
   opacity: 0.7;
 }
 
+/* Private mode - yellow glow for input field */
+.input-field-wrapper.ai-active.private-mode::before {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.3), rgba(234, 179, 8, 0.25), rgba(250, 204, 21, 0.3)) !important;
+  animation: ai-field-glow-private 2s ease-in-out infinite !important;
+  filter: blur(6px) !important;
+  opacity: 0.8 !important;
+}
+
+/* Yellow border for private mode */
+.input-field-wrapper.ai-active.private-mode {
+  border-color: rgba(250, 204, 21, 0.35) !important;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.25), 0 0 24px rgba(250, 204, 21, 0.12) !important;
+}
+
+.input-field-wrapper.ai-active.private-mode textarea {
+  background: rgba(50, 45, 20, 0.5) !important;
+}
+
+@keyframes ai-field-glow-private {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.8;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+}
+
 @keyframes ai-field-glow {
   0%, 100% {
     background-position: 0% 50%;
@@ -853,6 +899,123 @@ html {
     background-position: 100% 50%;
     opacity: 0.8;
   }
+}
+
+/* AI Mode Banner slide up animation */
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* AI Mode Indicator - Subtle centered pill */
+.ai-mode-indicator {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  position: absolute !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: 100% !important;
+  top: auto !important;
+  transform: translateX(-50%) !important;
+  margin-bottom: -2px !important;
+  z-index: 100 !important;
+  animation: slideUp 0.2s ease-out;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+}
+
+.ai-mode-toggle {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  background: rgba(40, 40, 50, 0.95) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 20px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
+.ai-mode-toggle:hover {
+  background: rgba(55, 55, 65, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.ai-mode-toggle.private {
+  background: rgba(70, 60, 20, 0.95) !important;
+  border-color: rgba(250, 204, 21, 0.3) !important;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.2) !important;
+}
+
+.ai-mode-toggle.private:hover {
+  background: rgba(85, 70, 25, 0.98) !important;
+  border-color: rgba(250, 204, 21, 0.4) !important;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.25) !important;
+}
+
+.ai-mode-toggle.private .ai-mode-label {
+  color: rgba(250, 220, 100, 0.95) !important;
+}
+
+.ai-mode-emoji {
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+
+.ai-mode-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+
+.ai-mode-hint {
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.ai-mode-close {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  background: rgba(40, 40, 50, 0.95) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 50% !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  padding: 0 !important;
+}
+
+.ai-mode-close:hover {
+  background: rgba(60, 60, 70, 0.98) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 
@@ -1785,8 +1948,8 @@ iframe[src*="vercel"] {
 }
 
 .message-image {
-  max-width: 300px;
-  max-height: 400px;
+  max-width: 240px;
+  max-height: 280px;
   border-radius: 12px;
   margin-bottom: 8px;
   cursor: pointer;
@@ -1810,8 +1973,8 @@ iframe[src*="vercel"] {
 
 /* Video messages */
 .message-video {
-  max-width: 300px;
-  max-height: 400px;
+  max-width: 240px;
+  max-height: 280px;
   border-radius: 12px;
   margin-bottom: 8px;
   display: block;
@@ -1835,8 +1998,8 @@ iframe[src*="vercel"] {
   --media-object-position: center;
   aspect-ratio: 16/9;
   width: 100%;
-  max-width: 300px;
-  min-height: 170px;
+  max-width: 240px;
+  min-height: 135px;
   border-radius: 12px;
   background: #1a1a1a;
 }
@@ -1844,8 +2007,8 @@ iframe[src*="vercel"] {
 /* Mobile fix for Mux player - ensure it renders */
 @media (max-width: 768px) {
   .message-mux-video {
-    max-width: 260px;
-    min-height: 146px;
+    max-width: 220px;
+    min-height: 124px;
   }
   
   mux-player {

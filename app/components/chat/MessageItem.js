@@ -19,10 +19,12 @@ import LinkPreview from './LinkPreview'
 import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
 import { cn } from '../../utils/cn'
 
-// Maximum width for single images/videos
-const MAX_MEDIA_WIDTH = 320
-// Maximum width for images in multi-image grid
-const MAX_MULTI_IMAGE_WIDTH = 140
+// Maximum dimensions for single images/videos
+const MAX_MEDIA_WIDTH = 240
+const MAX_MEDIA_HEIGHT = 280
+// Maximum dimensions for images in multi-image grid
+const MAX_MULTI_IMAGE_WIDTH = 120
+const MAX_MULTI_IMAGE_HEIGHT = 120
 
 /**
  * ImageWithSkeleton - Wraps an image with SkeletonView for loading state.
@@ -37,6 +39,7 @@ function ImageWithSkeleton({
   width, 
   height, 
   maxWidth, 
+  maxHeight,
   onClick,
   // For on-demand migration
   onDimensionsMigrate,
@@ -70,7 +73,7 @@ function ImageWithSkeleton({
         'rounded-xl overflow-hidden cursor-pointer relative',
         'hover:scale-[1.02] transition-transform'
       )}
-      style={{ maxWidth }}
+      style={{ maxWidth, maxHeight }}
       onClick={onClick}
     >
       <SkeletonView
@@ -993,6 +996,7 @@ export default function MessageItem({
                   // Get dimensions for this image (if available)
                   const dim = dimensions[idx]
                   const maxWidth = isMultiImage ? MAX_MULTI_IMAGE_WIDTH : MAX_MEDIA_WIDTH
+                  const maxHeight = isMultiImage ? MAX_MULTI_IMAGE_HEIGHT : MAX_MEDIA_HEIGHT
                   
                   return (
                     <ImageWithSkeleton
@@ -1002,6 +1006,7 @@ export default function MessageItem({
                       width={dim?.width}
                       height={dim?.height}
                       maxWidth={maxWidth}
+                      maxHeight={maxHeight}
                       imageIndex={idx}
                       onDimensionsMigrate={needsMigration ? handleDimensionsMigrate : undefined}
                       onClick={e => {
