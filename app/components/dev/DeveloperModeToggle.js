@@ -7,11 +7,11 @@ export default function DeveloperModeToggle() {
   const developerMode = useContext(DeveloperModeContext)
   
   // Don't render if user is not authorized
-  if (!developerMode?.isAuthorized) {
+  if (!developerMode?.canUseDeveloperMode) {
     return null
   }
   
-  const { isEnabled, toggleDeveloperMode } = developerMode
+  const { isDeveloperModeEnabled, toggleDeveloperMode } = developerMode
   
   return (
     <button
@@ -35,7 +35,7 @@ export default function DeveloperModeToggle() {
         </svg>
         Developer Mode
       </span>
-      <span className={`dev-mode-toggle-switch ${isEnabled ? 'active' : ''}`}>
+      <span className={`dev-mode-toggle-switch ${isDeveloperModeEnabled ? 'active' : ''}`}>
         <span className="dev-mode-toggle-knob" />
       </span>
     </button>

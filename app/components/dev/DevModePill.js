@@ -23,12 +23,12 @@ export default function DevModePill({ messageId, onShowDetails }) {
   const developerMode = useContext(DeveloperModeContext)
   
   // Don't render if developer mode is not enabled
-  if (!developerMode?.isEnabled) {
+  if (!developerMode?.isDeveloperModeEnabled) {
     return null
   }
   
-  const { getUsageData } = developerMode
-  const usageData = getUsageData(messageId)
+  const { getUsageDataForMessage } = developerMode
+  const usageData = getUsageDataForMessage(messageId)
   
   // Don't render if no usage data for this message
   if (!usageData) {

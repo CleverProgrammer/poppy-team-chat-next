@@ -24,7 +24,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   
   // Get developer mode context
   const developerMode = useContext(DeveloperModeContext)
-  const { isEnabled: devModeEnabled, setUsageData } = developerMode || {}
+  const { isDeveloperModeEnabled: devModeEnabled, setUsageDataForMessage } = developerMode || {}
 
   // Call AI API with streaming support
   const callAI = useCallback(
@@ -164,8 +164,8 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         }
 
         // Store developer data if available
-        if (developerData && setUsageData && messageId) {
-          setUsageData(messageId, developerData)
+        if (developerData && setUsageDataForMessage && messageId) {
+          setUsageDataForMessage(messageId, developerData)
         }
 
         console.log(`📤 [${requestId}] Message posted to channel`)
@@ -192,7 +192,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         console.log(`🏁 [${requestId}] Request complete`)
       }
     },
-    [currentChat, user, messages, setMessages, virtuosoRef, callAI, setUsageData]
+    [currentChat, user, messages, setMessages, virtuosoRef, callAI, setUsageDataForMessage]
   )
 
   // Direct chat with Poppy (for AI chat type - saves to Firestore)
@@ -243,8 +243,8 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         const messageId = msgRef?.id
 
         // Store developer data if available
-        if (developerData && setUsageData && messageId) {
-          setUsageData(messageId, developerData)
+        if (developerData && setUsageDataForMessage && messageId) {
+          setUsageDataForMessage(messageId, developerData)
         }
 
         // Mark AI chat as unread for the user
@@ -267,7 +267,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         console.log(`🏁 [${requestId}] Request complete`)
       }
     },
-    [user, messages, setMessages, virtuosoRef, callAI, setUsageData]
+    [user, messages, setMessages, virtuosoRef, callAI, setUsageDataForMessage]
   )
 
   return {

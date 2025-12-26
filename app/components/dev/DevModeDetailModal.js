@@ -149,25 +149,25 @@ export default function DevModeDetailModal({ isOpen, onClose, messageId, usageDa
               
               <div className="dev-token-visual">
                 <div className="dev-token-bar">
-                  <div 
-                    className="dev-token-bar-input" 
-                    style={{ width: `${(inputTokens / totalTokens) * 100}%` }}
+                  <div
+                    className="dev-token-bar-input"
+                    style={{ width: `${totalTokens > 0 ? (inputTokens / totalTokens) * 100 : 0}%` }}
                     title={`Input: ${inputTokens} tokens`}
                   />
-                  <div 
-                    className="dev-token-bar-output" 
-                    style={{ width: `${(outputTokens / totalTokens) * 100}%` }}
+                  <div
+                    className="dev-token-bar-output"
+                    style={{ width: `${totalTokens > 0 ? (outputTokens / totalTokens) * 100 : 0}%` }}
                     title={`Output: ${outputTokens} tokens`}
                   />
                 </div>
                 <div className="dev-token-bar-legend">
                   <span className="dev-legend-item input">
                     <span className="dev-legend-dot" />
-                    Input ({Math.round((inputTokens / totalTokens) * 100)}%)
+                    Input ({totalTokens > 0 ? Math.round((inputTokens / totalTokens) * 100) : 0}%)
                   </span>
                   <span className="dev-legend-item output">
                     <span className="dev-legend-dot" />
-                    Output ({Math.round((outputTokens / totalTokens) * 100)}%)
+                    Output ({totalTokens > 0 ? Math.round((outputTokens / totalTokens) * 100) : 0}%)
                   </span>
                 </div>
               </div>
