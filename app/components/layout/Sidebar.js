@@ -6,6 +6,7 @@ import SignOutButton from '../auth/SignOutButton'
 import ChannelStoryRing from '../chat/ChannelStoryRing'
 import DMStoryRing from '../chat/DMStoryRing'
 import MyStoriesRing from '../chat/MyStoriesRing'
+import DeveloperModeToggle from '../dev/DeveloperModeToggle'
 
 export default function Sidebar({
   currentChat,
@@ -368,6 +369,7 @@ export default function Sidebar({
             >
               Set Password
             </button>
+            <DeveloperModeToggle />
             <SignOutButton />
           </div>
         )}
