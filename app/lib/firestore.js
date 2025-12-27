@@ -402,10 +402,10 @@ export async function sendMessageDM(
             summary: data.aiTags.summary,
           })
 
-          // AI signals task intent via task_action field
-          if (data.aiTags.task_action) {
-            console.log('📋 AI task_action:', data.aiTags.task_action)
-            createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+          // AI signals task intent via task_action field OR tasks array
+          if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+            console.log('📋 AI task detected:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+            handleTasksFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
       })
@@ -970,9 +970,10 @@ export async function sendMessageDMWithImage(
             saveCanonicalTag(data.aiTags)
 
             // AI signals task intent via task_action field
-            if (data.aiTags.task_action) {
-              console.log('📋 AI task_action:', data.aiTags.task_action)
-              createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+            // AI signals task intent via task_action field OR tasks array
+            if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+              console.log('📋 AI task detected:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+              handleTasksFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
             }
           }
         })
@@ -1248,9 +1249,10 @@ export async function sendMessageDMWithMedia(
             })
 
             // AI signals task intent via task_action field
-            if (data.aiTags.task_action) {
-              console.log('📋 AI task_action:', data.aiTags.task_action)
-              createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+            // AI signals task intent via task_action field OR tasks array
+            if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+              console.log('📋 AI task detected:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+              handleTasksFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
             }
           }
         })
@@ -1505,9 +1507,10 @@ export async function sendMessageDMWithAudio(
           })
 
           // AI signals task intent via task_action field
-          if (data.aiTags.task_action) {
-            console.log('📋 AI task_action:', data.aiTags.task_action)
-            createTaskFromMessage(dmId, 'dm', docRef.id, '', user, recipient, data.aiTags)
+          // AI signals task intent via task_action field OR tasks array
+          if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+            console.log('📋 AI task detected:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+            handleTasksFromMessage(dmId, 'dm', docRef.id, '', user, recipient, data.aiTags)
           }
         }
       })
@@ -1577,9 +1580,10 @@ export async function sendMessageDMWithAudio(
                 saveCanonicalTag(tagData.aiTags)
 
                 // AI signals task intent via task_action field (for voice messages too!)
-                if (tagData.aiTags.task_action) {
-                  console.log('📋 Voice message task_action:', tagData.aiTags.task_action)
-                  createTaskFromMessage(dmId, 'dm', docRef.id, data.transcription.text, user, recipient, tagData.aiTags)
+                // AI signals task intent via task_action field OR tasks array
+                if (tagData.aiTags.task_action || tagData.aiTags.tasks?.length > 0) {
+                  console.log('📋 Voice task detected:', tagData.aiTags.tasks?.length > 1 ? `${tagData.aiTags.tasks.length} tasks` : tagData.aiTags.task_action)
+                  handleTasksFromMessage(dmId, 'dm', docRef.id, data.transcription.text, user, recipient, tagData.aiTags)
                 }
               }
             })
@@ -1936,10 +1940,10 @@ export async function sendMessageDMWithReply(
             summary: data.aiTags.summary,
           })
 
-          // AI signals task intent via task_action field
-          if (data.aiTags.task_action) {
-            console.log('📋 AI task_action:', data.aiTags.task_action)
-            createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+          // AI signals task intent via task_action field OR tasks array
+          if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+            console.log('📋 AI task detected:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+            handleTasksFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
       })
@@ -2684,6 +2688,49 @@ Match nicknames, initials, shortened names. Be confident or return null.`,
   } catch (error) {
     console.warn('AI user matching failed:', error.message)
     return null
+  }
+}
+
+/**
+ * Handle task creation from AI tags - supports single task OR multiple tasks
+ * If aiTags.tasks array exists, creates multiple tasks
+ * Otherwise falls back to single task creation
+ */
+export async function handleTasksFromMessage(
+  chatId,
+  chatType,
+  messageId,
+  text,
+  user,
+  recipient,
+  aiTags
+) {
+  // Check for multiple tasks in the `tasks` array
+  if (aiTags.tasks && Array.isArray(aiTags.tasks) && aiTags.tasks.length > 0) {
+    console.log(`📋 Multi-task detected: ${aiTags.tasks.length} tasks`)
+    
+    // Create each task, inheriting parent assignee if not specified per-task
+    for (const taskInfo of aiTags.tasks) {
+      // Merge parent aiTags with task-specific info (task-specific wins)
+      const mergedTags = {
+        ...aiTags,
+        ...taskInfo,
+        // Use task-specific assignee, or fall back to parent assignee
+        assignee: taskInfo.assignee || aiTags.assignee,
+        // Use task-specific canonical_tag (required for each task)
+        canonical_tag: taskInfo.canonical_tag,
+        // Use task-specific title for the task
+        title: taskInfo.title,
+      }
+      
+      await createTaskFromMessage(chatId, chatType, messageId, text, user, recipient, mergedTags)
+    }
+    return
+  }
+  
+  // Single task - use existing logic
+  if (aiTags.task_action) {
+    await createTaskFromMessage(chatId, chatType, messageId, text, user, recipient, aiTags)
   }
 }
 

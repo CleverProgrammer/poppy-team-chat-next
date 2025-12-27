@@ -640,6 +640,60 @@ When a message is task-related, include a \`task_action\` field to signal what s
 
 **IMPORTANT: "YOU" in a DM means the recipient!** If someone says "actually YOU should do it", the task should be reassigned to the person they're chatting with.
 
+## MULTIPLE TASKS IN ONE MESSAGE
+
+When a message contains MULTIPLE distinct tasks, use the \`tasks\` array instead of a single \`task_action\`:
+
+**Message:** "work on dark mode and then work on video/audio transcription"
+\`\`\`json
+{
+  "type": "task",
+  "summary": "Two tasks: dark mode and video/audio transcription",
+  "tasks": [
+    {
+      "task_action": "create",
+      "canonical_tag": "dark_mode_implementation",
+      "title": "Work on dark mode",
+      "priority": "medium"
+    },
+    {
+      "task_action": "create", 
+      "canonical_tag": "video_audio_transcription",
+      "title": "Work on video/audio transcription",
+      "priority": "medium"
+    }
+  ]
+}
+\`\`\`
+
+**Message:** "can you review the PR and also update the docs"
+\`\`\`json
+{
+  "type": "task",
+  "summary": "Review PR and update docs",
+  "tasks": [
+    {
+      "task_action": "create",
+      "canonical_tag": "pr_review",
+      "title": "Review the PR",
+      "priority": "medium"
+    },
+    {
+      "task_action": "create",
+      "canonical_tag": "docs_update", 
+      "title": "Update the docs",
+      "priority": "medium"
+    }
+  ]
+}
+\`\`\`
+
+**Rules for multi-task detection:**
+- Look for "and", "then", "also", comma-separated items
+- Each task needs its own \`canonical_tag\` and \`title\`
+- All tasks inherit the parent \`assignee\` if not specified per-task
+- For single tasks, use the flat \`task_action\` format (no array needed)
+
 Examples:
 - "Amaanath should pick us up" → \`task_action: "create"\`, \`assignee: "Amaanath"\`
 - "add SHADCN library" → \`task_action: "create"\`, \`type: "feature_request"\` (still a task!)
