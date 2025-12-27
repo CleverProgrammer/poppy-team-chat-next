@@ -27,11 +27,10 @@ export default function ChatHeader({
   useEffect(() => {
     if (!currentChat || !currentUserId || currentChat.type === 'ai') return
 
-    const chatId = currentChat.type === 'dm' 
-      ? getDMId(currentUserId, currentChat.id) 
-      : currentChat.id
+    const chatId =
+      currentChat.type === 'dm' ? getDMId(currentUserId, currentChat.id) : currentChat.id
 
-    const unsubscribe = subscribeToTasksByChat(chatId, currentChat.type, (tasks) => {
+    const unsubscribe = subscribeToTasksByChat(chatId, currentChat.type, tasks => {
       const openCount = tasks.filter(t => !t.completed).length
       setOpenTasksCount(openCount)
     })
@@ -42,11 +41,11 @@ export default function ChatHeader({
   // Calculate today's tagging cost from messages
   const todayCost = useMemo(() => {
     if (!isDevMode) return 0
-    
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayStart = today.getTime() / 1000 // Firestore timestamp in seconds
-    
+
     return messages.reduce((total, msg) => {
       const msgTime = msg.timestamp?.seconds || 0
       if (msgTime >= todayStart && msg.aiTags?._cost) {
@@ -104,7 +103,7 @@ export default function ChatHeader({
           currentUserId={currentUserId}
           otherUserId={currentChat.id}
           currentUser={currentUser}
-          size="medium"
+          size='medium'
         >
           {avatarContent}
         </DMStoryRing>
@@ -113,7 +112,7 @@ export default function ChatHeader({
     // Channel - wrap with story ring for all channels
     const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
     return (
-      <ChannelStoryRing channelId={currentChat.id} size="medium" currentUser={currentUser}>
+      <ChannelStoryRing channelId={currentChat.id} size='medium' currentUser={currentUser}>
         {channelAvatar}
       </ChannelStoryRing>
     )
@@ -122,13 +121,7 @@ export default function ChatHeader({
   // Get avatar for desktop header (iMessage style)
   const getDesktopAvatar = () => {
     if (currentChat.type === 'ai') {
-      return (
-        <img
-          src='/poppy-icon.png'
-          alt='Poppy'
-          className='chat-header-avatar-desktop'
-        />
-      )
+      return <img src='/poppy-icon.png' alt='Poppy' className='chat-header-avatar-desktop' />
     }
     if (currentChat.type === 'dm') {
       const photo = getUserPhoto()
@@ -145,16 +138,18 @@ export default function ChatHeader({
           currentUserId={currentUserId}
           otherUserId={currentChat.id}
           currentUser={currentUser}
-          size="small"
+          size='small'
         >
           {avatarContent}
         </DMStoryRing>
       )
     }
     // Channel - wrap with story ring for all channels
-    const channelAvatar = <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
+    const channelAvatar = (
+      <div className='chat-header-avatar-desktop chat-header-avatar-channel'>#</div>
+    )
     return (
-      <ChannelStoryRing channelId={currentChat.id} size="small" currentUser={currentUser}>
+      <ChannelStoryRing channelId={currentChat.id} size='small' currentUser={currentUser}>
         {channelAvatar}
       </ChannelStoryRing>
     )
@@ -162,13 +157,10 @@ export default function ChatHeader({
 
   // Tasks button with blue dot indicator
   const TasksButton = ({ className }) => (
-    <button
-      onClick={() => setShowTasksModal(true)}
-      className={`relative ${className}`}
-    >
+    <button onClick={() => setShowTasksModal(true)} className={`relative ${className}`}>
       Tasks
       {openTasksCount > 0 && (
-        <span 
+        <span
           className='absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full'
           style={{ backgroundColor: '#3b82f6' }}
         />
@@ -198,7 +190,7 @@ export default function ChatHeader({
             <line x1='3' y1='18' x2='21' y2='18'></line>
           </svg>
         </button>
-        
+
         {/* iMessage-style header content */}
         <div className='chat-header-imessage'>
           {getDesktopAvatar()}
@@ -229,7 +221,7 @@ export default function ChatHeader({
               Posts
             </button>
           )}
-          
+
           {currentChat.type !== 'ai' && (
             <TasksButton className='px-3 py-1 text-[11px] font-medium rounded-md text-gray-500 hover:text-gray-300 transition-colors' />
           )}
@@ -255,13 +247,15 @@ export default function ChatHeader({
           {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
         </div>
         <div className='chat-header-status'>{getSubtitle()}</div>
-        
+
         {/* Mobile buttons - right side */}
         <div className='absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2'>
           {viewMode && onViewModeChange && (
             <button
               onClick={() => onViewModeChange(viewMode === 'posts' ? 'messages' : 'posts')}
-              className={`text-[11px] font-medium ${viewMode === 'posts' ? 'text-white' : 'text-gray-500'}`}
+              className={`text-[11px] font-medium ${
+                viewMode === 'posts' ? 'text-white' : 'text-gray-500'
+              }`}
             >
               Posts
             </button>

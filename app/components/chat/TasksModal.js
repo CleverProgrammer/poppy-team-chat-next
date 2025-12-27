@@ -143,7 +143,8 @@ function TaskItem({ task, onToggle, formatDueDate }) {
 
   return (
     <div
-      className='flex items-start gap-6 py-6 cursor-pointer group'
+      className='flex items-start gap-6 cursor-pointer group'
+      style={{ paddingTop: '12px', paddingBottom: '12px' }}
       onClick={(e) => onToggle(e, task.id)}
     >
       {/* Checkbox - rounded square */}
@@ -177,7 +178,6 @@ function TaskItem({ task, onToggle, formatDueDate }) {
           className='text-[17px] leading-relaxed pt-1'
           style={{
             color: task.completed ? 'rgba(167,139,250,0.4)' : 'rgba(255,255,255,0.95)',
-            textDecoration: task.completed ? 'line-through' : 'none',
           }}
         >
           {task.title}
