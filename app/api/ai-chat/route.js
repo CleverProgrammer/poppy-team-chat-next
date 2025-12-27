@@ -3,6 +3,48 @@ import mcpManager from '../../lib/mcp-client.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
+import { adminDb } from '../../lib/firebase-admin.js'
+
+/**
+ * Track AI usage to Firestore for analytics and cost monitoring
+ */
+async function trackAIUsage({
+  type,
+  model,
+  inputTokens,
+  outputTokens,
+  inputCost,
+  outputCost,
+  totalCost,
+  userId,
+  userEmail,
+  userName,
+  chatId,
+  chatType,
+  toolsUsed,
+}) {
+  try {
+    await adminDb.collection('ai_usage').add({
+      timestamp: new Date().toISOString(),
+      type,
+      model,
+      inputTokens,
+      outputTokens,
+      inputCost,
+      outputCost,
+      totalCost,
+      userId: userId || null,
+      userEmail: userEmail || null,
+      userName: userName || null,
+      chatId: chatId || null,
+      chatType: chatType || null,
+      toolsUsed: toolsUsed || [],
+    })
+  } catch (error) {
+    // Don't fail the request if tracking fails - just log it
+    console.error('⚠️ Failed to track AI usage:', error.message)
+  }
+}
 
 // Initialize Keywords AI Telemetry with manual instrumentation
 const keywordsAi = new KeywordsAITelemetry({
@@ -506,6 +548,11 @@ WHAT NOT TO SAVE:
     console.error('🤖 Poppy AI: WARNING - No content in response:', JSON.stringify(data, null, 2))
   }
 
+  // Track cumulative token usage across all API calls
+  let totalInputTokens = data.usage?.input_tokens || 0
+  let totalOutputTokens = data.usage?.output_tokens || 0
+  const toolsUsedList = []
+
   // Handle tool use loop
   let lastMemoryToolMessage = null // Track memory tool success message as fallback
 
@@ -541,6 +588,9 @@ WHAT NOT TO SAVE:
       console.log(`${toolCategory}: Using tool "${toolUse.name}"`)
       console.log(`${toolCategory}: Input:`, JSON.stringify(toolUse.input, null, 2))
       console.log(`${'='.repeat(50)}`)
+
+      // Track which tools are used
+      toolsUsedList.push(toolUse.name)
 
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
 
@@ -720,7 +770,36 @@ WHAT NOT TO SAVE:
       },
     })
     console.log('🤖 Poppy AI: Got response after tool use')
+
+    // Accumulate tokens from this API call
+    totalInputTokens += data.usage?.input_tokens || 0
+    totalOutputTokens += data.usage?.output_tokens || 0
   }
+
+  // Calculate cost and track usage (Claude Sonnet 4 pricing: $3/1M input, $15/1M output)
+  const inputCost = (totalInputTokens / 1_000_000) * 3
+  const outputCost = (totalOutputTokens / 1_000_000) * 15
+  const totalCost = inputCost + outputCost
+
+  console.log(`💰 AI Chat Tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
+  console.log(`💵 AI Chat Cost: $${totalCost.toFixed(6)}`)
+
+  // Track AI usage to Firestore (async, don't await to avoid blocking response)
+  trackAIUsage({
+    type: 'ai_chat',
+    model: 'claude-sonnet-4-5-20250929',
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
+    inputCost,
+    outputCost,
+    totalCost,
+    userId: user?.id,
+    userEmail: user?.email,
+    userName: user?.name,
+    chatId: currentChat?.id,
+    chatType: currentChat?.type,
+    toolsUsed: toolsUsedList,
+  })
 
   // Extract final text from response
   if (!data || !data.content || !Array.isArray(data.content)) {

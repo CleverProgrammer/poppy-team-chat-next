@@ -10,6 +10,47 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const canonicalTagsCache = new Map()
 
 /**
+ * Track AI usage to Firestore for analytics and cost monitoring
+ */
+async function trackAIUsage({
+  type,
+  model,
+  inputTokens,
+  outputTokens,
+  inputCost,
+  outputCost,
+  totalCost,
+  userId,
+  userEmail,
+  userName,
+  messageId,
+  chatId,
+  chatType,
+}) {
+  try {
+    await adminDb.collection('ai_usage').add({
+      timestamp: new Date().toISOString(),
+      type,
+      model,
+      inputTokens,
+      outputTokens,
+      inputCost,
+      outputCost,
+      totalCost,
+      userId: userId || null,
+      userEmail: userEmail || null,
+      userName: userName || null,
+      messageId: messageId || null,
+      chatId: chatId || null,
+      chatType: chatType || null,
+    })
+  } catch (error) {
+    // Don't fail the request if tracking fails - just log it
+    console.error('⚠️ Failed to track AI usage:', error.message)
+  }
+}
+
+/**
  * Persist canonical_tag to Firestore and handle vote tracking
  * Votes are counted when AI outputs a `voter` field - simple as that
  */
@@ -595,6 +636,23 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     console.log(`${'═'.repeat(70)}`)
     console.log(`🏷️  AI TAGGING COMPLETE`)
     console.log(`${'═'.repeat(70)}\n`)
+
+    // Track AI usage to Firestore (async, don't await to avoid blocking response)
+    trackAIUsage({
+      type: 'tagging',
+      model: MODEL,
+      inputTokens,
+      outputTokens,
+      inputCost,
+      outputCost,
+      totalCost,
+      userId: senderId,
+      userEmail: senderEmail,
+      userName: sender,
+      messageId,
+      chatId,
+      chatType,
+    })
 
     // Add cost to aiTags for dev mode display
     aiTags._cost = totalCost
