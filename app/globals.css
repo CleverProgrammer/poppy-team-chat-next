@@ -2987,30 +2987,30 @@ iframe[src*="vercel"] {
   }
 }
 
-/* Typing Indicator */
-.typing-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  margin-bottom: 0;
+/* Typing Indicator - Uses message-wrapper structure for inline appearance */
+.message-wrapper.typing-message {
   animation: fadeIn 0.3s ease-out;
 }
 
-.typing-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid var(--border-input);
+.message-wrapper.typing-message .message-avatar {
+  margin-top: 0;
+  width: 28px;
+  height: 28px;
 }
 
-.typing-dots {
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.typing-bubble .typing-dots {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: var(--bg-message-received);
-  padding: 10px 14px;
-  border-radius: 18px;
+  padding: 0;
+  background: none;
 }
 
 .typing-dots span {
@@ -3027,6 +3027,12 @@ iframe[src*="vercel"] {
 
 .typing-dots span:nth-child(3) {
   animation-delay: 0.4s;
+}
+
+.typing-status {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: italic;
 }
 
 @keyframes typingDot {

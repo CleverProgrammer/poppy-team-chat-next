@@ -1428,41 +1428,41 @@ export default function ChatWindow() {
                   />
                 )}
 
-                {/* DM Typing Indicator - Inside messages div so it's visible */}
+                {/* DM Typing Indicator - Matches message-wrapper structure */}
                 {otherUserTyping &&
                   currentChat?.type === 'dm' &&
                   (() => {
                     const otherUser = allUsers.find(u => u.uid === currentChat.id)
                     return (
-                      <div className='typing-indicator'>
+                      <div className='message-wrapper received typing-message'>
                         <img
                           src={otherUser?.photoURL || ''}
                           alt={otherUser?.displayName || 'User'}
-                          className='typing-avatar'
+                          className='message-avatar'
                         />
-                        <div className='typing-dots'>
-                          <span></span>
-                          <span></span>
-                          <span></span>
+                        <div className='message-content-wrapper'>
+                          <div className='message typing-bubble'>
+                            <div className='typing-dots'>
+                              <span></span>
+                              <span></span>
+                              <span></span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )
                   })()}
 
-                {/* AI Typing Indicator - Same approach as DM typing */}
+                {/* AI Typing Indicator - Matches message-wrapper structure */}
                 {aiTyping && (
-                  <div className='typing-indicator'>
+                  <div className='message-wrapper received ai-message typing-message'>
                     <div
-                      className='typing-avatar'
+                      className='message-avatar'
                       style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        border: '2px solid var(--border-input)',
                       }}
                     >
                       <img
@@ -1471,30 +1471,17 @@ export default function ChatWindow() {
                         style={{ width: '20px', height: '20px' }}
                       />
                     </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px',
-                      }}
-                    >
-                      <div className='typing-dots'>
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                      {aiTypingStatus && (
-                        <div
-                          style={{
-                            color: 'var(--text-secondary)',
-                            fontSize: '12px',
-                            fontStyle: 'italic',
-                            marginLeft: '4px',
-                          }}
-                        >
-                          {aiTypingStatus}
+                    <div className='message-content-wrapper'>
+                      <div className='message typing-bubble'>
+                        <div className='typing-dots'>
+                          <span></span>
+                          <span></span>
+                          <span></span>
                         </div>
-                      )}
+                        {aiTypingStatus && (
+                          <span className='typing-status'>{aiTypingStatus}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
