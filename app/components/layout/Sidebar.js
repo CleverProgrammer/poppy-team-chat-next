@@ -7,6 +7,7 @@ import SignOutButton from '../auth/SignOutButton'
 import ChannelStoryRing from '../chat/ChannelStoryRing'
 import DMStoryRing from '../chat/DMStoryRing'
 import MyStoriesRing from '../chat/MyStoriesRing'
+import MyTasksModal from '../profile/MyTasksModal'
 
 export default function Sidebar({
   currentChat,
@@ -24,6 +25,7 @@ export default function Sidebar({
   const { isDevMode, toggleDevMode, canAccessDevMode } = useDevMode()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showMyTasks, setShowMyTasks] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -364,6 +366,15 @@ export default function Sidebar({
             <button
               className='user-menu-item'
               onClick={() => {
+                setShowMyTasks(true)
+                setShowUserMenu(false)
+              }}
+            >
+              📋 My Tasks
+            </button>
+            <button
+              className='user-menu-item'
+              onClick={() => {
                 setShowPasswordModal(true)
                 setShowUserMenu(false)
               }}
@@ -591,6 +602,16 @@ export default function Sidebar({
             </div>
           </div>
         </div>
+      )}
+
+      {/* My Tasks Modal */}
+      {showMyTasks && (
+        <MyTasksModal
+          user={user}
+          allUsers={allUsers}
+          onClose={() => setShowMyTasks(false)}
+          onSelectChat={onSelectChat}
+        />
       )}
     </div>
   )

@@ -2803,6 +2803,47 @@ export function subscribeToMyTasks(userId, userName, callback) {
 }
 
 /**
+ * Subscribe to all DM tasks where the user is a participant
+ * Used for "My Tasks" view in profile menu
+ * Shows all tasks visible to the user across all their DMs
+ */
+export function subscribeToMyDMTasks(userId, callback) {
+  if (!userId) {
+    callback([])
+    return () => {}
+  }
+
+  const tasksRef = collection(db, 'tasks')
+  
+  // Query all DM tasks, then filter client-side for ones where user is a participant
+  const q = query(
+    tasksRef,
+    where('chatType', '==', 'dm'),
+    orderBy('createdAt', 'desc')
+  )
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const tasks = []
+      snapshot.forEach(doc => {
+        const task = { id: doc.id, ...doc.data() }
+        // DM chatId format is "userId1_userId2" (sorted alphabetically)
+        // Check if current user is part of this DM
+        if (task.chatId && task.chatId.includes(userId)) {
+          tasks.push(task)
+        }
+      })
+      callback(tasks)
+    },
+    error => {
+      console.error('Error loading DM tasks:', error)
+      callback([])
+    }
+  )
+}
+
+/**
  * Mark tasks as viewed for a user/chat
  * This clears the "unread tasks" blue dot
  */
