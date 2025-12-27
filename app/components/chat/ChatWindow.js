@@ -259,6 +259,7 @@ export default function ChatWindow() {
     setReplyingTo,
     editingMessage,
     setEditingMessage,
+    messages, // Pass messages for AI image analysis context
     setMessages,
     setUploading,
     allUsers,

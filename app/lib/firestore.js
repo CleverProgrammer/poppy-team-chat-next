@@ -1019,7 +1019,8 @@ export async function sendMessageWithMedia(
   replyTo = null,
   mediaDimensions = [], // Array of { width, height } for each media item
   linkPreview = null,
-  options = {}
+  options = {},
+  recentMessages = [] // Recent messages for image analysis context
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
@@ -1098,6 +1099,12 @@ export async function sendMessageWithMedia(
 
     // Sync image to Ragie - analyze with Claude Vision and index
     if (imageUrls.length > 0) {
+      // Format recent messages for context (last 15, simplified)
+      const contextMessages = (recentMessages || [])
+        .slice(-15)
+        .map(m => ({ sender: m.sender, text: m.text }))
+        .filter(m => m.text) // Only include messages with text
+
       fetch('/api/ragie/sync-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1111,6 +1118,7 @@ export async function sendMessageWithMedia(
           senderEmail: user.email,
           senderId: user.uid,
           timestamp: new Date().toISOString(),
+          recentMessages: contextMessages,
         }),
       })
         .then(res => res.json())
@@ -1142,7 +1150,8 @@ export async function sendMessageDMWithMedia(
   replyTo = null,
   mediaDimensions = [], // Array of { width, height } for each media item
   linkPreview = null,
-  options = {}
+  options = {},
+  recentMessages = [] // Recent messages for image analysis context
 ) {
   if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
 
@@ -1238,6 +1247,12 @@ export async function sendMessageDMWithMedia(
 
     // Sync image to Ragie - analyze with Claude Vision and index
     if (imageUrls.length > 0) {
+      // Format recent messages for context (last 15, simplified)
+      const contextMessages = (recentMessages || [])
+        .slice(-15)
+        .map(m => ({ sender: m.sender, text: m.text }))
+        .filter(m => m.text) // Only include messages with text
+
       fetch('/api/ragie/sync-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1255,6 +1270,7 @@ export async function sendMessageDMWithMedia(
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
           recipientEmail: recipient?.email || null,
+          recentMessages: contextMessages,
         }),
       })
         .then(res => res.json())

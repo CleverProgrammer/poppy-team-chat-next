@@ -38,6 +38,7 @@ export function useMessageSending({
   setReplyingTo,
   editingMessage,
   setEditingMessage,
+  messages = [], // All messages for AI context
   setMessages,
   setUploading,
   allUsers,
@@ -286,7 +287,7 @@ export function useMessageSending({
       } else if (currentChat.type === 'channel') {
         // Send message with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions);
+          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions, messages);
         } else if (currentReplyingTo) {
           await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview, privateOptions);
         } else {
@@ -313,7 +314,7 @@ export function useMessageSending({
 
         // Send DM with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions);
+          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions, messages);
         } else if (currentReplyingTo) {
           await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient, linkPreview, privateOptions);
         } else {

@@ -76,13 +76,25 @@ async function fetchImageAsBase64(imageUrl) {
 /**
  * Analyze image with Claude Vision
  */
-async function analyzeImageWithClaude(imageUrl, accompanyingText = '') {
+async function analyzeImageWithClaude(imageUrl, accompanyingText = '', recentMessages = []) {
   const anthropic = new Anthropic({
     apiKey: process.env.KEYWORDS_AI_API_KEY,
     baseURL: 'https://api.keywordsai.co/api/anthropic/',
   })
 
   const { base64, mediaType } = await fetchImageAsBase64(imageUrl)
+
+  // Build chat context from recent messages
+  let chatContext = ''
+  if (recentMessages && recentMessages.length > 0) {
+    chatContext = `\n\n=== RECENT CHAT CONTEXT (last ${recentMessages.length} messages before this image) ===\n`
+    recentMessages.forEach(msg => {
+      if (msg.sender && msg.text) {
+        chatContext += `[${msg.sender}]: ${msg.text}\n`
+      }
+    })
+    chatContext += `=== END CONTEXT ===\n\nUse this context to better understand what the image might be about and who's involved in the conversation.`
+  }
 
   const basePrompt = `You are an image analyzer for an internal team chat app. Your job is to give context about what this image is about so it can help the team understand and reference it later.
 
@@ -96,13 +108,13 @@ Key elements to focus on:
 
 Speak in plain, natural language. Keep it short and punchy - 3-5 sentences max. Format as plain text, not markdown.
 
-At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. Use people's actual names when you can see them in the image! Don't say "someone" when the name is right there. Examples:
+At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. Use people's actual names when you can see them in the image OR from the chat context! Don't say "someone" when you know who's talking. Examples:
 - "tldr: Mohamed just hit his 1-year mark with Poppy, absolute legend 🔥"
 - "tldr: Rafeh cooking up a new landing page design, looks clean af"
 - "tldr: David and Naz going back and forth about the rebrand lol"
 - "tldr: Just a cute dog pic, nothing work-related here 🐕"
 
-Be personal. Use names. Talk like a team member, not a robot.`
+Be personal. Use names. Talk like a team member, not a robot.${chatContext}`
 
   const analysisPrompt = accompanyingText
     ? `${basePrompt}
@@ -160,6 +172,7 @@ export async function POST(request) {
       recipientName,
       recipientEmail,
       text, // Optional accompanying text
+      recentMessages, // Optional: last 10-20 messages for context
     } = await request.json()
 
     if (!messageId || !imageUrl || !chatId || !chatType) {
@@ -173,11 +186,14 @@ export async function POST(request) {
 
     // Step 1: Analyze image with Claude Vision
     console.log(`🔍 Claude Vision: Analyzing image...`)
+    if (recentMessages?.length) {
+      console.log(`📝 Context: Including ${recentMessages.length} recent messages`)
+    }
     let imageAnalysis = ''
     let tokens = { input: 0, output: 0 }
 
     try {
-      const result = await analyzeImageWithClaude(imageUrl, text)
+      const result = await analyzeImageWithClaude(imageUrl, text, recentMessages || [])
       imageAnalysis = result.analysis
       tokens = { input: result.inputTokens, output: result.outputTokens }
       
