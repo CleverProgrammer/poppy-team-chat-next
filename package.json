@@ -38,6 +38,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@use-gesture/react": "^10.3.1",
     "@wavesurfer/react": "^1.0.12",
+    "assemblyai": "^4.22.1",
     "browser-thumbnail-generator": "^1.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
