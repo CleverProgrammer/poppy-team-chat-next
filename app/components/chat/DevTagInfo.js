@@ -63,7 +63,8 @@ export default function DevTagInfo({ aiTags }) {
           e.stopPropagation()
           setShowModal(true)
         }}
-        className='inline-flex items-center gap-1.5 ml-5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity'
+        className='inline-flex items-center gap-1.5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity'
+        style={{ marginLeft: '20px' }}
         title='Click to see AI classification details'
       >
         {/* Cost */}
