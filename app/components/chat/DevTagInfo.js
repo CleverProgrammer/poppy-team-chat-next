@@ -14,28 +14,28 @@ export default function DevTagInfo({ aiTags }) {
   const cost = aiTags._cost
   const type = aiTags.type
 
-  // Type badge colors based on classification
+  // Type badge colors - very subtle/dim
   const getTypeBadgeClasses = (type) => {
     switch (type) {
       case 'task':
-        return 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+        return 'text-purple-400/50'
       case 'feature_request':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+        return 'text-blue-400/50'
       case 'question':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return 'text-yellow-400/50'
       case 'decision':
-        return 'bg-green-500/20 text-green-300 border-green-500/30'
+        return 'text-green-400/50'
       case 'bug_report':
-        return 'bg-red-500/20 text-red-300 border-red-500/30'
+        return 'text-red-400/50'
       case 'status_update':
-        return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+        return 'text-cyan-400/50'
       case 'blocker':
-        return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+        return 'text-orange-400/50'
       case 'praise':
-        return 'bg-pink-500/20 text-pink-300 border-pink-500/30'
+        return 'text-pink-400/50'
       case 'general':
       default:
-        return 'bg-gray-500/20 text-gray-300 border-gray-500/30'
+        return 'text-gray-400/50'
     }
   }
 
@@ -57,25 +57,25 @@ export default function DevTagInfo({ aiTags }) {
 
   return (
     <>
-      {/* Inline badge - clickable */}
+      {/* Dev info on new line - very subtle */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           setShowModal(true)
         }}
-        className="inline-flex items-center gap-1.5 ml-1.5 cursor-pointer hover:opacity-100 transition-opacity"
+        className="flex items-center gap-1 mt-0.5 cursor-pointer opacity-30 hover:opacity-60 transition-opacity"
         title="Click to see AI classification details"
       >
         {/* Cost */}
         {cost && (
-          <span className="text-[9px] font-mono text-gray-400 opacity-60">
+          <span className="text-[7px] font-mono text-gray-500">
             ${cost.toFixed(4)}
           </span>
         )}
         
-        {/* Type badge */}
+        {/* Type - just text, very dim */}
         {type && (
-          <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full border ${getTypeBadgeClasses(type)}`}>
+          <span className={`text-[7px] ${getTypeBadgeClasses(type)}`}>
             {type.replace('_', ' ')}
           </span>
         )}
