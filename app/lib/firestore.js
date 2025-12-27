@@ -25,13 +25,26 @@ async function saveCanonicalTag(aiTags) {
   if (!aiTags?.canonical_tag || aiTags.type === 'noise') return;
   
   try {
-    await setDoc(doc(db, 'canonical_tags', aiTags.canonical_tag), {
+    // Base update for any canonical tag
+    const updateData = {
       name: aiTags.canonical_tag,
-      type: aiTags.type || 'unknown',
       count: increment(1),
       lastSeen: serverTimestamp(),
-      summary: aiTags.summary || null
-    }, { merge: true });
+    };
+    
+    // Only set type/summary if this is the original (not an endorsement)
+    if (aiTags.type !== 'endorsement') {
+      updateData.type = aiTags.type || 'unknown';
+      if (aiTags.summary) updateData.summary = aiTags.summary;
+    }
+    
+    // If this is an endorsement, track the vote
+    if (aiTags.type === 'endorsement' && aiTags.endorser) {
+      updateData.votes = increment(1);
+      updateData.voters = arrayUnion(aiTags.endorser);
+    }
+    
+    await setDoc(doc(db, 'canonical_tags', aiTags.canonical_tag), updateData, { merge: true });
   } catch (err) {
     console.warn('Failed to save canonical tag:', err);
   }

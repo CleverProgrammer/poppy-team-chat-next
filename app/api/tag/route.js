@@ -246,6 +246,37 @@ Then tag generously. Multiple angles. The way a human brain would connect it.
 \`\`\`
 *Numbers extracted. Queryable.*
 
+**Message:** "yeah i agree we definitely need that"
+(context: someone just suggested adding dark mode)
+\`\`\`json
+{
+  "type": "endorsement",
+  "canonical_tag": "dark_mode",
+  "tags": ["dark_mode", "agreement", "support", "+1"],
+  "queries": ["who wants dark mode", "dark mode votes", "dark mode supporters"],
+  "endorser": "sawwa",
+  "endorses": "dark_mode",
+  "summary": "+1 for dark mode from Sawwa"
+}
+\`\`\`
+*Verbal agreement = vote. Links to original request via canonical_tag.*
+
+**Message:** "omg yes please!! I've been wanting this forever"
+(context: someone requested GIF support)
+\`\`\`json
+{
+  "type": "endorsement",
+  "canonical_tag": "gif_support",
+  "tags": ["gifs", "agreement", "enthusiasm", "+1"],
+  "queries": ["who wants gifs", "gif votes"],
+  "endorser": "athena",
+  "endorses": "gif_support",
+  "temperature": "hot",
+  "summary": "+1 for GIF support from Athena (enthusiastic)"
+}
+\`\`\`
+*Enthusiasm captured in temperature field.*
+
 **Message:** "haha"
 \`\`\`json
 {
@@ -399,6 +430,8 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     if (aiTags.temperature) console.log(`🌡️  Temperature:   ${aiTags.temperature}`)
     if (aiTags.assignee) console.log(`👤 Assignee:      ${aiTags.assignee}`)
     if (aiTags.assigner) console.log(`👤 Assigner:      ${aiTags.assigner}`)
+    if (aiTags.endorser) console.log(`✋ Endorser:      ${aiTags.endorser}`)
+    if (aiTags.endorses) console.log(`👍 Endorses:      ${aiTags.endorses}`)
     if (aiTags.status) console.log(`📊 Status:        ${aiTags.status}`)
     if (aiTags.due_date) console.log(`📅 Due Date:      ${aiTags.due_date}`)
     if (aiTags.votes) console.log(`👍 Votes:         ${aiTags.votes}`)
@@ -525,6 +558,8 @@ async function syncToRagie(data, aiTags) {
     if (aiTags.due_date) metadata.due_date = aiTags.due_date
     if (aiTags.votes) metadata.votes = aiTags.votes
     if (aiTags.voters) metadata.voters = aiTags.voters
+    if (aiTags.endorser) metadata.endorser = aiTags.endorser
+    if (aiTags.endorses) metadata.endorses = aiTags.endorses
     if (aiTags.participants) metadata.tag_participants = aiTags.participants
     if (aiTags.data) metadata.extracted_data = JSON.stringify(aiTags.data)
   }
