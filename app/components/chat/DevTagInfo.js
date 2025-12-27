@@ -57,25 +57,25 @@ export default function DevTagInfo({ aiTags }) {
 
   return (
     <>
-      {/* Dev info on new line - very subtle */}
+      {/* Inline dev info - subtle, with spacing from timestamp */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           setShowModal(true)
         }}
-        className="flex items-center gap-1 mt-0.5 cursor-pointer opacity-30 hover:opacity-60 transition-opacity"
+        className="inline-flex items-center gap-1 ml-3 cursor-pointer opacity-40 hover:opacity-70 transition-opacity"
         title="Click to see AI classification details"
       >
         {/* Cost */}
         {cost && (
-          <span className="text-[7px] font-mono text-gray-500">
+          <span className="text-[8px] font-mono text-gray-500">
             ${cost.toFixed(4)}
           </span>
         )}
         
-        {/* Type - just text, very dim */}
+        {/* Type - just text, dim */}
         {type && (
-          <span className={`text-[7px] ${getTypeBadgeClasses(type)}`}>
+          <span className={`text-[8px] ${getTypeBadgeClasses(type)}`}>
             {type.replace('_', ' ')}
           </span>
         )}
