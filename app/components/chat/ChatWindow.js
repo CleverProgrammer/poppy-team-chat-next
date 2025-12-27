@@ -219,6 +219,20 @@ export default function ChatWindow() {
     })
   }, [])
 
+  // Auto-scroll when typing indicator appears (if user is at bottom)
+  useEffect(() => {
+    if ((otherUserTyping || aiTyping) && shouldStayAtBottomRef.current) {
+      // Small delay to let the footer render first
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: 'LAST',
+          align: 'end',
+          behavior: 'smooth',
+        })
+      }, 50)
+    }
+  }, [otherUserTyping, aiTyping])
+
   // Message sending hook
   const {
     sending,
