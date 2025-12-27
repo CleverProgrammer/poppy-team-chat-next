@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import './mobile.css'
 import { AuthProvider } from './contexts/AuthContext'
+import { DeveloperModeProvider } from './contexts/DeveloperModeContext'
 import CapacitorProvider from './components/providers/CapacitorProvider'
 
 const geistSans = Geist({
@@ -58,7 +59,9 @@ export default function RootLayout({ children }) {
     <html lang='en'>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          <CapacitorProvider>{children}</CapacitorProvider>
+          <DeveloperModeProvider>
+            <CapacitorProvider>{children}</CapacitorProvider>
+          </DeveloperModeProvider>
         </AuthProvider>
       </body>
     </html>

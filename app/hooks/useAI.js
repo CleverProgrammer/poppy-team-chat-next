@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useContext } from 'react'
 import {
   sendMessage,
   sendMessageDM,
@@ -8,6 +8,7 @@ import {
   sendAIMessage,
   markChatAsUnread,
 } from '../lib/firestore'
+import { DeveloperModeContext } from '../contexts/DeveloperModeContext'
 
 const AI_USER = {
   uid: 'ai',
@@ -20,10 +21,14 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   const [aiProcessing, setAiProcessing] = useState(false)
   const [aiTyping, setAiTyping] = useState(false)
   const [aiTypingStatus, setAiTypingStatus] = useState('')
+  
+  // Get developer mode context
+  const developerMode = useContext(DeveloperModeContext)
+  const { isDeveloperModeEnabled: devModeEnabled, setUsageDataForMessage } = developerMode || {}
 
   // Call AI API with streaming support
   const callAI = useCallback(
-    async (question, chatHistory, onStatus = null) => {
+    async (question, chatHistory, onStatus = null, messageId = null) => {
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,6 +49,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
                 id: currentChat.id,
               }
             : null,
+          includeDeveloperData: devModeEnabled || false,
         }),
       })
 
@@ -56,6 +62,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let finalResponse = ''
+        let developerData = null
 
         while (true) {
           const { done, value } = await reader.read()
@@ -66,27 +73,35 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = JSON.parse(line.slice(6))
+              try {
+                const data = JSON.parse(line.slice(6))
 
-              if (data.status) {
-                onStatus(data.status)
-              } else if (data.response) {
-                finalResponse = data.response
-              } else if (data.error) {
-                throw new Error(data.error)
+                if (data.status) {
+                  onStatus(data.status)
+                } else if (data.response) {
+                  finalResponse = data.response
+                  if (data.developerData) {
+                    developerData = data.developerData
+                  }
+                } else if (data.error) {
+                  throw new Error(data.error)
+                }
+              } catch (parseError) {
+                // Skip malformed JSON lines
+                console.warn('Failed to parse SSE data:', parseError)
               }
             }
           }
         }
 
-        return finalResponse
+        return { response: finalResponse, developerData }
       }
 
       // Non-streaming fallback
       const data = await response.json()
-      return data.response
+      return { response: data.response, developerData: data.developerData || null }
     },
-    [user, currentChat]
+    [user, currentChat, devModeEnabled]
   )
 
   // Ask Poppy in channel/DM (posts response as message)
@@ -124,7 +139,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           setAiTypingStatus(status)
         }
 
-        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
+        const result = await callAI(userQuestion, messages.slice(-50), onStatus)
+        const aiResponse = result.response
+        const developerData = result.developerData
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
 
@@ -134,13 +151,21 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Post AI response as a real message (with same privacy as the question)
         const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
         
+        let messageId = null
         if (currentChat.type === 'channel') {
           // sendMessage signature: (channelId, user, text, linkPreview, options)
-          await sendMessage(currentChat.id, AI_USER, aiResponse, null, messageOptions)
+          const msgRef = await sendMessage(currentChat.id, AI_USER, aiResponse, null, messageOptions)
+          messageId = msgRef?.id
         } else {
           const dmId = getDMId(user.uid, currentChat.id)
           // sendMessageDM signature: (dmId, user, text, recipientId, recipient, linkPreview, options)
-          await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id, null, null, messageOptions)
+          const msgRef = await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id, null, null, messageOptions)
+          messageId = msgRef?.id
+        }
+
+        // Store developer data if available
+        if (developerData && setUsageDataForMessage && messageId) {
+          setUsageDataForMessage(messageId, developerData)
         }
 
         console.log(`📤 [${requestId}] Message posted to channel`)
@@ -167,7 +192,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         console.log(`🏁 [${requestId}] Request complete`)
       }
     },
-    [currentChat, user, messages, setMessages, virtuosoRef, callAI]
+    [currentChat, user, messages, setMessages, virtuosoRef, callAI, setUsageDataForMessage]
   )
 
   // Direct chat with Poppy (for AI chat type - saves to Firestore)
@@ -204,7 +229,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         }
 
         // Pass raw messages (same format as askPoppy) - API handles formatting
-        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
+        const result = await callAI(userQuestion, messages.slice(-50), onStatus)
+        const aiResponse = result.response
+        const developerData = result.developerData
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
 
@@ -212,7 +239,13 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         setAiTyping(false)
 
         // Save AI response to Firestore
-        await sendAIMessage(user.uid, aiResponse, true)
+        const msgRef = await sendAIMessage(user.uid, aiResponse, true)
+        const messageId = msgRef?.id
+
+        // Store developer data if available
+        if (developerData && setUsageDataForMessage && messageId) {
+          setUsageDataForMessage(messageId, developerData)
+        }
 
         // Mark AI chat as unread for the user
         markChatAsUnread(user.uid, 'ai', 'poppy-ai')
@@ -234,7 +267,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         console.log(`🏁 [${requestId}] Request complete`)
       }
     },
-    [user, messages, setMessages, virtuosoRef, callAI]
+    [user, messages, setMessages, virtuosoRef, callAI, setUsageDataForMessage]
   )
 
   return {

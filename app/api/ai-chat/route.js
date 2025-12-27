@@ -4,6 +4,38 @@ import { searchChatHistory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 
+// Pricing per 1M tokens (as of Dec 2024)
+const CLAUDE_PRICING = {
+  'claude-sonnet-4-5-20250929': {
+    input: 3.00,   // $3 per 1M input tokens
+    output: 15.00, // $15 per 1M output tokens
+  },
+  'claude-3-5-sonnet-20241022': {
+    input: 3.00,
+    output: 15.00,
+  },
+  'claude-3-opus-20240229': {
+    input: 15.00,
+    output: 75.00,
+  },
+  'claude-3-haiku-20240307': {
+    input: 0.25,
+    output: 1.25,
+  },
+}
+
+// Calculate cost from token usage
+function calculateCost(model, inputTokens, outputTokens) {
+  const pricing = CLAUDE_PRICING[model] || CLAUDE_PRICING['claude-sonnet-4-5-20250929']
+  const inputCost = (inputTokens / 1_000_000) * pricing.input
+  const outputCost = (outputTokens / 1_000_000) * pricing.output
+  return {
+    inputCost,
+    outputCost,
+    totalCost: inputCost + outputCost,
+  }
+}
+
 // Initialize Keywords AI Telemetry with manual instrumentation
 const keywordsAi = new KeywordsAITelemetry({
   apiKey: process.env.KEYWORDS_AI_API_KEY || '',
@@ -67,8 +99,20 @@ async function processAIRequest(
   sendStatus = null,
   controller = null,
   encoder = null,
-  workflowId = null
+  workflowId = null,
+  includeDeveloperData = false
 ) {
+  // Track usage data for developer mode
+  const usageTracker = {
+    model: 'claude-sonnet-4-5-20250929',
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    apiCalls: 0,
+    toolCalls: [],
+    ragieSearches: [],
+    startTime: Date.now(),
+  }
+
   // Build system prompt with user context and current time
   const now = new Date()
   const dateTimeContext = `
@@ -364,6 +408,13 @@ Don't ask permission to search or remember things - just do it.
         return response
       }
     )
+    
+    // Track usage from initial API call
+    usageTracker.apiCalls++
+    if (data.usage) {
+      usageTracker.totalInputTokens += data.usage.input_tokens || 0
+      usageTracker.totalOutputTokens += data.usage.output_tokens || 0
+    }
   } catch (error) {
     console.error('🤖 Poppy AI: API Error:', error)
     throw new Error(`API error: ${error.message}`)
@@ -405,6 +456,8 @@ Don't ask permission to search or remember things - just do it.
       console.log(`${'='.repeat(50)}`)
 
       if (sendStatus) sendStatus(`Using ${toolUse.name}...`)
+      
+      const toolStartTime = Date.now()
 
       try {
         let toolResponse
@@ -417,8 +470,8 @@ Don't ask permission to search or remember things - just do it.
             console.log(`🔍 RAGIE: Date filter - from: ${toolUse.input.startDate || 'any'} to: ${toolUse.input.endDate || 'any'}`)
           }
           const results = await searchChatHistory(
-            userId, 
-            toolUse.input.query, 
+            userId,
+            toolUse.input.query,
             currentChat,
             toolUse.input.startDate,
             toolUse.input.endDate
@@ -428,6 +481,15 @@ Don't ask permission to search or remember things - just do it.
           if (results.length > 0) {
             console.log(`🔍 RAGIE: Sample result:`, results[0])
           }
+          
+          // Track Ragie search for developer mode
+          usageTracker.ragieSearches.push({
+            query: toolUse.input.query,
+            startDate: toolUse.input.startDate || null,
+            endDate: toolUse.input.endDate || null,
+            resultsCount: results.length,
+            durationMs: Date.now() - toolStartTime,
+          })
         } else {
           // Call MCP tools with tracing
           console.log(`${toolCategory}: Executing for user ${userId}`)
@@ -445,6 +507,15 @@ Don't ask permission to search or remember things - just do it.
             }
           )
         }
+        
+        // Track tool call for developer mode
+        usageTracker.toolCalls.push({
+          name: toolUse.name,
+          category: toolCategory.replace(/[^\w]/g, ''),
+          input: toolUse.input,
+          durationMs: Date.now() - toolStartTime,
+          success: true,
+        })
 
         // Truncate response if too large (prevent token limit errors)
         let responseContent = JSON.stringify(toolResponse.content)
@@ -480,6 +551,16 @@ Don't ask permission to search or remember things - just do it.
           tool_use_id: toolUse.id,
           content: JSON.stringify({ error: error.message }),
           is_error: true,
+        })
+        
+        // Track failed tool call
+        usageTracker.toolCalls.push({
+          name: toolUse.name,
+          category: toolCategory.replace(/[^\w]/g, ''),
+          input: toolUse.input,
+          durationMs: Date.now() - toolStartTime,
+          success: false,
+          error: error.message,
         })
       }
     }
@@ -548,6 +629,13 @@ Don't ask permission to search or remember things - just do it.
       },
     })
     console.log('🤖 Poppy AI: Got response after tool use')
+    
+    // Track usage from tool retry API call
+    usageTracker.apiCalls++
+    if (data.usage) {
+      usageTracker.totalInputTokens += data.usage.input_tokens || 0
+      usageTracker.totalOutputTokens += data.usage.output_tokens || 0
+    }
   }
 
   // Extract final text from response
@@ -566,18 +654,41 @@ Don't ask permission to search or remember things - just do it.
   const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!'
 
   if (sendStatus) sendStatus('Done!')
+  
+  // Calculate final usage stats
+  const endTime = Date.now()
+  const costs = calculateCost(usageTracker.model, usageTracker.totalInputTokens, usageTracker.totalOutputTokens)
+  
+  const developerData = includeDeveloperData ? {
+    model: usageTracker.model,
+    inputTokens: usageTracker.totalInputTokens,
+    outputTokens: usageTracker.totalOutputTokens,
+    totalTokens: usageTracker.totalInputTokens + usageTracker.totalOutputTokens,
+    inputCost: costs.inputCost,
+    outputCost: costs.outputCost,
+    totalCost: costs.totalCost,
+    apiCalls: usageTracker.apiCalls,
+    toolCalls: usageTracker.toolCalls,
+    ragieSearches: usageTracker.ragieSearches,
+    durationMs: endTime - usageTracker.startTime,
+    workflowId: workflowId,
+  } : null
 
-  // If streaming, send the final response
+  // If streaming, send the final response with developer data
   if (controller && encoder) {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`))
+    const responseData = { response: aiResponse }
+    if (developerData) {
+      responseData.developerData = developerData
+    }
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify(responseData)}\n\n`))
   }
 
-  return aiResponse
+  return { response: aiResponse, developerData }
 }
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user, currentChat } = await request.json()
+    const { message, chatHistory, stream, user, currentChat, includeDeveloperData } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -626,7 +737,8 @@ export async function POST(request) {
                   sendStatus,
                   controller,
                   encoder,
-                  workflowId
+                  workflowId,
+                  includeDeveloperData || false
                 )
               }
             )
@@ -651,7 +763,7 @@ export async function POST(request) {
     }
 
     // Non-streaming mode - wrap in workflow for tracing
-    const aiResponse = await keywordsAi.withWorkflow(
+    const result = await keywordsAi.withWorkflow(
       {
         name: 'poppy_ai_chat',
         metadata: {
@@ -671,11 +783,18 @@ export async function POST(request) {
           null,
           null,
           null,
-          workflowId
+          workflowId,
+          includeDeveloperData || false
         )
       }
     )
-    return NextResponse.json({ response: aiResponse })
+    
+    // Return response with optional developer data
+    const responsePayload = { response: result.response }
+    if (result.developerData) {
+      responsePayload.developerData = result.developerData
+    }
+    return NextResponse.json(responsePayload)
   } catch (error) {
     console.error('Error in AI chat route:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

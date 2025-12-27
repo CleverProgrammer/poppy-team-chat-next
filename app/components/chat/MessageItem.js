@@ -18,6 +18,8 @@ import { updateMessageMediaDimensions, updateMessageLinkPreview, getDMId } from 
 import LinkPreview from './LinkPreview'
 import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
 import { cn } from '../../utils/cn'
+import DevModePill from '../dev/DevModePill'
+import DevModeDetailModal from '../dev/DevModeDetailModal'
 
 // Maximum dimensions for single images/videos
 const MAX_MEDIA_WIDTH = 240
@@ -126,6 +128,8 @@ export default function MessageItem({
   const [storiesInitialIndex, setStoriesInitialIndex] = useState(0)
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
+  const [devModeModalOpen, setDevModeModalOpen] = useState(false)
+  const [devModeModalData, setDevModeModalData] = useState(null)
   const lastTapTime = useRef(0)
   const secondLastTapTime = useRef(0) // For triple-tap detection
   const doubleTapTimer = useRef(null) // Delay double-tap to check for triple-tap
@@ -1068,6 +1072,16 @@ export default function MessageItem({
               } : undefined}
             />
           )}
+          {/* Developer Mode Pill - only for AI messages */}
+          {msg.senderId === 'ai' && (
+            <DevModePill
+              messageId={msg.id}
+              onShowDetails={(messageId, usageData) => {
+                setDevModeModalData({ messageId, usageData })
+                setDevModeModalOpen(true)
+              }}
+            />
+          )}
         </div>
         </div>
         {/* End message-row */}
@@ -1200,6 +1214,17 @@ export default function MessageItem({
         onClose={() => setStoriesOpen(false)}
         videos={storiesVideos}
         initialIndex={storiesInitialIndex}
+      />
+      
+      {/* Developer Mode Detail Modal */}
+      <DevModeDetailModal
+        isOpen={devModeModalOpen}
+        onClose={() => {
+          setDevModeModalOpen(false)
+          setDevModeModalData(null)
+        }}
+        messageId={devModeModalData?.messageId}
+        usageData={devModeModalData?.usageData}
       />
     </div>
   )
