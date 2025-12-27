@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
-export default function TasksModal({ isOpen, onClose, user, currentChat }) {
+export default function TasksModal({ isOpen, onClose, user, currentChat, allUsers = [] }) {
   const [tasks, setTasks] = useState([])
   const [showCompleted, setShowCompleted] = useState(false)
 
@@ -49,6 +49,13 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
     }
   }
 
+  // Get assignee photo from allUsers
+  const getAssigneePhoto = (task) => {
+    if (!task.assignedToUserId) return null
+    const assignee = allUsers.find(u => u.uid === task.assignedToUserId)
+    return assignee?.photoURL || null
+  }
+
   const openTasks = tasks.filter(t => !t.completed)
   const completedTasks = tasks.filter(t => t.completed)
 
@@ -58,19 +65,9 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
         className='w-full max-w-[600px] p-0 gap-0 border-0 rounded-[28px] overflow-hidden shadow-2xl [&>button]:hidden'
         style={{ backgroundColor: '#1a1625', minHeight: '400px' }}
       >
-        {/* Simple header - just "Tasks" with count */}
+        {/* Simple header - just "Tasks" */}
         <div style={{ padding: '32px 40px 24px 40px' }}>
-          <div className='flex items-center gap-3'>
-            <span className='text-white font-semibold text-xl'>Tasks</span>
-            {openTasks.length > 0 && (
-              <span 
-                className='text-sm px-2.5 py-0.5 rounded-full'
-                style={{ backgroundColor: 'rgba(167,139,250,0.2)', color: 'rgba(167,139,250,0.9)' }}
-              >
-                {openTasks.length} open
-              </span>
-            )}
-          </div>
+          <span className='text-white font-semibold text-xl'>Tasks</span>
         </div>
 
         {/* Tasks list */}
@@ -90,6 +87,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
                   task={task}
                   onToggle={handleToggle}
                   formatDueDate={formatDueDate}
+                  assigneePhoto={getAssigneePhoto(task)}
                 />
               ))}
 
@@ -118,6 +116,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
                       task={task}
                       onToggle={handleToggle}
                       formatDueDate={formatDueDate}
+                      assigneePhoto={getAssigneePhoto(task)}
                     />
                   ))}
                 </>
@@ -130,13 +129,13 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
   )
 }
 
-function TaskItem({ task, onToggle, formatDueDate }) {
+function TaskItem({ task, onToggle, formatDueDate, assigneePhoto }) {
   const dueDate = formatDueDate(task.dueDate)
   const hasDueDate = !!dueDate && !task.completed
 
   return (
     <div
-      className='flex items-start gap-5 cursor-pointer group'
+      className='flex items-start gap-5 cursor-pointer group relative'
       style={{ padding: '14px 0' }}
       onClick={(e) => onToggle(e, task.id)}
     >
@@ -176,22 +175,34 @@ function TaskItem({ task, onToggle, formatDueDate }) {
           {task.title}
         </span>
 
-        {/* Due date pill */}
-        {hasDueDate && (
-          <div 
-            className='flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px]'
-            style={{ 
-              backgroundColor: 'rgba(167,139,250,0.1)',
-              color: 'rgba(167,139,250,0.8)'
-            }}
-          >
-            <span 
-              className='w-1.5 h-1.5 rounded-full'
-              style={{ backgroundColor: '#ef4444' }}
+        <div className='flex items-center gap-3 flex-shrink-0'>
+          {/* Assignee photo - subtle and semi-transparent */}
+          {assigneePhoto && (
+            <img 
+              src={assigneePhoto} 
+              alt=''
+              className='w-6 h-6 rounded-full'
+              style={{ opacity: task.completed ? 0.3 : 0.5 }}
             />
-            {dueDate}
-          </div>
-        )}
+          )}
+
+          {/* Due date pill */}
+          {hasDueDate && (
+            <div 
+              className='flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px]'
+              style={{ 
+                backgroundColor: 'rgba(167,139,250,0.1)',
+                color: 'rgba(167,139,250,0.8)'
+              }}
+            >
+              <span 
+                className='w-1.5 h-1.5 rounded-full'
+                style={{ backgroundColor: '#ef4444' }}
+              />
+              {dueDate}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

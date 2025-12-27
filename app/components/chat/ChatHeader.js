@@ -279,6 +279,7 @@ export default function ChatHeader({
         onClose={() => setShowTasksModal(false)}
         user={currentUser}
         currentChat={currentChat}
+        allUsers={allUsers}
       />
     </>
   )
