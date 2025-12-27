@@ -32,6 +32,7 @@
     "@mux/mux-node": "^12.8.1",
     "@mux/mux-player-react": "^3.10.2",
     "@notionhq/notion-mcp-server": "^1.9.1",
+    "@tanstack/react-virtual": "^3.13.13",
     "@use-gesture/react": "^10.3.1",
     "@wavesurfer/react": "^1.0.12",
     "browser-thumbnail-generator": "^1.0.3",

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
 import StoriesViewer from './StoriesViewer'
@@ -44,11 +44,17 @@ function ImageWithSkeleton({
   // For on-demand migration
   onDimensionsMigrate,
   imageIndex = 0,
+  // Fallback aspect ratio for legacy images without dimensions
+  fallbackAspectRatio = '4 / 3',
 }) {
   const [loaded, setLoaded] = useState(false)
-  const [displayDimensions, setDisplayDimensions] = useState(
-    width && height ? { width, height } : null
-  )
+  // State for migrated dimensions (only used when props don't have dimensions)
+  const [migratedDimensions, setMigratedDimensions] = useState(null)
+
+  // Use props if available, fall back to migrated dimensions
+  const effectiveDimensions = (width && height) 
+    ? { width, height } 
+    : migratedDimensions
 
   const handleLoad = (e) => {
     const img = e.target
@@ -60,12 +66,19 @@ function ImageWithSkeleton({
         width: img.naturalWidth, 
         height: img.naturalHeight 
       }
-      setDisplayDimensions(actualDimensions)
+      setMigratedDimensions(actualDimensions)
       
       // Notify parent to update Firestore
       onDimensionsMigrate?.(imageIndex, actualDimensions)
     }
   }
+
+  // Calculate actual display width to prevent flex collapse
+  // Use the smaller of: original width, maxWidth
+  // This ensures the container has a real size even with opacity:0 content
+  const displayWidth = effectiveDimensions
+    ? Math.min(maxWidth || 320, effectiveDimensions.width)
+    : maxWidth || 320
 
   return (
     <div 
@@ -73,13 +86,14 @@ function ImageWithSkeleton({
         'rounded-xl overflow-hidden cursor-pointer relative',
         'hover:scale-[1.02] transition-transform'
       )}
-      style={{ maxWidth, maxHeight }}
+      style={{ width: displayWidth, maxWidth, maxHeight }}
       onClick={onClick}
     >
       <SkeletonView
-        width={displayDimensions?.width}
-        height={displayDimensions?.height}
+        width={effectiveDimensions?.width}
+        height={effectiveDimensions?.height}
         loaded={loaded}
+        fallbackAspectRatio={fallbackAspectRatio}
       >
         <img
           src={src}
@@ -92,7 +106,7 @@ function ImageWithSkeleton({
   )
 }
 
-export default function MessageItem({
+function MessageItemComponent({
   msg,
   index,
   messages,
@@ -997,6 +1011,8 @@ export default function MessageItem({
                   const dim = dimensions[idx]
                   const maxWidth = isMultiImage ? MAX_MULTI_IMAGE_WIDTH : MAX_MEDIA_WIDTH
                   const maxHeight = isMultiImage ? MAX_MULTI_IMAGE_HEIGHT : MAX_MEDIA_HEIGHT
+                  // Use 1:1 fallback for multi-image grids, 4:3 for single images
+                  const fallback = isMultiImage ? '1 / 1' : '4 / 3'
                   
                   return (
                     <ImageWithSkeleton
@@ -1009,6 +1025,7 @@ export default function MessageItem({
                       maxHeight={maxHeight}
                       imageIndex={idx}
                       onDimensionsMigrate={needsMigration ? handleDimensionsMigrate : undefined}
+                      fallbackAspectRatio={fallback}
                       onClick={e => {
                         e.stopPropagation()
                         onImageClick(allImages, idx)
@@ -1204,3 +1221,33 @@ export default function MessageItem({
     </div>
   )
 }
+
+// Custom comparison - only re-render if message content/state actually changed
+function areEqual(prevProps, nextProps) {
+  // Different message = must re-render
+  if (prevProps.msg.id !== nextProps.msg.id) return false
+  
+  // Content changed (edit)
+  if (prevProps.msg.text !== nextProps.msg.text) return false
+  
+  // Reactions changed
+  if (JSON.stringify(prevProps.msg.reactions) !== JSON.stringify(nextProps.msg.reactions)) return false
+  
+  // Reply count changed
+  if (prevProps.msg.replyCount !== nextProps.msg.replyCount) return false
+  
+  // Currently being replied to
+  if (prevProps.replyingTo !== nextProps.replyingTo) return false
+  
+  // isInThreadView or isOriginalInThread changed
+  if (prevProps.isInThreadView !== nextProps.isInThreadView) return false
+  if (prevProps.isOriginalInThread !== nextProps.isOriginalInThread) return false
+  
+  // User changed (rare but possible)
+  if (prevProps.user?.uid !== nextProps.user?.uid) return false
+  
+  // Ignore index changes - virtualizer handles positioning
+  return true
+}
+
+export default memo(MessageItemComponent, areEqual)

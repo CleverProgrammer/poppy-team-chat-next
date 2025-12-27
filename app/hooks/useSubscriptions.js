@@ -43,6 +43,8 @@ export function useSubscriptions({
   const isTabHiddenRef = useRef(false)
   const isInitialLoadRef = useRef(true)
   const globalMessageCountsRef = useRef({})
+  const hasFreshDataRef = useRef(false) // Track if Firestore has delivered fresh data
+  const [hasFreshData, setHasFreshData] = useState(false)
 
   // Load saved chat on mount - check localStorage first for instant load
   useEffect(() => {
@@ -110,14 +112,15 @@ export function useSubscriptions({
   // Subscribe to last messages for sidebar previews (DMs)
   useEffect(() => {
     if (!user || activeDMs.length === 0) {
-      setLastMessages({})
       return
     }
 
     const unsubscribe = subscribeToLastMessages(user.uid, activeDMs, messages => {
       setLastMessages(messages)
     })
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+    }
   }, [user, activeDMs])
 
   // Subscribe to last messages for channels
@@ -133,14 +136,16 @@ export function useSubscriptions({
   // Subscribe to last AI message
   useEffect(() => {
     if (!user) {
-      setAILastMessage(null)
-      return
+      return () => setAILastMessage(null)
     }
 
     const unsubscribe = subscribeToAILastMessage(user.uid, message => {
       setAILastMessage(message)
     })
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      setAILastMessage(null)
+    }
   }, [user])
 
   // Global sound notifications - listen to ALL chats for notifications
@@ -276,6 +281,9 @@ export function useSubscriptions({
     // Reset initial load flag when switching chats
     isInitialLoadRef.current = true
     previousMessagesRef.current = []
+    
+    // Reset fresh data flag when switching chats (ref is sync, state via cleanup)
+    hasFreshDataRef.current = false
 
     // Mark chat as read immediately when entering it
     markChatAsRead(user.uid, currentChat.type, currentChat.id)
@@ -284,24 +292,30 @@ export function useSubscriptions({
     const cacheKey = `poppy_messages_${currentChat.type}_${currentChat.id}`
 
     // Load cached messages INSTANTLY while Firestore fetches fresh data
-    try {
-      const cachedMessages = localStorage.getItem(cacheKey)
-      if (cachedMessages) {
-        const parsed = JSON.parse(cachedMessages)
-        console.log(`⚡ Instant messages from cache: ${parsed.length} messages`)
-        setMessages(parsed)
-        messagesRef.current = parsed
-        setCurrentMessages(parsed)
-      }
-    } catch (e) {
-      console.warn('Failed to load cached messages:', e)
-    }
-
-    // Helper to cache messages (last 30 for quick load)
-    const cacheMessages = messages => {
+    // Using queueMicrotask to avoid "setState in effect" warning while staying near-instant
+    queueMicrotask(() => {
       try {
-        // Only cache the last 30 messages to keep localStorage small
-        const toCache = messages.slice(-30)
+        const cachedMessages = localStorage.getItem(cacheKey)
+        if (cachedMessages) {
+          const parsed = JSON.parse(cachedMessages)
+          // Only set cached messages if we don't have fresh data yet
+          if (!hasFreshDataRef.current) {
+            setMessages(parsed)
+            messagesRef.current = parsed
+            setCurrentMessages(parsed)
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load cached messages:', e)
+      }
+    })
+
+    // Helper to cache messages (last 50 to match Firestore initial load)
+    const cacheMessages = (messages) => {
+      try {
+        // Cache last 50 messages to match Firestore initial load count
+        // This ensures smooth replacement when fresh data arrives
+        const toCache = messages.slice(-50)
         localStorage.setItem(cacheKey, JSON.stringify(toCache))
       } catch (e) {
         console.warn('Failed to cache messages:', e)
@@ -323,6 +337,10 @@ export function useSubscriptions({
       unsubscribe = subscribeToMessages(
         currentChat.id,
         newMessages => {
+          // Mark that we have fresh Firestore data (blocks loadOlder on cached data)
+          hasFreshDataRef.current = true
+          setHasFreshData(true)
+          
           const filteredMessages = filterPrivateMessages(newMessages)
           setMessages(filteredMessages)
           messagesRef.current = filteredMessages
@@ -330,13 +348,17 @@ export function useSubscriptions({
           cacheMessages(filteredMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
-        100
-      ) // Load 100 initial messages
+        50
+      )
     } else if (currentChat.type === 'dm') {
       const dmId = getDMId(user.uid, currentChat.id)
       unsubscribe = subscribeToMessagesDM(
         dmId,
         newMessages => {
+          // Mark that we have fresh Firestore data (blocks loadOlder on cached data)
+          hasFreshDataRef.current = true
+          setHasFreshData(true)
+          
           const filteredMessages = filterPrivateMessages(newMessages)
           setMessages(filteredMessages)
           messagesRef.current = filteredMessages
@@ -344,10 +366,14 @@ export function useSubscriptions({
           cacheMessages(filteredMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
-        100
-      ) // Load 100 initial messages
+        50
+      )
     } else if (currentChat.type === 'ai') {
       unsubscribe = subscribeToAIMessages(user.uid, newMessages => {
+        // Mark that we have fresh Firestore data (blocks loadOlder on cached data)
+        hasFreshDataRef.current = true
+        setHasFreshData(true)
+        
         setMessages(newMessages)
         messagesRef.current = newMessages
         setCurrentMessages(newMessages)
@@ -355,14 +381,16 @@ export function useSubscriptions({
       })
     }
 
-    return () => unsubscribe?.()
+    return () => {
+      unsubscribe?.()
+      setHasFreshData(false)
+    }
   }, [currentChat, user, setMessages])
 
   // Subscribe to typing status (DMs only)
   useEffect(() => {
     if (!currentChat || !user || currentChat.type !== 'dm') {
-      setOtherUserTyping(false)
-      return
+      return () => setOtherUserTyping(false)
     }
 
     const dmId = getDMId(user.uid, currentChat.id)
@@ -370,7 +398,10 @@ export function useSubscriptions({
       setOtherUserTyping(isTyping)
     })
 
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      setOtherUserTyping(false)
+    }
   }, [currentChat, user])
 
   // Track tab visibility
@@ -405,11 +436,9 @@ export function useSubscriptions({
   // Mark DM messages as read when viewing them
   useEffect(() => {
     if (!user || !currentChat || currentChat.type !== 'dm') return
+    if (currentMessages.length === 0) return
 
-    const messages = messagesRef.current
-    if (messages.length === 0) return
-
-    const unreadMessages = messages.filter(
+    const unreadMessages = currentMessages.filter(
       msg => msg.senderId !== user.uid && (!msg.readBy || !msg.readBy[user.uid])
     )
 
@@ -423,7 +452,7 @@ export function useSubscriptions({
 
       return () => clearTimeout(timer)
     }
-  }, [messagesRef.current, user, currentChat])
+  }, [currentMessages, user, currentChat])
 
   return {
     allUsers,
@@ -432,5 +461,6 @@ export function useSubscriptions({
     channelLastMessages,
     aiLastMessage,
     otherUserTyping,
+    hasFreshData, // Blocks loadOlder until Firestore delivers fresh data
   }
 }
