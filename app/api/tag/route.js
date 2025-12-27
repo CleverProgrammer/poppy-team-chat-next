@@ -28,7 +28,11 @@ async function trackAIUsage({
   chatType,
 }) {
   try {
-    await adminDb.collection('ai_usage').add({
+    // Create readable doc ID: userName_timestamp (e.g., "rafeh_qazi_1735123456789")
+    const nameSlug = (userName || 'unknown').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+    const docId = `${nameSlug}_${Date.now()}`
+    
+    await adminDb.collection('ai_usage').doc(docId).set({
       timestamp: new Date().toISOString(),
       type,
       model,
