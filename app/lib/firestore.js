@@ -402,9 +402,11 @@ export async function sendMessageDM(
             summary: data.aiTags.summary,
           })
 
-          // Auto-create task if AI detected this as a task or feature_request
-          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
-            console.log('📋 Creating task from type:', data.aiTags.type)
+          // Auto-create or update task if AI detected task-related type
+          // status_update with a canonical_tag can mark existing tasks as complete
+          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request' || 
+              (data.aiTags.type === 'status_update' && data.aiTags.canonical_tag)) {
+            console.log('📋 Task action from type:', data.aiTags.type, '| status:', data.aiTags.status)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
@@ -946,8 +948,10 @@ export async function sendMessageDMWithImage(
             )
             saveCanonicalTag(data.aiTags)
 
-            // Auto-create task if AI detected this as a task
-            if (data.aiTags.type === 'task') {
+            // Auto-create or update task if AI detected task-related type
+            if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request' || 
+                (data.aiTags.type === 'status_update' && data.aiTags.canonical_tag)) {
+              console.log('📋 Task action from type:', data.aiTags.type, '| status:', data.aiTags.status)
               createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
             }
           }
@@ -1684,9 +1688,11 @@ export async function sendMessageDMWithReply(
             summary: data.aiTags.summary,
           })
 
-          // Auto-create task if AI detected this as a task or feature_request
-          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
-            console.log('📋 Creating task from type:', data.aiTags.type)
+          // Auto-create or update task if AI detected task-related type
+          // status_update with a canonical_tag can mark existing tasks as complete
+          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request' || 
+              (data.aiTags.type === 'status_update' && data.aiTags.canonical_tag)) {
+            console.log('📋 Task action from type:', data.aiTags.type, '| status:', data.aiTags.status)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
