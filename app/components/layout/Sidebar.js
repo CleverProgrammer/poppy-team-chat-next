@@ -174,7 +174,21 @@ export default function Sidebar({
     
     if (message.imageUrl || message.imageUrls?.length > 0) {
       const imageCount = message.imageUrls?.length || 1
-      return `${imageCount} Photo${imageCount > 1 ? 's' : ''}`
+      const photoLabel = imageCount > 1 ? 'Photos' : 'Photo'
+      
+      // Try to extract TLDR from imageAnalysis
+      if (message.imageAnalysis) {
+        const tldrMatch = message.imageAnalysis.match(/tldr:\s*(.+?)(?:\n|$)/i)
+        if (tldrMatch) {
+          const tldr = tldrMatch[1].trim()
+          const maxLength = 60
+          const truncatedTldr = tldr.length > maxLength ? tldr.substring(0, maxLength) + '...' : tldr
+          return `✨ ${photoLabel}: ${truncatedTldr}`
+        }
+      }
+      
+      // Fallback if no analysis yet
+      return `📷 ${imageCount} ${photoLabel}`
     }
     
     if (message.muxPlaybackIds?.length > 0) {
@@ -461,7 +475,7 @@ export default function Sidebar({
                   <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
                 </div>
                 <div className='dm-preview'>
-                  {lastMsg ? (lastMsg.text?.substring(0, 80) || 'Attachment') : 'No messages yet'}
+                  {getPreviewText(lastMsg)}
                 </div>
               </div>
             </div>
