@@ -8,443 +8,311 @@ When someone asks "what was that thing about..." or "didn't someone mention..." 
 
 ---
 
-## How It Works
+## Architecture Overview
 
 ```
-1. User sends message
-    ↓
-2. Stored in Firestore (instant, non-blocking)
-    ↓
-3. Async: POST /api/tag (AI tagging runs in background)
-    ↓
-4. Fetch last 20 messages for context
-    ↓
-5. Claude returns tags JSON
-    ↓
-┌─────────────────────────────────────────────┐
-│                                             │
-▼                                             ▼
-UPDATE FIRESTORE                        SYNC TO RAGIE
-(message.tags field)                  (tags become searchable
-                                       metadata)
+┌─────────────────────────────────────────────────────────────────────┐
+│                         USER SENDS MESSAGE                          │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    STORED IN FIRESTORE (instant)                    │
+│              messages/{channelId}/messages/{messageId}              │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼ (async, non-blocking)
+┌─────────────────────────────────────────────────────────────────────┐
+│                      POST /api/tag (background)                     │
+│                                                                     │
+│  1. Fetch last 20 messages for context                              │
+│  2. Load existing canonical_tags from in-memory cache               │
+│  3. Call Claude Sonnet 4.5 with tagging prompt                      │
+│  4. Parse JSON response                                             │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+┌───────────────────────────────┐   ┌───────────────────────────────┐
+│     UPDATE IN-MEMORY CACHE    │   │      PERSIST TO FIRESTORE     │
+│                               │   │                               │
+│  canonicalTagsCache.set(...)  │   │  canonical_tags/{tagId}       │
+│  (for deduplication)          │   │  - votes, voters, summary     │
+└───────────────────────────────┘   └───────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      SYNC TO RAGIE (indexed)                        │
+│                                                                     │
+│  - Message text + AI summary + keywords + queries                   │
+│  - Metadata: type, canonical_tag, voter, priority, etc.             │
+│  - Powers Poppy AI's search_chat_history tool                       │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Firestore** → Stores tags on message doc. Powers UI (show tags, filter by type)
+---
 
-**Ragie** → Gets tags as metadata. Powers AI search ("that feature camryn wanted")
+## Files
+
+| File | Purpose |
+|------|---------|
+| `app/api/tag/route.js` | Main tagging endpoint - calls Claude, persists to Firestore + Ragie |
+| `app/lib/retrieval-router.js` | `searchChatHistory()` and `getTopicVotes()` functions |
+| `app/lib/firebase-admin.js` | Firebase Admin SDK for server-side Firestore access |
+| `app/lib/firestore.js` | Client-side message sending (calls /api/tag) |
+| `app/api/ai-chat/route.js` | Poppy AI chat - uses search_chat_history and get_topic_votes tools |
+| `app/contexts/DevModeContext.js` | Dev mode toggle for showing costs in UI |
+
+---
+
+## Vote Tracking System
+
+### How It Works
+
+When someone expresses interest/agreement/commitment, the AI outputs a `voter` field:
+
+```
+Message: "yo i'm down to go to switzerland"
+        ↓
+AI outputs: { "voter": "rafeh", "canonical_tag": "switzerland_team_trip", ... }
+        ↓
+Firestore: canonical_tags/switzerland_team_trip
+           { votes: 1, voters: ["rafeh"], ... }
+```
+
+### Vote Detection
+
+The AI detects votes from phrases like:
+- "I'm down" / "I'd be down" / "I'm in" / "I'm game"
+- "count me in" / "sign me up"
+- "I agree" / "+1" / "yes please"
+- "[Person] is down" / "[Person] wants in" → voter = that person's name
+
+### Firestore Schema
+
+```
+Collection: canonical_tags
+Document ID: {canonical_tag} (e.g., "switzerland_team_trip")
+{
+  name: "switzerland_team_trip",
+  type: "idea",
+  summary: "Team trip to Switzerland",
+  count: 5,          // Total messages about this topic
+  votes: 2,          // Number of unique voters
+  voters: ["rafeh", "naz"],
+  createdAt: "2025-12-26T...",
+  lastSeen: "2025-12-26T..."
+}
+```
+
+### Querying Votes (Poppy AI)
+
+Poppy AI has access to `get_topic_votes` tool:
+
+```javascript
+// When user asks: "who wants to go to switzerland?"
+// AI calls:
+get_topic_votes({ query: "switzerland" })
+
+// Returns:
+[{
+  id: "switzerland_team_trip",
+  name: "switzerland_team_trip",
+  votes: 2,
+  voters: ["rafeh", "naz"],
+  summary: "Team trip to Switzerland"
+}]
+```
+
+The AI is instructed to use this tool when users ask:
+- "who wants X?" / "who's down for X?"
+- "how many people want X?"
+- "who agrees with Y?"
 
 ---
 
 ## The Tagging Prompt
 
-```
-You're the memory layer for a team chat. Your one job:
+The full prompt is in `app/api/tag/route.js`. Key sections:
 
-**Make everything easy to find later.**
+### Message Types
+- `feature_request` - Someone wants a feature
+- `bug` - Something is broken
+- `status_update` - Progress on something
+- `task` - Assigned work
+- `goal` - Team/personal goal
+- `idea` - Brainstorm/proposal
+- `metrics` - Numbers/data
+- `tip` - Tribal knowledge
+- `question` - Someone asking something
+- `noise` - Not worth remembering
 
-When someone asks "what was that thing about..." or "didn't someone mention..." — your tagging should make that moment findable.
+### Tag Fields
 
-## THE GOAL
+| Field | Description |
+|-------|-------------|
+| `type` | Message classification |
+| `canonical_tag` | Unique ID linking related messages (e.g., "dark_mode") |
+| `tags` | Array of keywords |
+| `summary` | One-line description |
+| `voter` | Person expressing interest (triggers vote count) |
+| `priority` | low / medium / high / critical |
+| `temperature` | cold / warm / hot (urgency/enthusiasm) |
+| `assignee` | Who should do the work |
+| `assigner` | Who assigned the work |
+| `status` | in_progress / complete / blocked |
+| `due_date` | ISO date string |
+| `queries` | Natural language search phrases |
 
-Humans remember things in fuzzy, associative ways:
-- "that feature camryn was hyped about"
-- "the bug with reactions"
-- "when did we ship notifications"
-- "what's abhi working on"
-- "that crazy revenue day around christmas"
+### Example Output
 
-Your job is to tag messages so these fuzzy human queries actually work.
-
-## HOW TO THINK
-
-For every message, ask yourself:
-- What might someone search to find this later?
-- What's this actually about beneath the surface?
-- Who was involved?
-- Is this something people will want to remember?
-
-Then tag generously. Multiple angles. The way a human brain would connect it.
-
-## REAL EXAMPLES
-
-**Message:** "we don't have command k on the phone so we need a way to start a new thread on the phone"
-```json
-{
-  "type": "feature_request",
-  "canonical_tag": "mobile_new_thread",
-  "tags": ["mobile", "keyboard_shortcuts", "thread", "navigation", "cmd_k", "phone"],
-  "priority": "medium",
-  "temperature": "warm",
-  "summary": "Need way to start new thread on mobile (no cmd+k)"
-}
-```
-
-**Message:** "add native MACOS notifications on the desktop app! important"
-```json
-{
-  "type": "feature_request",
-  "canonical_tag": "macos_notifications",
-  "tags": ["macos", "desktop", "notifications", "native", "alerts"],
-  "priority": "high",
-  "temperature": "hot",
-  "summary": "Add native macOS notifications to desktop app"
-}
-```
-
-**Message:** "working on adding notifications for desktop"
-```json
-{
-  "type": "status_update",
-  "canonical_tag": "macos_notifications",
-  "tags": ["macos", "desktop", "notifications", "in_progress"],
-  "status": "in_progress",
-  "summary": "Working on desktop notifications feature"
-}
-```
-*Notice: Same canonical_tag as the request above. They're now linked.*
-
-**Message:** "desktop notifications are now live"
-```json
-{
-  "type": "status_update",
-  "canonical_tag": "macos_notifications",
-  "tags": ["macos", "desktop", "notifications", "shipped", "release"],
-  "status": "complete",
-  "summary": "Desktop notifications shipped"
-}
-```
-*Full lifecycle linked: request → in progress → shipped*
-
-**Message:** "you just have to accept them when you refresh"
-```json
-{
-  "type": "tip",
-  "canonical_tag": "macos_notifications",
-  "tags": ["macos", "desktop", "notifications", "how_to", "onboarding", "permissions"],
-  "summary": "Accept notification permissions on refresh to enable"
-}
-```
-*Tribal knowledge, still linked to same feature*
-
-**Message:** "my eyes hurt at night from the bright screen"
-```json
-{
-  "type": "feature_request",
-  "canonical_tag": "dark_mode",
-  "tags": ["dark_mode", "ui", "accessibility", "night_mode", "eye_strain", "brightness"],
-  "priority": "medium",
-  "temperature": "warm",
-  "summary": "User wants dark mode (eyes hurt at night)"
-}
-```
-*They never said "dark mode" but that's what it is*
-
-**Message:** "‼️When I'm trying to react to ur message and u send something, it closes out of reaction bubble"
-```json
-{
-  "type": "bug",
-  "canonical_tag": "reaction_bubble_closes",
-  "tags": ["reactions", "ui", "mobile", "messaging", "race_condition", "emoji"],
-  "priority": "medium",
-  "temperature": "warm",
-  "summary": "Reaction bubble closes when new message arrives"
-}
-```
-
-**Message:** "GIFS" (hearted by sawwa, athena, and olivia)
-```json
-{
-  "type": "feature_request",
-  "canonical_tag": "gif_support",
-  "tags": ["gifs", "media", "messaging", "fun", "emoji"],
-  "priority": "medium",
-  "temperature": "hot",
-  "votes": 3,
-  "voters": ["sawwa", "athena", "olivia"],
-  "summary": "Add GIF support"
-}
-```
-*Hearts = votes. Captured.*
-
-**Message:** "amaanath bro i really need you to fucking lock in on the affiliates & start tracking them in notion please bro"
-```json
-{
-  "type": "task",
-  "canonical_tag": "affiliate_tracking",
-  "tags": ["affiliates", "notion", "tracking", "operations"],
-  "priority": "high",
-  "temperature": "hot",
-  "assignee": "amaanath",
-  "assigner": "qazi",
-  "summary": "Track affiliates in Notion"
-}
-```
-*CEO → employee task. High priority. Assignee extracted.*
-
-**Message:** "Qazi's GOAL: Officially move to Poppy Team Chat this week by DEC Wednesday 24th 2025!!"
-```json
-{
-  "type": "goal",
-  "canonical_tag": "poppy_team_chat_migration",
-  "tags": ["migration", "poppy_team_chat", "deadline", "team_goal", "internal_tools"],
-  "priority": "critical",
-  "temperature": "hot",
-  "due_date": "2025-12-24",
-  "summary": "Migrate team to Poppy Team Chat by Dec 24"
-}
-```
-
-**Message:** "50k builds... THAT would be fucking insane... $50k would be totally worth it for the right company"
 ```json
 {
   "type": "idea",
-  "canonical_tag": "messaging_app_builds_service",
-  "tags": ["business_idea", "revenue", "productized_service", "b2b", "enterprise"],
-  "priority": "medium",
-  "temperature": "hot",
-  "participants": ["qazi", "camryn"],
-  "summary": "Sell custom internal messaging app builds to companies for $50k"
+  "canonical_tag": "switzerland_team_trip",
+  "tags": ["switzerland", "trip", "team_travel", "europe"],
+  "voter": "rafeh",
+  "summary": "Rafeh proposing Switzerland trip and is in",
+  "temperature": "warm",
+  "queries": ["switzerland trip", "who wants to go to switzerland", "europe team meetup"]
 }
-```
-*Business brainstorm. Captured so it doesn't disappear.*
-
-**Message:** "Today's EPV & Stuff 12/25 - Revenue: $3156, EPV: $4.89, Total Purchases: 4, AOV: $789"
-```json
-{
-  "type": "metrics",
-  "canonical_tag": "daily_revenue_report",
-  "tags": ["revenue", "epv", "aov", "daily_metrics", "finance", "christmas"],
-  "date": "2024-12-25",
-  "summary": "Daily metrics: $3156 revenue, $4.89 EPV, 4 purchases",
-  "data": {
-    "revenue": 3156,
-    "checkout_visits": 646,
-    "epv": 4.89,
-    "total_purchases": 4,
-    "aov": 789
-  }
-}
-```
-*Numbers extracted. Queryable.*
-
-**Message:** "haha"
-```json
-{
-  "type": "noise"
-}
-```
-*Nothing to remember here.*
-
-**Message:** "ohhh pookie you are SOO cute!!! omg"
-```json
-{
-  "type": "noise"
-}
-```
-*Vibes only. Skip.*
-
-## THE DEDUPLICATION MAGIC
-
-When you see a new message about something discussed before, USE THE SAME canonical_tag. Check existing tags first. This links:
-- Request → assignment → progress → shipped
-- Multiple people asking for the same thing
-- Questions and answers about same topic
-
-## BE CREATIVE
-
-These are examples, not rules. You might see patterns I haven't. Invent new types. Find better tags. The only measure: **Can humans find what they're looking for?**
-
-## EXISTING TAGS
-
-{{EXISTING_TAGS}}
-
----
-
-Sender: {{SENDER}}
-Message: {{MESSAGE}}
-Recent context: {{RECENT_MESSAGES}}
 ```
 
 ---
 
-## Files to Create/Modify
+## Deduplication with Canonical Tags
 
-### 1. Create: `app/api/tag/route.js`
+Messages about the same topic share a `canonical_tag`:
+
+```
+Message 1: "we should add dark mode"     → canonical_tag: "dark_mode"
+Message 2: "working on dark mode now"    → canonical_tag: "dark_mode"
+Message 3: "dark mode is live!"          → canonical_tag: "dark_mode"
+```
+
+This links the full lifecycle: request → in progress → shipped.
+
+### In-Memory Cache
+
+An in-memory `Map` tracks existing tags for the AI to reference:
 
 ```javascript
-import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import { db } from '../../lib/firebase';
-import { doc, updateDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-export async function POST(request) {
-  try {
-    const { messageId, chatId, chatType, text, sender, senderId, timestamp } = await request.json();
-
-    if (!messageId || !text || !chatId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    // 1. Fetch last 20 messages for context
-    const messagesRef = chatType === 'dm' 
-      ? collection(db, 'dms', chatId, 'messages')
-      : collection(db, 'channels', chatId, 'messages');
-    
-    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(20));
-    const snapshot = await getDocs(q);
-    
-    const recentMessages = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return `[${data.sender}]: ${data.text}`;
-    }).reverse().join('\n');
-
-    // 2. TODO: Fetch existing canonical_tags (optional for v1)
-    const existingTags = ""; // Can add Firestore collection later
-
-    // 3. Build prompt and call Claude
-    const prompt = buildTaggingPrompt(existingTags, sender, text, recentMessages);
-    
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
-    // 4. Parse tags JSON
-    const tagsText = response.content[0].text;
-    let tags;
-    try {
-      tags = JSON.parse(tagsText);
-    } catch (e) {
-      // Try to extract JSON from response
-      const jsonMatch = tagsText.match(/\{[\s\S]*\}/);
-      tags = jsonMatch ? JSON.parse(jsonMatch[0]) : { type: 'unknown' };
-    }
-
-    // 5. Update Firestore message doc with tags
-    const messageRef = chatType === 'dm'
-      ? doc(db, 'dms', chatId, 'messages', messageId)
-      : doc(db, 'channels', chatId, 'messages', messageId);
-    
-    await updateDoc(messageRef, { aiTags: tags });
-
-    // 6. Sync to Ragie with enriched metadata
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/ragie/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messageId,
-        chatId,
-        chatType,
-        text,
-        sender,
-        senderId,
-        timestamp,
-        aiTags: tags // Include tags in Ragie metadata
-      })
-    });
-
-    return NextResponse.json({ success: true, tags });
-  } catch (error) {
-    console.error('Tagging error:', error);
-    
-    // Fallback: still sync to Ragie without tags
-    // ... (call ragie/sync with basic data)
-    
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-function buildTaggingPrompt(existingTags, sender, message, recentMessages) {
-  return `You're the memory layer for a team chat...
-  
-  [FULL PROMPT FROM ABOVE]
-  
-  EXISTING TAGS:
-  ${existingTags || 'None yet'}
-  
-  ---
-  
-  Sender: ${sender}
-  Message: ${message}
-  Recent context:
-  ${recentMessages}
-  
-  Return ONLY valid JSON. No explanation.`;
-}
+const canonicalTagsCache = new Map()
+// { "dark_mode" => { type: "feature_request", count: 3, ... } }
 ```
 
-### 2. Modify: `app/api/ragie/sync/route.js`
+The AI receives a list of existing tags so it can reuse them instead of creating duplicates.
 
-Add tags fields to metadata:
-
-```javascript
-// After existing metadata...
-
-// Add AI tags if provided
-if (aiTags) {
-  metadata.message_type = aiTags.type;
-  metadata.tags = aiTags.tags || [];
-  metadata.canonical_tag = aiTags.canonical_tag || null;
-  metadata.summary = aiTags.summary || null;
-  metadata.priority = aiTags.priority || null;
-  metadata.temperature = aiTags.temperature || null;
-  // ... any other tag fields
-}
-```
-
-### 3. Modify: `app/lib/firestore.js`
-
-Replace `/api/ragie/sync` calls with `/api/tag`:
-
-```javascript
-// Before:
-fetch('/api/ragie/sync', {...})
-
-// After:
-fetch('/api/tag', {...})
-```
-
-Affected functions (11 total):
-- `sendMessage()` (line 72)
-- `sendMessageDM()` (line 223)
-- `sendMessageWithImage()` (line 669)
-- `sendMessageDMWithImage()` (line 740)
-- `sendMessageWithMedia()` (line 853)
-- `sendMessageDMWithMedia()` (line 940)
-- `sendMessageWithAudio()` (line 1000)
-- `sendMessageDMWithAudio()` (line 1056)
-- `sendMessageWithReply()` (line 1296)
-- `sendMessageDMWithReply()` (line 1368)
-- `sendAIMessage()` (line 1473)
+**Note:** This cache resets on server restart. Firestore persists the data.
 
 ---
 
-## Optional: Canonical Tags Collection (for deduplication)
+## Ragie Integration
+
+Each message syncs to Ragie with enriched content:
 
 ```
-Collection: canonical_tags
-Document: { 
-  name: "dark_mode",
-  type: "feature_request", 
-  message_count: 5,
-  last_seen: timestamp
-}
+[Rafeh Qazi]: yo i'm down to go to switzerland
+[Summary]: Rafeh proposing Switzerland trip and is in
+[Keywords]: switzerland, trip, team_travel, europe
+[Related queries]: switzerland trip, who wants to go to switzerland
 ```
 
-**Skip for v1.** Add later if deduplication becomes important.
+This makes messages findable by:
+- Exact text search
+- Semantic search (summary)
+- Keyword matching
+- Natural language queries
 
 ---
 
-## Cost Estimate
+## Poppy AI Tools
 
-- Input: ~100-200 tokens per message (text + 20 message context)
-- Output: ~50-100 tokens (JSON tags)
-- Claude Sonnet: ~$3/1M input, ~$15/1M output
-- Per message: ~$0.001-0.002
-- 500 messages/day: ~$15-30/month
+Poppy AI has two main search tools:
+
+### 1. `search_chat_history` (Ragie)
+- Searches ALL messages ever sent
+- Returns matching text with context
+- Use for: finding what someone said, historical context
+
+### 2. `get_topic_votes` (Firestore)
+- Queries the `canonical_tags` collection
+- Returns vote counts and voter names
+- Use for: "who wants X?", "how many votes for Y?"
+
+The system prompt instructs Claude to use both tools together for vote questions.
+
+---
+
+## Dev Mode
+
+Toggle in sidebar shows:
+- Cost per message (tagging cost)
+- Cost per AI response
+
+```javascript
+// DevModeContext.js
+const [devMode, setDevMode] = useState(false)
+// Cost displayed in MessageItem.js
+```
+
+---
+
+## Cost Tracking
+
+Each tagging request logs:
+
+```
+💰 Tokens:        3697 in / 111 out
+💵 Cost:          $0.012756 ($0.011091 in + $0.001665 out)
+```
+
+Pricing (Claude Sonnet 4.5):
+- Input: $3/1M tokens
+- Output: $15/1M tokens
+- Average per message: ~$0.01-0.015
+
+---
+
+## Server Logs
+
+Example log output:
+
+```
+══════════════════════════════════════════════════════════════════════
+🏷️  AI TAGGING START
+══════════════════════════════════════════════════════════════════════
+📨 Message ID:  hgZRHP3r8IbMlCpiS6vd
+💬 Chat:        dm:e6AqpILFQwVBw6f7gLgtmBWXIo52_sUFbxSMaF6QwhTwURVb9E0LMQiv2
+👤 Sender:      Rafeh Qazi
+📝 Text:        "i'd be down to go to switzerland"
+🤖 Model:       claude-sonnet-4-5-20250929
+──────────────────────────────────────────────────────────────────────
+📋 Existing Tags: 0 in cache
+💬 Recent Context: 20 messages
+⏳ Calling Claude...
+──────────────────────────────────────────────────────────────────────
+✅ CLASSIFICATION RESULT
+──────────────────────────────────────────────────────────────────────
+📋 Type:          idea
+🏷️  Canonical Tag: switzerland_team_trip
+🔖 Tags:          switzerland, trip, team_travel, europe
+📝 Summary:       Rafeh proposing Switzerland trip and is in
+🗳️  Voter:         rafeh
+❓ Queries:       switzerland trip, rafeh travel plans, europe team meetup
+──────────────────────────────────────────────────────────────────────
+💾 Cache Updated:  switzerland_team_trip (1 total tags in cache)
+🗳️  FIRESTORE VOTE: Created "switzerland_team_trip" with first vote from "rafeh"
+💾 FIRESTORE: Created topic "switzerland_team_trip"
+📚 Ragie: Indexing message hgZRHP3r8IbMlCpiS6vd to dm:... [idea]
+✅ Ragie: Indexed message hgZRHP3r8IbMlCpiS6vd, doc ID: 35d11919-...
+⏱️  Timing:        Claude 3622ms | Ragie 739ms | Total 4662ms
+💰 Tokens:        3697 in / 111 out
+💵 Cost:          $0.012756 ($0.011091 in + $0.001665 out)
+══════════════════════════════════════════════════════════════════════
+🏷️  AI TAGGING COMPLETE
+══════════════════════════════════════════════════════════════════════
+```
 
 ---
 
@@ -452,13 +320,13 @@ Document: {
 
 ```javascript
 try {
-  const tags = await tagMessage(...);
-  await updateFirestoreWithTags(...);
-  await syncToRagie(...);
+  const aiTags = await tagMessage(...)
+  await persistCanonicalTag(aiTags, sender)
+  await syncToRagie(data, aiTags)
 } catch (error) {
-  console.error('Tagging failed:', error);
+  console.error('Tagging failed:', error)
   // Fallback: still sync to Ragie with basic metadata
-  await syncToRagieBasic(...);
+  await syncToRagie(data, null)
 }
 ```
 
@@ -469,13 +337,23 @@ Never block message delivery. Tagging is best-effort.
 ## Success Criteria
 
 The system works if users can find messages by asking in fuzzy human ways:
-- "what was that thing about dark mode"
-- "camryn's feature requests"
-- "bugs from last week"
-- "that revenue update around christmas"
-- "who works on the dev team"
-- "what's abhi working on"
-- "tasks assigned to amaanath"
+
+✅ "what was that thing about dark mode"
+✅ "who wants to go to switzerland?"
+✅ "camryn's feature requests"
+✅ "bugs from last week"
+✅ "how many people are down for the germany trip?"
+✅ "that revenue update around christmas"
+✅ "tasks assigned to amaanath"
 
 If those queries return relevant results, we've succeeded.
 
+---
+
+## Future Improvements
+
+- [ ] Load canonical_tags from Firestore on server startup (currently starts fresh)
+- [ ] UI to show tags on messages (dev mode only?)
+- [ ] Filter messages by type in sidebar
+- [ ] Weekly digest of feature requests / votes
+- [ ] Automatic PR creation from high-vote feature requests
