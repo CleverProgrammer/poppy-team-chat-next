@@ -258,19 +258,26 @@ USE add_to_team_memory WHEN:
 
 This saves info to Team Memory so EVERYONE on the team can ask you about it later.
 
+🚨 CRITICAL: USE THE CHAT HISTORY! 🚨
+When user says "remember this", LOOK BACK at the last 20-30 messages to understand WHAT to remember. They're usually referring to the recent conversation, not just their last message.
+
+HOW TO SUMMARIZE:
+- Capture WHO said WHAT: "Rafeh said X, David confirmed Y, Naz added Z"
+- Include key facts, dates, decisions, action items
+- Make it searchable - include names, topics, specific details
+- Write it so someone asking "what did we decide about X?" can find it
+
 WHAT TO SAVE:
 ✅ Important decisions, dates, deadlines
-✅ Useful info (login credentials - NOT passwords, meeting notes, processes)
-✅ Team preferences, contacts, resources
-✅ Anything explicitly requested to be remembered
+✅ Useful info (meeting notes, processes, contacts)
+✅ Team preferences, resources
+✅ Key discussion points from conversations
 
 WHAT NOT TO SAVE:
 ❌ Jokes, memes, casual banter
 ❌ Inappropriate or sexual content
-❌ Personal private info that shouldn't be shared team-wide
+❌ Personal private info that shouldn't be shared
 ❌ Obvious/trivial things
-
-When saving, use the MESSAGE CONTEXT to understand what they want remembered. Often they'll say "remember this" referring to something said earlier in the conversation.
 
 🔥 GOLDEN RULES 🔥
 1. NEVER say "I don't see that" without using search_chat_history first!
@@ -394,23 +401,23 @@ When saving, use the MESSAGE CONTEXT to understand what they want remembered. Of
   tools.push({
     name: 'add_to_team_memory',
     description:
-      'Save important information to the Team AI Memory so everyone on the team can ask Poppy about it later. Use this when users say things like "remember this", "save this", "add to memory", "@poppy remember", or explicitly ask you to store something for the team. ONLY save useful, appropriate, work-related information. Do NOT save jokes, inappropriate content, or trivial messages.',
+      'Save important information to the Team AI Memory so everyone on the team can ask Poppy about it later. Use this when users say things like "remember this", "save this", "add to memory", "@poppy remember", or explicitly ask you to store something for the team. LOOK AT THE RECENT CHAT HISTORY to understand what they want remembered - they often say "remember this" referring to something discussed earlier. Summarize the key info in a clear, useful way that captures WHO said WHAT.',
     input_schema: {
       type: 'object',
       properties: {
         content: {
           type: 'string',
           description:
-            'The information to save to team memory. Should be a clear, concise summary of what to remember. Include relevant context.',
+            'A clear summary of the information to remember. Include WHO said what and the key facts. Example: "Rafeh confirmed the Q1 target is $500k ARR. David mentioned the deadline is March 31st." Make it useful for future lookups.',
         },
         source: {
           type: 'string',
-          description: 'Who provided this information (the person who asked you to remember it)',
+          description: 'The main person(s) who provided this information',
         },
         context: {
           type: 'string',
           description:
-            'Optional: Additional context about why this is important or when it might be useful',
+            'Brief context: what topic/discussion is this from? (e.g., "Q1 planning discussion", "Germany trip planning")',
         },
       },
       required: ['content', 'source'],
