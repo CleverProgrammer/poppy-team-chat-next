@@ -14,28 +14,28 @@ export default function DevTagInfo({ aiTags }) {
   const cost = aiTags._cost
   const type = aiTags.type
 
-  // Type badge colors - very subtle/dim
+  // Type badge colors - subtle pill style
   const getTypeBadgeClasses = (type) => {
     switch (type) {
       case 'task':
-        return 'text-purple-400/50'
+        return 'bg-purple-500/10 text-purple-400/70 border-purple-500/20'
       case 'feature_request':
-        return 'text-blue-400/50'
+        return 'bg-blue-500/10 text-blue-400/70 border-blue-500/20'
       case 'question':
-        return 'text-yellow-400/50'
+        return 'bg-yellow-500/10 text-yellow-400/70 border-yellow-500/20'
       case 'decision':
-        return 'text-green-400/50'
+        return 'bg-green-500/10 text-green-400/70 border-green-500/20'
       case 'bug_report':
-        return 'text-red-400/50'
+        return 'bg-red-500/10 text-red-400/70 border-red-500/20'
       case 'status_update':
-        return 'text-cyan-400/50'
+        return 'bg-cyan-500/10 text-cyan-400/70 border-cyan-500/20'
       case 'blocker':
-        return 'text-orange-400/50'
+        return 'bg-orange-500/10 text-orange-400/70 border-orange-500/20'
       case 'praise':
-        return 'text-pink-400/50'
+        return 'bg-pink-500/10 text-pink-400/70 border-pink-500/20'
       case 'general':
       default:
-        return 'text-gray-400/50'
+        return 'bg-gray-500/10 text-gray-400/70 border-gray-500/20'
     }
   }
 
@@ -57,25 +57,25 @@ export default function DevTagInfo({ aiTags }) {
 
   return (
     <>
-      {/* Inline dev info - subtle, with spacing from timestamp */}
+      {/* Inline dev info with spacing from timestamp */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           setShowModal(true)
         }}
-        className="inline-flex items-center gap-1 ml-3 cursor-pointer opacity-40 hover:opacity-70 transition-opacity"
+        className="inline-flex items-center gap-1.5 ml-3 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
         title="Click to see AI classification details"
       >
         {/* Cost */}
         {cost && (
-          <span className="text-[8px] font-mono text-gray-500">
+          <span className="text-[9px] font-mono text-gray-400">
             ${cost.toFixed(4)}
           </span>
         )}
         
-        {/* Type - just text, dim */}
+        {/* Type pill - subtle colors */}
         {type && (
-          <span className={`text-[8px] ${getTypeBadgeClasses(type)}`}>
+          <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full border ${getTypeBadgeClasses(type)}`}>
             {type.replace('_', ' ')}
           </span>
         )}
