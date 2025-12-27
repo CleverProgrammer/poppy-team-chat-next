@@ -2461,26 +2461,37 @@ export async function createTaskFromMessage(
     }
 
     // Smart assignee detection:
-    // 1. If AI detected an explicit assignee name → use that (fuzzy match to real user)
-    // 2. If in a DM and no explicit assignee → default to the recipient
-    // 3. Otherwise → leave unassigned
+    // 1. If AI says "YOU" → resolve to DM recipient
+    // 2. If AI detected an explicit assignee name → use that (fuzzy match to real user)
+    // 3. If in a DM and no explicit assignee → default to the recipient
+    // 4. Otherwise → leave unassigned
     let assignedTo = null
     let assignedToUserId = null
     let assignedToEmail = null
 
     if (aiTags.assignee) {
-      // AI detected an explicit assignee - fuzzy match to a real user
-      const matchedUser = await fuzzyMatchUser(aiTags.assignee)
-
-      if (matchedUser) {
-        assignedTo = matchedUser.displayName || matchedUser.email
-        assignedToUserId = matchedUser.uid || matchedUser.id
-        assignedToEmail = matchedUser.email
-        console.log(`📋 Task assigned to "${aiTags.assignee}" → matched to "${assignedTo}"`)
+      const assigneeRaw = aiTags.assignee.toUpperCase().trim()
+      
+      // "YOU" means the DM recipient - the person being spoken to
+      if (assigneeRaw === 'YOU' && chatType === 'dm' && recipient) {
+        assignedTo = recipient.displayName || recipient.email || 'Unknown'
+        assignedToUserId = recipient.uid || recipient.id || null
+        assignedToEmail = recipient.email || null
+        console.log(`📋 "YOU" → resolved to DM recipient: ${assignedTo}`)
       } else {
-        // Couldn't match to a real user, keep the AI's raw assignee name
-        assignedTo = aiTags.assignee
-        console.log(`📋 Task assigned to "${aiTags.assignee}" (no user match found)`)
+        // AI detected an explicit assignee - fuzzy match to a real user
+        const matchedUser = await fuzzyMatchUser(aiTags.assignee)
+
+        if (matchedUser) {
+          assignedTo = matchedUser.displayName || matchedUser.email
+          assignedToUserId = matchedUser.uid || matchedUser.id
+          assignedToEmail = matchedUser.email
+          console.log(`📋 Task assigned to "${aiTags.assignee}" → matched to "${assignedTo}"`)
+        } else {
+          // Couldn't match to a real user, keep the AI's raw assignee name
+          assignedTo = aiTags.assignee
+          console.log(`📋 Task assigned to "${aiTags.assignee}" (no user match found)`)
+        }
       }
     } else if (chatType === 'dm' && recipient) {
       // No explicit assignee in DM → default to the recipient
@@ -2509,6 +2520,7 @@ export async function createTaskFromMessage(
 
         // AI signals completion/cancellation via task_action
         const isCompleted = aiTags.task_action === 'complete' || aiTags.task_action === 'cancel'
+        const isReassign = aiTags.task_action === 'reassign'
 
         const updateData = {
           // Update with latest info
@@ -2521,12 +2533,34 @@ export async function createTaskFromMessage(
           updatedAt: serverTimestamp(),
         }
 
+        // Handle reassignment - if AI signaled reassign OR detected a new assignee
+        if (isReassign || (assignedTo && assignedTo !== existingData.assignedTo)) {
+          if (assignedTo) {
+            updateData.assignedTo = assignedTo
+            updateData.assignedToUserId = assignedToUserId
+            updateData.assignedToEmail = assignedToEmail
+            console.log(
+              '🔄 Task REASSIGNED:',
+              existingTask.id,
+              '| from:',
+              existingData.assignedTo,
+              '→',
+              assignedTo
+            )
+          }
+        }
+
         // Mark as completed if AI signaled completion or cancellation
         if (isCompleted) {
           updateData.completed = true
           updateData.completedAt = serverTimestamp()
           updateData.completedBy = user.displayName || user.email
-          console.log('✅ Task marked COMPLETE:', existingTask.id, '| task_action:', aiTags.task_action)
+          console.log(
+            '✅ Task marked COMPLETE:',
+            existingTask.id,
+            '| task_action:',
+            aiTags.task_action
+          )
         }
 
         await updateDoc(doc(db, 'tasks', existingTask.id), updateData)

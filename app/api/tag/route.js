@@ -174,6 +174,36 @@ async function getRecentMessages(chatId, chatType, limit = 5) {
   }
 }
 
+// Fetch open tasks for this chat to give AI context for task completion/reassignment
+async function getOpenTasks(chatId) {
+  try {
+    const tasksRef = adminDb.collection('tasks')
+    const snapshot = await tasksRef
+      .where('chatId', '==', chatId)
+      .where('completed', '==', false)
+      .orderBy('createdAt', 'desc')
+      .limit(50) // Reasonable limit, ~600 tokens max
+      .get()
+
+    const tasks = []
+    snapshot.forEach(doc => {
+      const data = doc.data()
+      tasks.push({
+        id: doc.id,
+        title: data.title,
+        assignedTo: data.assignedTo || 'unassigned',
+        canonicalTag: data.canonicalTag,
+        priority: data.priority || 'medium',
+      })
+    })
+
+    return tasks
+  } catch (error) {
+    console.warn('⚠️ Failed to fetch open tasks:', error.message)
+    return []
+  }
+}
+
 // The tagging prompt - teaches AI to tag messages for easy retrieval
 const TAGGING_PROMPT = `You're the memory layer for a team chat. Your one job:
 
@@ -601,12 +631,17 @@ When a message is task-related, include a \`task_action\` field to signal what s
 | \`"create"\` | A new task is being assigned or requested |
 | \`"complete"\` | A task is being marked as done (gratitude, acknowledgment, past tense) |
 | \`"cancel"\` | A task is being cancelled (nvm, forget it, no longer needed) |
+| \`"reassign"\` | Task is being reassigned to someone else ("actually YOU do it", "let Sarah handle it") |
 | \`null\` or omit | Not task-related at all |
 
 **This is how you tell the system to take action.** Don't just describe - signal intent!
 
+**IMPORTANT: "YOU" in a DM means the recipient!** If someone says "actually YOU should do it", the task should be reassigned to the person they're chatting with.
+
 Examples:
-- "Amaanath should pick us up" → \`task_action: "create"\`
+- "Amaanath should pick us up" → \`task_action: "create"\`, \`assignee: "Amaanath"\`
+- "actually YOU should pick us up" → \`task_action: "reassign"\`, \`assignee: "YOU"\` (system resolves to DM recipient)
+- "let Sarah handle the pickup instead" → \`task_action: "reassign"\`, \`assignee: "Sarah"\`, use same \`canonical_tag\`
 - "thanks for picking us up" → \`task_action: "complete"\`
 - "nvm don't worry about the pickup" → \`task_action: "cancel"\`
 - "how's the weather?" → no task_action field
@@ -680,11 +715,27 @@ export async function POST(request) {
     }
     console.log(`💬 Recent Context: ${recentMessages.length} messages`)
 
+    // Fetch open tasks for this chat - enables AI to detect completion/reassignment
+    const openTasks = await getOpenTasks(chatId)
+    let openTasksSection = 'No open tasks in this conversation'
+    if (openTasks.length > 0) {
+      openTasksSection = openTasks
+        .map(t => `- ${t.canonicalTag}: "${t.title}" (assigned to: ${t.assignedTo}, priority: ${t.priority})`)
+        .join('\n')
+    }
+    console.log(`📋 Open Tasks: ${openTasks.length} in this chat`)
+
     const prompt = `${TAGGING_PROMPT}
 
 ## EXISTING TAGS
 
 ${existingTagsSection}
+
+## OPEN TASKS IN THIS CONVERSATION
+
+These tasks are currently open. If the message indicates a task is done, being reassigned, or cancelled, use the appropriate task_action and canonical_tag to update it.
+
+${openTasksSection}
 
 ---
 
