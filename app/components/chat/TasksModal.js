@@ -57,24 +57,16 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className='w-full max-w-[480px] p-0 gap-0 border-0 rounded-[32px] overflow-hidden shadow-2xl [&>button]:hidden'
+        className='w-full max-w-[500px] p-0 gap-0 border-0 rounded-[32px] overflow-hidden shadow-2xl [&>button]:hidden'
         style={{ backgroundColor: '#141414' }}
       >
         {/* Header */}
-        <div className='px-10 pt-10 pb-6'>
+        <div className='px-12 pt-12 pb-8'>
           <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-4'>
-              <div 
-                className='w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl font-medium'
-                style={{ background: 'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)' }}
-              >
-                ✓
-              </div>
-              <div className='flex items-center gap-3'>
-                <span className='text-white font-semibold text-xl'>{chatName}</span>
-                <span style={{ color: 'rgba(255,255,255,0.4)' }} className='text-lg'>{openTasks.length}</span>
-                <ChevronDown className='w-4 h-4' style={{ color: 'rgba(255,255,255,0.4)' }} />
-              </div>
+            <div className='flex items-center gap-3'>
+              <span className='text-white font-semibold text-xl'>{chatName}</span>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }} className='text-lg'>{openTasks.length}</span>
+              <ChevronDown className='w-4 h-4' style={{ color: 'rgba(255,255,255,0.4)' }} />
             </div>
             <button 
               className='w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-white/10'
@@ -86,7 +78,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
         </div>
 
         {/* Tasks list */}
-        <div className='px-10 pb-12 max-h-[65vh] overflow-y-auto'>
+        <div className='px-12 pb-16 max-h-[60vh] overflow-y-auto'>
           {openTasks.length === 0 && completedTasks.length === 0 ? (
             <div className='text-center py-24'>
               <div className='text-6xl mb-5'>🎉</div>
@@ -94,7 +86,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
               <p style={{ color: 'rgba(255,255,255,0.25)' }} className='text-base mt-2'>Tasks are auto-detected from messages</p>
             </div>
           ) : (
-            <div className='space-y-3'>
+            <div className='space-y-4'>
               {/* Open tasks */}
               {openTasks.map(task => (
                 <TaskItem
@@ -110,7 +102,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
                 <>
                   <button
                     onClick={() => setShowCompleted(!showCompleted)}
-                    className='flex items-center gap-2 py-6 transition-colors'
+                    className='flex items-center gap-2 py-8 transition-colors'
                     style={{ color: 'rgba(255,255,255,0.4)' }}
                   >
                     {showCompleted ? (
@@ -128,7 +120,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
 
                   {/* Completed tasks */}
                   {showCompleted && (
-                    <div className='space-y-3'>
+                    <div className='space-y-4'>
                       {completedTasks.map(task => (
                         <TaskItem
                           key={task.id}
@@ -155,14 +147,14 @@ function TaskItem({ task, onToggle, formatDueDate }) {
 
   return (
     <div
-      className='flex items-start gap-5 py-4 cursor-pointer group'
+      className='flex items-start gap-6 py-4 cursor-pointer group'
       onClick={(e) => onToggle(e, task.id)}
     >
       {/* Checkbox - rounded square */}
-      <div className='flex-shrink-0 mt-0.5'>
+      <div className='flex-shrink-0 mt-1'>
         {task.completed ? (
           <div 
-            className='w-7 h-7 rounded-lg flex items-center justify-center'
+            className='w-8 h-8 rounded-lg flex items-center justify-center'
             style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}
           >
             <svg
@@ -177,16 +169,16 @@ function TaskItem({ task, onToggle, formatDueDate }) {
           </div>
         ) : (
           <div 
-            className='w-7 h-7 rounded-lg border-2 transition-colors group-hover:border-white/40'
+            className='w-8 h-8 rounded-lg border-2 transition-colors group-hover:border-white/40'
             style={{ borderColor: 'rgba(255,255,255,0.25)' }}
           />
         )}
       </div>
 
       {/* Task content */}
-      <div className='flex-1 min-w-0 flex items-start justify-between gap-5'>
+      <div className='flex-1 min-w-0 flex items-start justify-between gap-6'>
         <span
-          className='text-[17px] leading-relaxed'
+          className='text-[17px] leading-relaxed pt-1'
           style={{
             color: task.completed ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.95)',
             textDecoration: task.completed ? 'line-through' : 'none',
@@ -198,7 +190,7 @@ function TaskItem({ task, onToggle, formatDueDate }) {
         {/* Due date pill */}
         {hasDueDate && (
           <div 
-            className='flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-[13px]'
+            className='flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-[13px] mt-1'
             style={{ 
               backgroundColor: 'rgba(255,255,255,0.08)',
               color: 'rgba(255,255,255,0.6)'
