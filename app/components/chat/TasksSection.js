@@ -14,7 +14,7 @@ import { ChevronDown } from 'lucide-react'
 export default function TasksSection({ chatId, chatType, user }) {
   const [tasks, setTasks] = useState([])
   const [isOpen, setIsOpen] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('open')
 
   useEffect(() => {
     if (!chatId || !chatType) return

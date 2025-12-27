@@ -628,7 +628,7 @@ When a message is task-related, include a \`task_action\` field to signal what s
 
 | task_action | When to use |
 |-------------|-------------|
-| \`"create"\` | A new task is being assigned or requested |
+| \`"create"\` | A new task is being assigned or requested (includes feature_request!) |
 | \`"complete"\` | A task is being marked as done (gratitude, acknowledgment, past tense) |
 | \`"cancel"\` | A task is being cancelled (nvm, forget it, no longer needed) |
 | \`"reassign"\` | Task is being reassigned to someone else ("actually YOU do it", "let Sarah handle it") |
@@ -636,10 +636,14 @@ When a message is task-related, include a \`task_action\` field to signal what s
 
 **This is how you tell the system to take action.** Don't just describe - signal intent!
 
+**IMPORTANT:** Feature requests ARE tasks! If someone says "add dark mode" or "make the button bigger", that's a task someone needs to do. Use \`task_action: "create"\`.
+
 **IMPORTANT: "YOU" in a DM means the recipient!** If someone says "actually YOU should do it", the task should be reassigned to the person they're chatting with.
 
 Examples:
 - "Amaanath should pick us up" → \`task_action: "create"\`, \`assignee: "Amaanath"\`
+- "add SHADCN library" → \`task_action: "create"\`, \`type: "feature_request"\` (still a task!)
+- "make default view open" → \`task_action: "create"\`, \`type: "feature_request"\` (still a task!)
 - "actually YOU should pick us up" → \`task_action: "reassign"\`, \`assignee: "YOU"\` (system resolves to DM recipient)
 - "let Sarah handle the pickup instead" → \`task_action: "reassign"\`, \`assignee: "Sarah"\`, use same \`canonical_tag\`
 - "thanks for picking us up" → \`task_action: "complete"\`

@@ -16,7 +16,7 @@ import { CheckCircle2 } from 'lucide-react'
 
 export default function TasksModal({ isOpen, onClose, user, currentChat }) {
   const [tasks, setTasks] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('open')
 
   useEffect(() => {
     if (!isOpen || !user || !currentChat) return
