@@ -91,11 +91,15 @@ Document ID: auto-generated
   originalMessageId: "abc123",
   originalMessageText: "Hey, please send me the report by Friday",
   
-  // People
-  assignee: "Olivia Lee",           // Display name
-  assigneeId: "oFiFQe...",          // User UID (for queries)
-  assigner: "Rafeh Qazi",           // Who created the task
-  assignerId: "e6AqpI...",
+  // Assigned To (the person who should do the task)
+  assignedTo: "Olivia Lee",            // Display name
+  assignedToUserId: "oFiFQe...",       // User UID (for queries)
+  assignedToEmail: "olivia@example.com",
+  
+  // Assigned By (who created/requested the task)
+  assignedBy: "Rafeh Qazi",
+  assignedByUserId: "e6AqpI...",
+  assignedByEmail: "rafeh@example.com",
   
   // Context
   chatId: "e6AqpI..._oFiFQe...",    // DM ID or channel ID
@@ -114,8 +118,35 @@ Document ID: auto-generated
   
   // Metadata
   createdAt: serverTimestamp(),
-  canonicalTag: "quarterly_report"   // Links to tagging system
+  updatedAt: null,                   // Set when task is updated (deduplication)
+  canonicalTag: "quarterly_report"   // Links to tagging system (for deduplication)
 }
+```
+
+### Smart Assignee Detection
+
+In DMs, the system automatically knows who the task is for:
+
+```
+You → Olivia DM: "Please bring cookies tomorrow"
+                 ↓
+Task created: assignedTo = "Olivia Lee" (auto-detected from DM context)
+              assignedToUserId = "oFiFQe..."
+              assignedToEmail = "olivia@example.com"
+```
+
+The logic:
+1. If AI detects a specific name, use that
+2. If in a DM and no name mentioned, default to the **recipient** (the other person)
+3. In channels, assignee must be explicitly mentioned
+
+### Task Deduplication
+
+Uses `canonicalTag` to prevent duplicate tasks:
+
+```
+Message 1: "Send me the report"     → creates task with canonicalTag: "quarterly_report"
+Message 2: "Report by Friday pls"   → finds existing task, UPDATES it instead of creating new
 ```
 
 ### Required Indexes

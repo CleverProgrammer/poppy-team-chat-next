@@ -2102,17 +2102,70 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
       chatName = chatId // Channel name
     }
     
+    // Smart assignee detection:
+    // 1. If AI detected a specific assignee name, use it (for channels with multiple people)
+    // 2. If in a DM and no specific assignee, default to the recipient (the other person)
+    // 3. Otherwise, leave unassigned
+    let assignedTo = aiTags.assignee || null
+    let assignedToUserId = null
+    let assignedToEmail = null
+    
+    // In a DM, if no explicit assignee detected, assume it's for the recipient
+    if (chatType === 'dm' && recipient) {
+      // Default to recipient if no assignee specified, or if AI said it's for the other person
+      if (!assignedTo || assignedTo.toLowerCase() === recipient?.displayName?.toLowerCase() || 
+          assignedTo.toLowerCase() === recipient?.email?.split('@')[0]?.toLowerCase()) {
+        assignedTo = recipient.displayName || recipient.email
+        assignedToUserId = recipient.uid || recipient.id
+        assignedToEmail = recipient.email
+      }
+    }
+    
+    const canonicalTag = aiTags.canonical_tag || null
+    
+    // Check for existing task with same canonical_tag in this chat (deduplication)
+    if (canonicalTag) {
+      const existingQuery = query(
+        tasksRef,
+        where('chatId', '==', chatId),
+        where('canonicalTag', '==', canonicalTag),
+        where('completed', '==', false)
+      )
+      const existingSnap = await getDocs(existingQuery)
+      
+      if (!existingSnap.empty) {
+        // Update existing task instead of creating a new one
+        const existingTask = existingSnap.docs[0]
+        await updateDoc(doc(db, 'tasks', existingTask.id), {
+          // Update with latest info
+          title: aiTags.summary || existingTask.data().title,
+          originalMessageId: messageId, // Point to most recent message
+          originalMessageText: text,
+          priority: aiTags.priority || existingTask.data().priority,
+          dueDate: aiTags.due_date || existingTask.data().dueDate,
+          updatedAt: serverTimestamp(),
+        })
+        console.log('✅ Task updated (deduped):', existingTask.id, '| canonical:', canonicalTag)
+        return existingTask.id
+      }
+    }
+    
+    // Create new task
     const taskData = {
       // Task content
       title: aiTags.summary || text.substring(0, 100),
       originalMessageId: messageId,
       originalMessageText: text,
       
-      // Assignment
-      assignee: aiTags.assignee || null,
-      assigneeId: null, // We'll need to look this up if we want to query by user
-      assigner: user.displayName || user.email,
-      assignerId: user.uid,
+      // Assignment (renamed from assignee to assignedTo)
+      assignedTo: assignedTo,
+      assignedToUserId: assignedToUserId,
+      assignedToEmail: assignedToEmail,
+      
+      // Assigner info
+      assignedBy: user.displayName || user.email,
+      assignedByUserId: user.uid,
+      assignedByEmail: user.email,
       
       // Conversation context
       chatId: chatId,
@@ -2122,7 +2175,7 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
       // Task metadata
       priority: aiTags.priority || 'medium',
       dueDate: aiTags.due_date || null,
-      canonicalTag: aiTags.canonical_tag || null,
+      canonicalTag: canonicalTag,
       
       // Status
       status: aiTags.status || 'pending',
@@ -2135,7 +2188,7 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
     }
     
     const docRef = await addDoc(tasksRef, taskData)
-    console.log('✅ Task auto-created from message:', docRef.id)
+    console.log('✅ Task auto-created from message:', docRef.id, '| assignedTo:', assignedTo)
     return docRef.id
   } catch (error) {
     console.error('Failed to create task from message:', error)

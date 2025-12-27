@@ -70,8 +70,8 @@ export default function TaskPreview({ task, onToggleComplete, onDelete }) {
         <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
           <span>📋 Task</span>
           <span title={task.priority}>{getPriorityLabel(task.priority)}</span>
-          {task.assignee && (
-            <span className="text-purple-400">@{task.assignee}</span>
+          {(task.assignedTo || task.assignee) && (
+            <span className="text-purple-400">@{task.assignedTo || task.assignee}</span>
           )}
         </div>
         
@@ -80,7 +80,7 @@ export default function TaskPreview({ task, onToggleComplete, onDelete }) {
         </div>
         
         <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-          <span>from {task.assigner}</span>
+          <span>from {task.assignedBy || task.assigner}</span>
           <span>•</span>
           <span>{formatTimestamp(task.createdAt)}</span>
           {task.completed && task.completedBy && (

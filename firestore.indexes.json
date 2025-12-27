@@ -13,8 +13,18 @@
       "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "assignee", "order": "ASCENDING" },
+        { "fieldPath": "assignedToUserId", "order": "ASCENDING" },
+        { "fieldPath": "completed", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chatId", "order": "ASCENDING" },
+        { "fieldPath": "canonicalTag", "order": "ASCENDING" },
+        { "fieldPath": "completed", "order": "ASCENDING" }
       ]
     }
   ],
