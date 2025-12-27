@@ -175,16 +175,8 @@ export default function ChatHeader({
             <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
           </div>
           {isDevMode && todayCost > 0 && (
-            <span style={{ 
-              marginLeft: '12px',
-              fontSize: '10px', 
-              color: '#9ca3af', 
-              fontFamily: 'monospace',
-              background: '#1f2937',
-              padding: '2px 8px',
-              borderRadius: '4px'
-            }}>
-              🏷️ ${todayCost.toFixed(4)} today
+            <span className='ml-2 text-[9px] text-gray-500 font-mono whitespace-nowrap'>
+              ${todayCost.toFixed(3)}
             </span>
           )}
           

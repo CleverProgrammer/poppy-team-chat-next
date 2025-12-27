@@ -23,15 +23,57 @@ import { db, storage } from './firebase'
 
 // Fun adjectives and animals for human-readable task IDs
 const TASK_ID_ADJECTIVES = [
-  'swift', 'brave', 'calm', 'eager', 'fair', 'gentle', 'happy', 'keen',
-  'lucky', 'merry', 'neat', 'proud', 'quick', 'sharp', 'warm', 'wise',
-  'bold', 'cool', 'fresh', 'grand', 'bright', 'clever', 'cosmic', 'epic'
+  'swift',
+  'brave',
+  'calm',
+  'eager',
+  'fair',
+  'gentle',
+  'happy',
+  'keen',
+  'lucky',
+  'merry',
+  'neat',
+  'proud',
+  'quick',
+  'sharp',
+  'warm',
+  'wise',
+  'bold',
+  'cool',
+  'fresh',
+  'grand',
+  'bright',
+  'clever',
+  'cosmic',
+  'epic',
 ]
 
 const TASK_ID_ANIMALS = [
-  'panda', 'tiger', 'eagle', 'fox', 'wolf', 'bear', 'hawk', 'lion',
-  'owl', 'raven', 'shark', 'whale', 'falcon', 'phoenix', 'dragon', 'koala',
-  'otter', 'badger', 'lynx', 'jaguar', 'cobra', 'viper', 'crane', 'heron'
+  'panda',
+  'tiger',
+  'eagle',
+  'fox',
+  'wolf',
+  'bear',
+  'hawk',
+  'lion',
+  'owl',
+  'raven',
+  'shark',
+  'whale',
+  'falcon',
+  'phoenix',
+  'dragon',
+  'koala',
+  'otter',
+  'badger',
+  'lynx',
+  'jaguar',
+  'cobra',
+  'viper',
+  'crane',
+  'heron',
 ]
 
 /**
@@ -45,48 +87,64 @@ function generateTaskId(text) {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '') // Remove special chars
     .split(/\s+/)
-    .filter(w => w.length > 2 && !['the', 'and', 'for', 'you', 'please', 'can', 'could', 'would', 'should', 'hey', 'hi'].includes(w))
+    .filter(
+      w =>
+        w.length > 2 &&
+        ![
+          'the',
+          'and',
+          'for',
+          'you',
+          'please',
+          'can',
+          'could',
+          'would',
+          'should',
+          'hey',
+          'hi',
+        ].includes(w)
+    )
     .slice(0, 3)
-  
+
   const slug = words.join('_') || 'task'
-  
+
   // Pick random adjective and animal
   const adjective = TASK_ID_ADJECTIVES[Math.floor(Math.random() * TASK_ID_ADJECTIVES.length)]
   const animal = TASK_ID_ANIMALS[Math.floor(Math.random() * TASK_ID_ANIMALS.length)]
-  
+
   // Generate 6-char random suffix
   const suffix = Math.random().toString(36).substring(2, 8)
-  
+
   return `${slug}_${adjective}_${animal}_${suffix}`
 }
 
 // Helper to save canonical tags to Firestore for persistence
 async function saveCanonicalTag(aiTags) {
-  if (!aiTags?.canonical_tag || aiTags.type === 'noise') return;
-  
+  if (!aiTags?.canonical_tag || aiTags.type === 'noise') return
+
   try {
     // Base update for any canonical tag
     const updateData = {
       name: aiTags.canonical_tag,
       count: increment(1),
       lastSeen: serverTimestamp(),
-    };
-    
+    }
+
     // Only set type/summary if this is the original (not an endorsement)
     if (aiTags.type !== 'endorsement') {
-      updateData.type = aiTags.type || 'unknown';
-      if (aiTags.summary) updateData.summary = aiTags.summary;
+      updateData.type = aiTags.type || 'unknown'
+      if (aiTags.summary) updateData.summary = aiTags.summary
     }
-    
+
     // If this is an endorsement, track the vote
     if (aiTags.type === 'endorsement' && aiTags.endorser) {
-      updateData.votes = increment(1);
-      updateData.voters = arrayUnion(aiTags.endorser);
+      updateData.votes = increment(1)
+      updateData.voters = arrayUnion(aiTags.endorser)
     }
-    
-    await setDoc(doc(db, 'canonical_tags', aiTags.canonical_tag), updateData, { merge: true });
+
+    await setDoc(doc(db, 'canonical_tags', aiTags.canonical_tag), updateData, { merge: true })
   } catch (err) {
-    console.warn('Failed to save canonical tag:', err);
+    console.warn('Failed to save canonical tag:', err)
   }
 }
 
@@ -124,19 +182,19 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
     }
-    
+
     // Add private flag if message is private
     if (isPrivate) {
       messageData.isPrivate = true
       // Use explicitly passed privateFor, or fall back to sender's uid
       messageData.privateFor = privateFor || user.uid
     }
-    
+
     const docRef = await addDoc(messagesRef, messageData)
 
     // Tag and index to Ragie (fire and forget, don't block send)
@@ -158,8 +216,9 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+            aiTags: data.aiTags,
+          }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
         }
       })
@@ -255,7 +314,15 @@ export async function loadOlderMessagesDM(dmId, oldestTimestamp, messageLimit = 
   return messages.reverse()
 }
 
-export async function sendMessageDM(dmId, user, text, recipientId, recipient = null, linkPreview = null, options = {}) {
+export async function sendMessageDM(
+  dmId,
+  user,
+  text,
+  recipientId,
+  recipient = null,
+  linkPreview = null,
+  options = {}
+) {
   if (!user || !text.trim()) return
 
   const { isPrivate = false, privateFor = null } = options
@@ -281,12 +348,12 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
     }
-    
+
     // Add private flag if message is private
     if (isPrivate) {
       messageData.isPrivate = true
@@ -323,13 +390,18 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags }).catch(
+            err => console.warn('Failed to save tags to Firestore:', err)
+          )
           saveCanonicalTag(data.aiTags)
-          
+
           // Log what the AI tagged this as
-          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
-          
+          console.log('🏷️ AI Tag Result:', {
+            type: data.aiTags.type,
+            canonical: data.aiTags.canonical_tag,
+            summary: data.aiTags.summary,
+          })
+
           // Auto-create task if AI detected this as a task or feature_request
           if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
             console.log('📋 Creating task from type:', data.aiTags.type)
@@ -472,7 +544,7 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
       snapshot => {
         let newMessageId = null
         let newMessage = null
-        
+
         if (!snapshot.empty) {
           // Find the first message that's NOT private (or is private but visible to this user)
           const visibleMessage = snapshot.docs.find(doc => {
@@ -480,7 +552,7 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
             // Show if: not private, OR private but for this user, OR sent by this user
             return !data.isPrivate || data.privateFor === userId || data.senderId === userId
           })
-          
+
           if (visibleMessage) {
             newMessageId = visibleMessage.id
             newMessage = {
@@ -489,7 +561,7 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
             }
           }
         }
-        
+
         // Only update and callback if the visible last message has actually changed
         // This prevents re-renders when private messages from other users are added
         if (lastMessageIds[otherUserId] !== newMessageId) {
@@ -535,15 +607,18 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
       snapshot => {
         let newMessageId = null
         let newMessage = null
-        
+
         if (!snapshot.empty) {
           // Find the first message that's NOT private (or is private but visible to this user)
           const visibleMessage = snapshot.docs.find(doc => {
             const data = doc.data()
             // Show if: not private, OR private but for this user, OR sent by this user
-            return !data.isPrivate || (userId && (data.privateFor === userId || data.senderId === userId))
+            return (
+              !data.isPrivate ||
+              (userId && (data.privateFor === userId || data.senderId === userId))
+            )
           })
-          
+
           if (visibleMessage) {
             newMessageId = visibleMessage.id
             newMessage = {
@@ -552,7 +627,7 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
             }
           }
         }
-        
+
         // Only update and callback if the visible last message has actually changed
         // This prevents re-renders when private messages from other users are added
         if (lastMessageIds[channelId] !== newMessageId) {
@@ -782,8 +857,9 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
         .then(res => res.json())
         .then(data => {
           if (data.aiTags) {
-            updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
-              .catch(err => console.warn('Failed to save tags to Firestore:', err))
+            updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+              aiTags: data.aiTags,
+            }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           }
         })
         .catch(err => console.error('Tagging failed:', err))
@@ -865,10 +941,11 @@ export async function sendMessageDMWithImage(
         .then(res => res.json())
         .then(data => {
           if (data.aiTags) {
-            updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
-              .catch(err => console.warn('Failed to save tags to Firestore:', err))
+            updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags }).catch(
+              err => console.warn('Failed to save tags to Firestore:', err)
+            )
             saveCanonicalTag(data.aiTags)
-            
+
             // Auto-create task if AI detected this as a task
             if (data.aiTags.type === 'task') {
               createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
@@ -940,7 +1017,7 @@ export async function sendMessageWithMedia(
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
@@ -981,19 +1058,20 @@ export async function sendMessageWithMedia(
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
-        senderId: user.uid,
-        timestamp: new Date().toISOString(),
-      }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.aiTags) {
-          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
-          saveCanonicalTag(data.aiTags)
-        }
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+        }),
       })
-      .catch(err => console.error('Tagging failed:', err))
+        .then(res => res.json())
+        .then(data => {
+          if (data.aiTags) {
+            updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+              aiTags: data.aiTags,
+            }).catch(err => console.warn('Failed to save tags to Firestore:', err))
+            saveCanonicalTag(data.aiTags)
+          }
+        })
+        .catch(err => console.error('Tagging failed:', err))
     }
   } catch (error) {
     console.error('Error sending message with media:', error)
@@ -1033,7 +1111,7 @@ export async function sendMessageDMWithMedia(
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     }
-    
+
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
@@ -1079,27 +1157,32 @@ export async function sendMessageDMWithMedia(
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
-        recipientEmail: recipient?.email || null,
-      }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.aiTags) {
-          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
-          saveCanonicalTag(data.aiTags)
-          
-          // Log what the AI tagged this as
-          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
-          
-          // Auto-create task if AI detected this as a task or feature_request
-          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
-            console.log('📋 Creating task from type:', data.aiTags.type)
-            createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
-          }
-        }
+          recipientEmail: recipient?.email || null,
+        }),
       })
-      .catch(err => console.error('Tagging failed:', err))
+        .then(res => res.json())
+        .then(data => {
+          if (data.aiTags) {
+            updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags }).catch(
+              err => console.warn('Failed to save tags to Firestore:', err)
+            )
+            saveCanonicalTag(data.aiTags)
+
+            // Log what the AI tagged this as
+            console.log('🏷️ AI Tag Result:', {
+              type: data.aiTags.type,
+              canonical: data.aiTags.canonical_tag,
+              summary: data.aiTags.summary,
+            })
+
+            // Auto-create task if AI detected this as a task or feature_request
+            if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
+              console.log('📋 Creating task from type:', data.aiTags.type)
+              createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+            }
+          }
+        })
+        .catch(err => console.error('Tagging failed:', err))
     }
 
     // Add to active DMs
@@ -1162,8 +1245,9 @@ export async function sendMessageWithAudio(
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+            aiTags: data.aiTags,
+          }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
         }
       })
@@ -1231,13 +1315,18 @@ export async function sendMessageDMWithAudio(
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags }).catch(
+            err => console.warn('Failed to save tags to Firestore:', err)
+          )
           saveCanonicalTag(data.aiTags)
-          
+
           // Log what the AI tagged this as
-          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
-          
+          console.log('🏷️ AI Tag Result:', {
+            type: data.aiTags.type,
+            canonical: data.aiTags.canonical_tag,
+            summary: data.aiTags.summary,
+          })
+
           // Auto-create task if AI detected this as a task or feature_request
           if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
             console.log('📋 Creating task from type:', data.aiTags.type)
@@ -1302,13 +1391,18 @@ export async function editMessage(channelId, messageId, newText, isDM = false) {
  * Update media dimensions for a message (on-demand migration for old messages).
  * This is called when an image/video loads without stored dimensions.
  * Fire-and-forget - doesn't block UI.
- * 
+ *
  * @param {string} chatId - Channel ID or DM ID
  * @param {string} messageId - Message document ID
  * @param {boolean} isDM - Whether this is a DM message
  * @param {Array<{width: number, height: number}>} mediaDimensions - Array of dimensions
  */
-export async function updateMessageMediaDimensions(chatId, messageId, isDM = false, mediaDimensions) {
+export async function updateMessageMediaDimensions(
+  chatId,
+  messageId,
+  isDM = false,
+  mediaDimensions
+) {
   try {
     const messageRef = isDM
       ? doc(db, 'dms', chatId, 'messages', messageId)
@@ -1317,7 +1411,7 @@ export async function updateMessageMediaDimensions(chatId, messageId, isDM = fal
     await updateDoc(messageRef, {
       mediaDimensions,
     })
-    
+
     console.log('📐 Migrated media dimensions for message:', messageId)
   } catch (error) {
     // Silent fail - this is a background migration, don't disrupt user
@@ -1328,20 +1422,20 @@ export async function updateMessageMediaDimensions(chatId, messageId, isDM = fal
 /**
  * Fetch link preview data from the API.
  * Used when sending a message with a URL.
- * 
+ *
  * @param {string} url - The URL to get preview for
  * @returns {Promise<object|null>} - Link preview data or null
  */
 export async function fetchLinkPreview(url) {
   try {
     const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch preview')
     }
 
     const data = await response.json()
-    
+
     if (data.error) {
       return null
     }
@@ -1366,7 +1460,7 @@ export async function fetchLinkPreview(url) {
  * Update link preview for a message (on-demand migration for old messages).
  * This is called when a message has a URL but no stored link preview.
  * Fire-and-forget - doesn't block UI.
- * 
+ *
  * @param {string} chatId - Channel ID or DM ID
  * @param {string} messageId - Message document ID
  * @param {boolean} isDM - Whether this is a DM message
@@ -1381,12 +1475,12 @@ export async function updateMessageLinkPreview(chatId, messageId, isDM = false, 
     await updateDoc(messageRef, {
       linkPreview,
     })
-    
+
     console.log('🔗 Migrated link preview for message:', messageId)
   } catch (error) {
     // Silent fail - this is a background migration, don't disrupt user
     console.warn('Failed to migrate link preview:', error)
-}
+  }
 }
 // Toggle message visibility (private <-> public)
 export async function toggleMessageVisibility(channelId, messageId, makePublic, isDM = false) {
@@ -1426,7 +1520,14 @@ export async function deleteMessage(channelId, messageId, isDM = false) {
 }
 
 // Send message with reply
-export async function sendMessageWithReply(channelId, user, text, replyTo, linkPreview = null, options = {}) {
+export async function sendMessageWithReply(
+  channelId,
+  user,
+  text,
+  replyTo,
+  linkPreview = null,
+  options = {}
+) {
   if (!user || !text.trim()) return
 
   const { isPrivate = false, privateFor = null } = options
@@ -1453,12 +1554,12 @@ export async function sendMessageWithReply(channelId, user, text, replyTo, linkP
       timestamp: serverTimestamp(),
       replyTo: replyData,
     }
-    
+
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
     }
-    
+
     // Add private flag if message is private
     if (isPrivate) {
       messageData.isPrivate = true
@@ -1485,8 +1586,9 @@ export async function sendMessageWithReply(channelId, user, text, replyTo, linkP
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+            aiTags: data.aiTags,
+          }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
         }
       })
@@ -1534,12 +1636,12 @@ export async function sendMessageDMWithReply(
       timestamp: serverTimestamp(),
       replyTo: replyData,
     }
-    
+
     // Add link preview if present
     if (linkPreview) {
       messageData.linkPreview = linkPreview
     }
-    
+
     // Add private flag if message is private
     if (isPrivate) {
       messageData.isPrivate = true
@@ -1570,13 +1672,18 @@ export async function sendMessageDMWithReply(
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags }).catch(
+            err => console.warn('Failed to save tags to Firestore:', err)
+          )
           saveCanonicalTag(data.aiTags)
-          
+
           // Log what the AI tagged this as
-          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
-          
+          console.log('🏷️ AI Tag Result:', {
+            type: data.aiTags.type,
+            canonical: data.aiTags.canonical_tag,
+            summary: data.aiTags.summary,
+          })
+
           // Auto-create task if AI detected this as a task or feature_request
           if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
             console.log('📋 Creating task from type:', data.aiTags.type)
@@ -1689,8 +1796,9 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
       .then(res => res.json())
       .then(data => {
         if (data.aiTags) {
-          updateDoc(doc(db, 'aiChats', userId, 'messages', docRef.id), { aiTags: data.aiTags })
-            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          updateDoc(doc(db, 'aiChats', userId, 'messages', docRef.id), {
+            aiTags: data.aiTags,
+          }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
         }
       })
@@ -2028,32 +2136,55 @@ export async function demotePostToMessage(chatType, chatId, postId) {
  * @param {string} chatType - 'channel' or 'dm'
  * @param {string} chatId - The channel ID or DM ID
  */
-export async function markStoryAsViewed(storyId, viewerId, viewerName, viewerPhotoURL, chatType, chatId) {
+export async function markStoryAsViewed(
+  storyId,
+  viewerId,
+  viewerName,
+  viewerPhotoURL,
+  chatType,
+  chatId
+) {
   if (!storyId || !viewerId || !chatId) return
 
   try {
     // Store view in storyViews collection
     // Structure: storyViews/{chatType}_{chatId}/stories/{storyId}/viewers/{viewerId}
-    
+
     // IMPORTANT: Also create the parent story document so subscribeToViewedStories can find it
     // Firestore subcollections don't create parent docs automatically
     const storyRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId)
-    await setDoc(storyRef, {
-      storyId,
-      chatType,
-      chatId,
-      lastViewedAt: serverTimestamp(),
-    }, { merge: true })
-    
+    await setDoc(
+      storyRef,
+      {
+        storyId,
+        chatType,
+        chatId,
+        lastViewedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+
     // Now create the viewer document in the subcollection
-    const viewerRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId, 'viewers', viewerId)
-    
-    await setDoc(viewerRef, {
-      viewerId,
-      viewerName: viewerName || 'Unknown',
-      viewerPhotoURL: viewerPhotoURL || '',
-      viewedAt: serverTimestamp(),
-    }, { merge: true })
+    const viewerRef = doc(
+      db,
+      'storyViews',
+      `${chatType}_${chatId}`,
+      'stories',
+      storyId,
+      'viewers',
+      viewerId
+    )
+
+    await setDoc(
+      viewerRef,
+      {
+        viewerId,
+        viewerName: viewerName || 'Unknown',
+        viewerPhotoURL: viewerPhotoURL || '',
+        viewedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
 
     console.log(`✅ Marked story ${storyId} as viewed by ${viewerName}`)
   } catch (error) {
@@ -2074,7 +2205,14 @@ export function subscribeToStoryViewers(storyId, chatType, chatId, callback) {
     return () => {}
   }
 
-  const viewersRef = collection(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyId, 'viewers')
+  const viewersRef = collection(
+    db,
+    'storyViews',
+    `${chatType}_${chatId}`,
+    'stories',
+    storyId,
+    'viewers'
+  )
   const q = query(viewersRef, orderBy('viewedAt', 'desc'))
 
   return onSnapshot(
@@ -2117,10 +2255,18 @@ export function subscribeToViewedStories(userId, chatType, chatId, callback) {
     storiesRef,
     async snapshot => {
       const viewedStoryIds = new Set()
-      
+
       // For each story, check if the user has viewed it
       const checkPromises = snapshot.docs.map(async storyDoc => {
-        const viewerRef = doc(db, 'storyViews', `${chatType}_${chatId}`, 'stories', storyDoc.id, 'viewers', userId)
+        const viewerRef = doc(
+          db,
+          'storyViews',
+          `${chatType}_${chatId}`,
+          'stories',
+          storyDoc.id,
+          'viewers',
+          userId
+        )
         const viewerSnap = await getDoc(viewerRef)
         if (viewerSnap.exists()) {
           viewedStoryIds.add(storyDoc.id)
@@ -2142,13 +2288,100 @@ export function subscribeToViewedStories(userId, chatType, chatId, callback) {
 // ============================================
 
 /**
+ * Fuzzy match a name/nickname to a real user from the users collection
+ * Handles cases like "JD" → "Jawwad Rehman", "Liv" → "Olivia Lee"
+ */
+async function fuzzyMatchUser(nameOrNickname) {
+  if (!nameOrNickname) return null
+  
+  const searchTerm = nameOrNickname.toLowerCase().trim()
+  
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'))
+    const users = []
+    usersSnap.forEach(doc => {
+      users.push({ id: doc.id, ...doc.data() })
+    })
+    
+    // Score each user based on how well they match
+    const scored = users.map(user => {
+      let score = 0
+      const displayName = (user.displayName || '').toLowerCase()
+      const email = (user.email || '').toLowerCase()
+      const emailPrefix = email.split('@')[0]
+      const firstName = displayName.split(' ')[0]
+      const lastName = displayName.split(' ').slice(-1)[0]
+      const initials = displayName.split(' ').map(w => w[0]).join('')
+      
+      // Exact matches (highest priority)
+      if (displayName === searchTerm) score += 100
+      if (emailPrefix === searchTerm) score += 90
+      if (firstName === searchTerm) score += 80
+      if (lastName === searchTerm) score += 70
+      
+      // Initials match (e.g., "JD" matches "Jawwad Doe", "JR" matches "Jawwad Rehman")
+      if (initials === searchTerm.toUpperCase()) score += 75
+      
+      // Partial matches
+      if (displayName.includes(searchTerm)) score += 50
+      if (firstName.startsWith(searchTerm)) score += 45
+      if (emailPrefix.includes(searchTerm)) score += 40
+      
+      // Common nickname patterns
+      const nicknamePatterns = {
+        // First syllable nicknames
+        [firstName.substring(0, 3)]: 35,
+        [firstName.substring(0, 2)]: 30,
+        // Common nickname suffixes removed
+        [firstName.replace(/ie$|y$|ey$/, '')]: 25,
+      }
+      
+      for (const [pattern, points] of Object.entries(nicknamePatterns)) {
+        if (pattern && searchTerm === pattern) score += points
+      }
+      
+      // Levenshtein-like similarity (simple version)
+      if (firstName.length > 2 && searchTerm.length > 2) {
+        // Check if most characters match
+        const commonChars = [...searchTerm].filter(c => firstName.includes(c)).length
+        if (commonChars >= searchTerm.length * 0.7) score += 20
+      }
+      
+      return { user, score }
+    })
+    
+    // Get best match if score is above threshold
+    const bestMatch = scored.sort((a, b) => b.score - a.score)[0]
+    
+    if (bestMatch && bestMatch.score >= 30) {
+      console.log(`🎯 Fuzzy matched "${nameOrNickname}" → "${bestMatch.user.displayName}" (score: ${bestMatch.score})`)
+      return bestMatch.user
+    }
+    
+    console.log(`❓ Could not fuzzy match "${nameOrNickname}" to any user`)
+    return null
+  } catch (error) {
+    console.error('Error in fuzzy match:', error)
+    return null
+  }
+}
+
+/**
  * Create a task from an AI-detected task message
  * Called automatically when a message is tagged as type: 'task'
  */
-export async function createTaskFromMessage(chatId, chatType, messageId, text, user, recipient, aiTags) {
+export async function createTaskFromMessage(
+  chatId,
+  chatType,
+  messageId,
+  text,
+  user,
+  recipient,
+  aiTags
+) {
   try {
     const tasksRef = collection(db, 'tasks')
-    
+
     // Determine chat name for display
     let chatName = ''
     if (chatType === 'dm') {
@@ -2156,27 +2389,42 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
     } else {
       chatName = chatId // Channel name
     }
-    
+
     // Smart assignee detection:
     // In a DM, it's simple: you're talking to ONE person, so they're the assignee. Period.
     // No need for AI to figure this out - we have the context!
     let assignedTo = null
     let assignedToUserId = null
     let assignedToEmail = null
-    
+
     if (chatType === 'dm' && recipient) {
       // In a DM, the recipient IS the assignee. Always. That's who you're talking to.
       assignedTo = recipient.displayName || recipient.email || 'Unknown'
       assignedToUserId = recipient.uid || recipient.id || null
       assignedToEmail = recipient.email || null
-      console.log('📋 DM Task → Auto-assigned to recipient:', assignedTo, '(', assignedToUserId, ')')
+      console.log(
+        '📋 DM Task → Auto-assigned to recipient:',
+        assignedTo,
+        '(',
+        assignedToUserId,
+        ')'
+      )
     } else if (aiTags.assignee) {
-      // In channels, use whatever the AI detected
-      assignedTo = aiTags.assignee
+      // In channels, try to fuzzy match the name to a real user
+      const matchedUser = await fuzzyMatchUser(aiTags.assignee)
+      
+      if (matchedUser) {
+        assignedTo = matchedUser.displayName || matchedUser.email
+        assignedToUserId = matchedUser.uid || matchedUser.id
+        assignedToEmail = matchedUser.email
+      } else {
+        // Couldn't match, keep the AI's raw assignee name
+        assignedTo = aiTags.assignee
+      }
     }
-    
+
     const canonicalTag = aiTags.canonical_tag || null
-    
+
     // Check for existing task with same canonical_tag in this chat (deduplication)
     if (canonicalTag) {
       const existingQuery = query(
@@ -2186,19 +2434,20 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
         where('completed', '==', false)
       )
       const existingSnap = await getDocs(existingQuery)
-      
+
       if (!existingSnap.empty) {
         // Update existing task instead of creating a new one
         const existingTask = existingSnap.docs[0]
         const existingData = existingTask.data()
-        
+
         // Check if AI detected task completion
-        const isCompleted = aiTags.status === 'complete' || 
-                           aiTags.status === 'done' || 
-                           aiTags.status === 'completed' ||
-                           aiTags.status === 'cancelled' ||
-                           aiTags.status === 'canceled'
-        
+        const isCompleted =
+          aiTags.status === 'complete' ||
+          aiTags.status === 'done' ||
+          aiTags.status === 'completed' ||
+          aiTags.status === 'cancelled' ||
+          aiTags.status === 'canceled'
+
         const updateData = {
           // Update with latest info
           title: aiTags.summary || existingData.title,
@@ -2209,7 +2458,7 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
           status: aiTags.status || existingData.status,
           updatedAt: serverTimestamp(),
         }
-        
+
         // Mark as completed if AI detected completion
         if (isCompleted) {
           updateData.completed = true
@@ -2217,54 +2466,61 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
           updateData.completedBy = user.displayName || user.email
           console.log('✅ Task marked COMPLETE:', existingTask.id, '| status:', aiTags.status)
         }
-        
+
         await updateDoc(doc(db, 'tasks', existingTask.id), updateData)
-        console.log('✅ Task updated (deduped):', existingTask.id, '| canonical:', canonicalTag, '| completed:', isCompleted)
+        console.log(
+          '✅ Task updated (deduped):',
+          existingTask.id,
+          '| canonical:',
+          canonicalTag,
+          '| completed:',
+          isCompleted
+        )
         return existingTask.id
       }
     }
-    
+
     // Create new task
     const taskData = {
       // Task content
       title: aiTags.summary || text.substring(0, 100),
       originalMessageId: messageId,
       originalMessageText: text,
-      
+
       // Assignment (renamed from assignee to assignedTo)
       assignedTo: assignedTo,
       assignedToUserId: assignedToUserId,
       assignedToEmail: assignedToEmail,
-      
+
       // Assigner info
       assignedBy: user.displayName || user.email,
       assignedByUserId: user.uid,
       assignedByEmail: user.email,
-      
+
       // Conversation context
       chatId: chatId,
       chatType: chatType,
       chatName: chatName,
-      
+
       // Task metadata
       priority: aiTags.priority || 'medium',
       dueDate: aiTags.due_date || null,
       canonicalTag: canonicalTag,
-      
+
       // Status
       status: aiTags.status || 'pending',
       completed: false,
       completedAt: null,
       completedBy: null,
-      
+
       // Timestamps
       createdAt: serverTimestamp(),
     }
-    
+
     // Generate human-readable task ID
     const taskId = generateTaskId(text || aiTags.summary || 'task')
     const taskDocRef = doc(db, 'tasks', taskId)
-    
+
     await setDoc(taskDocRef, taskData)
     console.log('✅ Task auto-created:', taskId, '| assignedTo:', assignedTo)
     return taskId
@@ -2321,7 +2577,7 @@ export function subscribeToMyTasks(userId, userName, callback) {
   }
 
   const tasksRef = collection(db, 'tasks')
-  
+
   // Query by assignerId (tasks I created) OR assignee name (tasks assigned to me)
   // Note: Firestore doesn't support OR queries directly, so we'll query by assignee name
   // This is a simplification - in production you'd want assigneeId

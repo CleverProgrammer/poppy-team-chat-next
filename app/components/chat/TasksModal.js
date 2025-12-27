@@ -6,7 +6,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 export default function TasksModal({ isOpen, onClose, user, currentChat }) {
   const [tasks, setTasks] = useState([])
-  const [filter, setFilter] = useState('open') // 'open', 'completed', 'all'
+  const [filter, setFilter] = useState('open')
 
   useEffect(() => {
     if (!isOpen || !user || !currentChat) return
@@ -41,18 +41,16 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
     }
   }
 
-  const getPriorityColor = priority => {
+  const getPriorityStyles = priority => {
     switch (priority) {
       case 'critical':
-        return 'text-red-400'
+        return 'bg-red-500/10 text-red-400 border-red-500/20'
       case 'high':
-        return 'text-orange-400'
-      case 'medium':
-        return 'text-yellow-400'
+        return 'bg-orange-500/10 text-orange-400 border-orange-500/20'
       case 'low':
-        return 'text-green-400'
+        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
       default:
-        return 'text-gray-400'
+        return ''
     }
   }
 
@@ -67,136 +65,138 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
 
   return (
     <div
-      className='fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4'
+      className='fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4'
       onClick={onClose}
     >
       <div
-        className='bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl'
+        className='bg-[#0a0a0f] border border-white/10 rounded-2xl w-full max-w-md max-h-[75vh] flex flex-col overflow-hidden'
+        style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className='flex items-center justify-between p-4 border-b border-gray-800'>
-          <div>
-            <h2 className='text-lg font-semibold text-white'>📋 Tasks</h2>
-            <p className='text-xs text-gray-400'>
-              {currentChat.type === 'dm' ? `With ${currentChat.name}` : `#${currentChat.name}`}
-            </p>
+        <div className='px-5 pt-5 pb-4'>
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center gap-3'>
+              <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-lg'>
+                ✓
+              </div>
+              <div>
+                <h2 className='text-base font-semibold text-white'>Tasks</h2>
+                <p className='text-xs text-white/40'>
+                  {currentChat.type === 'dm' ? currentChat.name : `#${currentChat.name}`}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className='w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all'
+            >
+              <svg className='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className='text-gray-400 hover:text-white transition-colors text-xl'
-          >
-            ✕
-          </button>
-        </div>
 
-        {/* Filter tabs */}
-        <div className='flex gap-1 p-3 border-b border-gray-800'>
-          <button
-            onClick={() => setFilter('open')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              filter === 'open'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            Open ({openCount})
-          </button>
-          <button
-            onClick={() => setFilter('completed')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              filter === 'completed'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            Completed ({completedCount})
-          </button>
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              filter === 'all'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            All ({tasks.length})
-          </button>
+          {/* Filter tabs */}
+          <div className='flex gap-1 mt-4 p-1 bg-white/5 rounded-lg'>
+            {[
+              { key: 'open', label: 'Open', count: openCount },
+              { key: 'completed', label: 'Done', count: completedCount },
+              { key: 'all', label: 'All', count: tasks.length },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key)}
+                className={`flex-1 px-3 py-2 text-xs font-medium rounded-md transition-all ${
+                  filter === tab.key
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/40 hover:text-white/60'
+                }`}
+              >
+                {tab.label}
+                <span className='ml-1 opacity-50'>({tab.count})</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tasks list */}
-        <div className='flex-1 overflow-y-auto p-3'>
+        <div className='flex-1 overflow-y-auto px-3 pb-3'>
           {filteredTasks.length === 0 ? (
-            <div className='text-center py-12'>
-              <div className='text-4xl mb-3'>✨</div>
-              <p className='text-gray-400'>
+            <div className='text-center py-16'>
+              <div className='w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/5 flex items-center justify-center'>
+                <span className='text-3xl'>
+                  {filter === 'open' ? '🎉' : filter === 'completed' ? '📝' : '💬'}
+                </span>
+              </div>
+              <p className='text-white/60 text-sm'>
                 {filter === 'open'
-                  ? 'No open tasks!'
+                  ? 'All caught up!'
                   : filter === 'completed'
-                  ? 'No completed tasks yet'
-                  : 'No tasks in this conversation'}
+                  ? 'No completed tasks'
+                  : 'No tasks yet'}
               </p>
-              <p className='text-xs text-gray-500 mt-1'>
-                Tasks are auto-detected from your messages
+              <p className='text-white/30 text-xs mt-1'>
+                Tasks are auto-detected from messages
               </p>
             </div>
           ) : (
-            <div className='space-y-2'>
+            <div className='space-y-1'>
               {filteredTasks.map(task => (
                 <div
                   key={task.id}
-                  className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
+                  className={`group flex items-start gap-3 p-3 rounded-xl transition-all cursor-pointer ${
                     task.completed
-                      ? 'bg-gray-800/50 opacity-60'
-                      : 'bg-gray-800 hover:bg-gray-750'
+                      ? 'opacity-50 hover:opacity-70'
+                      : 'hover:bg-white/5'
                   }`}
+                  onClick={() => handleToggle(task.id)}
                 >
                   {/* Checkbox */}
-                  <button
-                    onClick={() => handleToggle(task.id)}
-                    className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  <div
+                    className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-md border-2 flex items-center justify-center transition-all ${
                       task.completed
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : 'border-gray-500 hover:border-indigo-500'
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : 'border-white/20 group-hover:border-violet-400'
                     }`}
                   >
                     {task.completed && (
-                      <svg className='w-3 h-3' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                      <svg className='w-3 h-3 text-white' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
                         <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={3} d='M5 13l4 4L19 7' />
                       </svg>
                     )}
-                  </button>
+                  </div>
 
                   {/* Task content */}
                   <div className='flex-1 min-w-0'>
-                    <p
-                      className={`text-sm ${
-                        task.completed ? 'text-gray-500 line-through' : 'text-white'
-                      }`}
-                    >
+                    <p className={`text-sm leading-snug ${task.completed ? 'text-white/40 line-through' : 'text-white/90'}`}>
                       {task.title}
                     </p>
-                    <div className='flex flex-wrap items-center gap-2 mt-1'>
-                      {/* Assignee */}
-                      {task.assignedTo && (
-                        <span className='text-xs text-purple-400'>
-                          @{task.assignedTo}
-                        </span>
-                      )}
-                      {/* Priority */}
+                    
+                    <div className='flex flex-wrap items-center gap-1.5 mt-2'>
+                      {/* Priority badge */}
                       {task.priority && task.priority !== 'medium' && (
-                        <span className={`text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${getPriorityStyles(task.priority)}`}>
                           {task.priority}
                         </span>
                       )}
-                      {/* Due date */}
-                      {task.dueDate && (
-                        <span className='text-xs text-yellow-400'>
-                          📅 {task.dueDate}
+                      
+                      {/* Assignee */}
+                      {task.assignedTo && (
+                        <span className='text-[10px] text-violet-400/70'>
+                          → {task.assignedTo.split(' ')[0]}
                         </span>
                       )}
-                      {/* Created time */}
-                      <span className='text-xs text-gray-500'>
+                      
+                      {/* Due date */}
+                      {task.dueDate && (
+                        <span className='text-[10px] text-amber-400/70'>
+                          {task.dueDate}
+                        </span>
+                      )}
+                      
+                      {/* Time */}
+                      <span className='text-[10px] text-white/20'>
                         {formatTimestamp(task.createdAt)}
                       </span>
                     </div>
@@ -210,4 +210,3 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
     </div>
   )
 }
-
