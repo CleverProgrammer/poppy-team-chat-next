@@ -293,12 +293,81 @@ Then tag generously. Multiple angles. The way a human brain would connect it.
 \`\`\`
 *Vibes only. Skip.*
 
-## THE DEDUPLICATION MAGIC
+## THE DEDUPLICATION & VOTING MAGIC
 
-When you see a new message about something discussed before, USE THE SAME canonical_tag. Check existing tags first. This links:
-- Request → assignment → progress → shipped
-- Multiple people asking for the same thing
-- Questions and answers about same topic
+When you see a new message about something discussed before, USE THE SAME canonical_tag.
+
+## ENDORSEMENTS & PARTICIPATION (CRITICAL)
+
+Any time someone expresses agreement, interest, commitment, or participation in a topic, YOU MUST EXTRACT THEM AS AN \`endorser\`.
+This applies to EVERYTHING: feature requests, trip planning, lunch decisions, meeting attendance, etc.
+
+**Message:** "yeah i agree we definitely need that"
+(context: someone just suggested adding dark mode)
+\`\`\`json
+{
+  "type": "endorsement",
+  "canonical_tag": "dark_mode",
+  "tags": ["dark_mode", "agreement", "support", "+1"],
+  "queries": ["who wants dark mode", "dark mode votes", "dark mode supporters"],
+  "endorser": "sawwa",
+  "endorses": "dark_mode",
+  "summary": "+1 for dark mode from Sawwa"
+}
+\`\`\`
+
+**Message:** "omg yes please!! I've been wanting this forever"
+(context: someone requested GIF support)
+\`\`\`json
+{
+  "type": "endorsement",
+  "canonical_tag": "gif_support",
+  "tags": ["gifs", "agreement", "enthusiasm", "+1"],
+  "queries": ["who wants gifs", "gif votes"],
+  "endorser": "athena",
+  "endorses": "gif_support",
+  "temperature": "hot",
+  "summary": "+1 for GIF support from Athena (enthusiastic)"
+}
+\`\`\`
+
+**Message:** "Im down to go to germany"
+(context: discussing team meetup in Germany)
+\`\`\`json
+{
+  "type": "decision",
+  "canonical_tag": "germany_team_meetup",
+  "tags": ["germany", "team_meetup", "travel", "commitment"],
+  "queries": ["who is going to germany", "germany trip attendees"],
+  "endorser": "qazi",
+  "endorses": "germany_team_meetup",
+  "summary": "Qazi is down for Germany trip"
+}
+\`\`\`
+*Notice: "I'm down" = endorsement/participation. Captured in \`endorser\` field.*
+
+**Message:** "yo i heard david is also down"
+(context: discussing team meetup in Germany)
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "germany_team_meetup",
+  "tags": ["germany", "team_meetup", "travel", "david"],
+  "queries": ["is david going to germany"],
+  "endorser": "david",
+  "endorses": "germany_team_meetup",
+  "summary": "David is down for Germany trip (reported by Qazi)"
+}
+\`\`\`
+*Notice: Even though Qazi sent it, David is the one committing. David is the \`endorser\`.*
+
+**Message:** "haha"
+\`\`\`json
+{
+  "type": "noise"
+}
+\`\`\`
+*Nothing to remember here.*
 
 ## BE CREATIVE
 
@@ -442,14 +511,28 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     // Update canonical tags cache for deduplication
     if (aiTags.canonical_tag && aiTags.type !== 'noise') {
       const existing = canonicalTagsCache.get(aiTags.canonical_tag)
+      
+      // Generic vote tracking in cache
+      let newVotes = existing?.votes || 0;
+      let newVoters = existing?.voters || [];
+
+      if (aiTags.endorser) {
+        if (!newVoters.includes(aiTags.endorser)) {
+          newVoters.push(aiTags.endorser);
+          newVotes++;
+        }
+      }
+
       canonicalTagsCache.set(aiTags.canonical_tag, {
         type: aiTags.type || existing?.type || 'unknown',
         count: (existing?.count || 0) + 1,
+        votes: newVotes,
+        voters: newVoters,
         lastSeen: new Date().toISOString(),
         summary: aiTags.summary || existing?.summary,
       })
       console.log(
-        `💾 Cache Updated:  ${aiTags.canonical_tag} (${canonicalTagsCache.size} total tags in cache)`
+        `💾 Cache Updated:  ${aiTags.canonical_tag} (${canonicalTagsCache.size} total tags in cache, ${newVotes} votes)`
       )
     }
 

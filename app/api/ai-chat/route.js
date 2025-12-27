@@ -343,7 +343,8 @@ CRITICAL DATE HANDLING:
       properties: {
         query: {
           type: 'string',
-          description: 'The topic, idea, or proposal to look up (e.g., "dark mode", "big bear trip", "team offsite", "new pricing")',
+          description:
+            'The topic, idea, or proposal to look up (e.g., "dark mode", "big bear trip", "team offsite", "new pricing")',
         },
       },
       required: ['query'],

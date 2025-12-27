@@ -32,14 +32,18 @@ async function saveCanonicalTag(aiTags) {
       lastSeen: serverTimestamp(),
     };
     
-    // Only set type/summary if this is the original (not an endorsement)
-    if (aiTags.type !== 'endorsement') {
-      updateData.type = aiTags.type || 'unknown';
-      if (aiTags.summary) updateData.summary = aiTags.summary;
+    // Always update type/summary if available (let newer messages refine it)
+    if (aiTags.type && aiTags.type !== 'endorsement') {
+      updateData.type = aiTags.type;
+    }
+    if (aiTags.summary) {
+      updateData.summary = aiTags.summary;
     }
     
-    // If this is an endorsement, track the vote
-    if (aiTags.type === 'endorsement' && aiTags.endorser) {
+    // GENERIC VOTE/PARTICIPATION TRACKING:
+    // If there is an endorser/participant identified, count them as a voter.
+    // This applies to ANY topic (trips, features, ideas).
+    if (aiTags.endorser) {
       updateData.votes = increment(1);
       updateData.voters = arrayUnion(aiTags.endorser);
     }
