@@ -1337,10 +1337,72 @@ export default function ChatWindow() {
                         const totalHeight =
                           keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
 
-                        if (totalHeight > 0) {
-                          return <div style={{ height: totalHeight, background: 'transparent' }} />
-                        }
-                        return null
+                        // Get other user for DM typing indicator
+                        const otherUser = currentChat?.type === 'dm' 
+                          ? allUsers.find(u => u.uid === currentChat.id)
+                          : null
+
+                        return (
+                          <>
+                            {/* DM Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
+                            {otherUserTyping && currentChat?.type === 'dm' && otherUser && (
+                              <div className='message-wrapper received typing-message'>
+                                <img
+                                  src={otherUser.photoURL || ''}
+                                  alt={otherUser.displayName || 'User'}
+                                  className='message-avatar'
+                                />
+                                <div className='message-content-wrapper'>
+                                  <div className='message typing-bubble'>
+                                    <div className='typing-dots'>
+                                      <span></span>
+                                      <span></span>
+                                      <span></span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* AI Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
+                            {aiTyping && (
+                              <div className='message-wrapper received ai-message typing-message'>
+                                <div
+                                  className='message-avatar'
+                                  style={{
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <img
+                                    src='/poppy-icon.png'
+                                    alt='Poppy'
+                                    style={{ width: '20px', height: '20px' }}
+                                  />
+                                </div>
+                                <div className='message-content-wrapper'>
+                                  <div className='message typing-bubble'>
+                                    <div className='typing-dots'>
+                                      <span></span>
+                                      <span></span>
+                                      <span></span>
+                                    </div>
+                                    {aiTypingStatus && (
+                                      <span className='typing-status'>{aiTypingStatus}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Keyboard spacer */}
+                            {totalHeight > 0 && (
+                              <div style={{ height: totalHeight, background: 'transparent' }} />
+                            )}
+                          </>
+                        )
                       },
                     }}
                     atTopStateChange={atTop => {
@@ -1426,64 +1488,6 @@ export default function ChatWindow() {
                       }
                     }}
                   />
-                )}
-
-                {/* DM Typing Indicator - Matches message-wrapper structure */}
-                {otherUserTyping &&
-                  currentChat?.type === 'dm' &&
-                  (() => {
-                    const otherUser = allUsers.find(u => u.uid === currentChat.id)
-                    return (
-                      <div className='message-wrapper received typing-message'>
-                        <img
-                          src={otherUser?.photoURL || ''}
-                          alt={otherUser?.displayName || 'User'}
-                          className='message-avatar'
-                        />
-                        <div className='message-content-wrapper'>
-                          <div className='message typing-bubble'>
-                            <div className='typing-dots'>
-                              <span></span>
-                              <span></span>
-                              <span></span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                {/* AI Typing Indicator - Matches message-wrapper structure */}
-                {aiTyping && (
-                  <div className='message-wrapper received ai-message typing-message'>
-                    <div
-                      className='message-avatar'
-                      style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <img
-                        src='/poppy-icon.png'
-                        alt='Poppy'
-                        style={{ width: '20px', height: '20px' }}
-                      />
-                    </div>
-                    <div className='message-content-wrapper'>
-                      <div className='message typing-bubble'>
-                        <div className='typing-dots'>
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                        {aiTypingStatus && (
-                          <span className='typing-status'>{aiTypingStatus}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 )}
               </div>
 
