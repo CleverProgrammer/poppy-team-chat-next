@@ -102,7 +102,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat, allUser
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className='w-full max-w-[600px] p-0 gap-0 border-0 rounded-[28px] overflow-hidden shadow-2xl [&>button]:hidden'
-        style={{ backgroundColor: '#1a1625', minHeight: '400px' }}
+        style={{ backgroundColor: '#1a1625' }}
       >
         {/* Simple header - just "Tasks" */}
         <div style={{ padding: '32px 40px 24px 40px' }}>

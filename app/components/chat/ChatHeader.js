@@ -42,14 +42,18 @@ export default function ChatHeader({
     return () => unsubscribe()
   }, [currentChat, currentUserId])
 
-  // When modal opens, mark tasks as viewed
-  useEffect(() => {
-    if (showTasksModal && currentChat && currentUserId && currentChat.type !== 'ai') {
+  // Handle opening tasks modal - mark as viewed BEFORE opening to prevent flash
+  const handleOpenTasks = () => {
+    if (currentChat && currentUserId && currentChat.type !== 'ai') {
       const chatId =
         currentChat.type === 'dm' ? getDMId(currentUserId, currentChat.id) : currentChat.id
+      // Mark as viewed immediately to prevent blue dot flash
       markTasksAsViewed(currentUserId, chatId, currentChat.type)
+      // Clear local state immediately too
+      setHasUnviewedTasks(false)
     }
-  }, [showTasksModal, currentChat, currentUserId])
+    setShowTasksModal(true)
+  }
 
   // Calculate today's tagging cost from messages
   const todayCost = useMemo(() => {
@@ -164,7 +168,7 @@ export default function ChatHeader({
 
   // Tasks button with blue dot indicator for unviewed tasks
   const TasksButton = ({ className }) => (
-    <button onClick={() => setShowTasksModal(true)} className={`relative ${className}`}>
+    <button onClick={handleOpenTasks} className={`relative ${className}`}>
       Tasks
       {hasUnviewedTasks && (
         <span
