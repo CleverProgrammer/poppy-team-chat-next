@@ -5,14 +5,22 @@ import { useWavesurfer } from '@wavesurfer/react'
 import { useDevMode } from '../../contexts/DevModeContext'
 
 const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3]
+const TRUNCATE_LENGTH = 300 // Characters before truncating
 
 export default function VoiceMessage({ audioUrl, audioDuration, isSent, transcription }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [speedIndex, setSpeedIndex] = useState(0)
-  const [showTranscription, setShowTranscription] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const containerRef = useRef(null)
   const { isDevMode } = useDevMode()
+
+  // Check if transcription needs truncation
+  const transcriptionText = transcription?.text || ''
+  const needsTruncation = transcriptionText.length > TRUNCATE_LENGTH
+  const displayText = needsTruncation && !isExpanded 
+    ? transcriptionText.substring(0, TRUNCATE_LENGTH) + '...'
+    : transcriptionText
 
   const { wavesurfer, isReady } = useWavesurfer({
     container: containerRef,
@@ -102,39 +110,25 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent, transcri
             {currentSpeed}x
           </button>
         )}
-
-        {/* Transcription toggle button */}
-        {transcription?.text && (
-          <button
-            className='voice-transcription-toggle'
-            onClick={() => setShowTranscription(!showTranscription)}
-            aria-label={showTranscription ? 'Hide transcription' : 'Show transcription'}
-            title={showTranscription ? 'Hide transcription' : 'Show transcription'}
-          >
-            <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' />
-              <line x1='9' y1='10' x2='15' y2='10' />
-              <line x1='12' y1='7' x2='12' y2='13' />
-            </svg>
-          </button>
-        )}
       </div>
 
-      {/* Transcription display */}
-      {transcription?.text && showTranscription && (
-        <div className={`voice-transcription ${isSent ? 'sent' : 'received'}`}>
-          <p className='voice-transcription-text'>{transcription.text}</p>
+      {/* Transcription - shown by default, click to expand if truncated */}
+      {transcriptionText && (
+        <div 
+          className={`voice-transcription ${isSent ? 'sent' : 'received'} ${needsTruncation && !isExpanded ? 'truncated' : ''}`}
+          onClick={needsTruncation ? () => setIsExpanded(!isExpanded) : undefined}
+          style={{ cursor: needsTruncation ? 'pointer' : 'default' }}
+        >
+          <p className='voice-transcription-text'>{displayText}</p>
+          {needsTruncation && !isExpanded && (
+            <span className='voice-transcription-more'>tap to expand</span>
+          )}
           {isDevMode && transcription._cost && (
             <span className='voice-transcription-cost'>
               ${transcription._cost.toFixed(4)}
             </span>
           )}
         </div>
-      )}
-
-      {/* Dev mode: Show cost inline even when transcription hidden */}
-      {isDevMode && transcription?._cost && !showTranscription && (
-        <span className='voice-cost-badge'>${transcription._cost.toFixed(4)}</span>
       )}
     </div>
   )

@@ -1380,8 +1380,10 @@ export async function sendMessageWithAudio(
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
+        if (data.success && data.transcription?.text) {
           console.log('🎙️ Audio transcribed:', data.transcription?.text?.substring(0, 50) + '...')
+          
+          // Save transcription to Firestore
           updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
             transcription: {
               text: data.transcription.text,
@@ -1392,6 +1394,34 @@ export async function sendMessageWithAudio(
               _durationSeconds: data.audio.durationSeconds,
             },
           }).catch(err => console.warn('Failed to save transcription to Firestore:', err))
+
+          // Re-tag with transcribed text for Ragie indexing + task extraction
+          fetch('/api/tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageId: docRef.id,
+              chatId: channelId,
+              chatType: 'channel',
+              text: `[Voice Message] ${data.transcription.text}`,
+              sender: user.displayName || user.email,
+              senderEmail: user.email,
+              senderId: user.uid,
+              timestamp: new Date().toISOString(),
+              isVoiceMessage: true,
+            }),
+          })
+            .then(res => res.json())
+            .then(tagData => {
+              if (tagData.aiTags) {
+                console.log('🏷️ Voice message tagged:', tagData.aiTags.type)
+                updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+                  aiTags: tagData.aiTags,
+                }).catch(err => console.warn('Failed to save voice tags to Firestore:', err))
+                saveCanonicalTag(tagData.aiTags)
+              }
+            })
+            .catch(err => console.error('Voice message tagging failed:', err))
         }
       })
       .catch(err => console.error('Audio transcription failed:', err))
@@ -1494,8 +1524,10 @@ export async function sendMessageDMWithAudio(
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
+        if (data.success && data.transcription?.text) {
           console.log('🎙️ Audio transcribed:', data.transcription?.text?.substring(0, 50) + '...')
+          
+          // Save transcription to Firestore
           updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
             transcription: {
               text: data.transcription.text,
@@ -1506,6 +1538,44 @@ export async function sendMessageDMWithAudio(
               _durationSeconds: data.audio.durationSeconds,
             },
           }).catch(err => console.warn('Failed to save transcription to Firestore:', err))
+
+          // Re-tag with transcribed text for Ragie indexing + task extraction
+          fetch('/api/tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageId: docRef.id,
+              chatId: dmId,
+              chatType: 'dm',
+              text: `[Voice Message] ${data.transcription.text}`,
+              sender: user.displayName || user.email,
+              senderEmail: user.email,
+              senderId: user.uid,
+              timestamp: new Date().toISOString(),
+              participants: dmId.split('_').slice(1),
+              recipientId: recipientId,
+              recipientName: recipient?.displayName || recipient?.email || null,
+              recipientEmail: recipient?.email || null,
+              isVoiceMessage: true,
+            }),
+          })
+            .then(res => res.json())
+            .then(tagData => {
+              if (tagData.aiTags) {
+                console.log('🏷️ Voice message tagged:', tagData.aiTags.type)
+                updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
+                  aiTags: tagData.aiTags,
+                }).catch(err => console.warn('Failed to save voice tags to Firestore:', err))
+                saveCanonicalTag(tagData.aiTags)
+
+                // AI signals task intent via task_action field (for voice messages too!)
+                if (tagData.aiTags.task_action) {
+                  console.log('📋 Voice message task_action:', tagData.aiTags.task_action)
+                  createTaskFromMessage(dmId, 'dm', docRef.id, data.transcription.text, user, recipient, tagData.aiTags)
+                }
+              }
+            })
+            .catch(err => console.error('Voice message tagging failed:', err))
         }
       })
       .catch(err => console.error('Audio transcription failed:', err))
