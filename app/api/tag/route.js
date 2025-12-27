@@ -289,6 +289,46 @@ When someone indicates a task is done, cancelled, or no longer needed, use the S
 - "finished" / "completed" / "all set" → status: "complete"
 - "don't worry about it" / "no need anymore" → status: "cancelled"
 
+## WHAT IS A TASK? (IMPORTANT - READ THIS!)
+
+**You are the TASK MASTER.** Your job is to figure out what's ACTUALLY a task vs what's just casual conversation.
+
+### The core question: "Would this end up on someone's to-do list?"
+
+A REAL task has:
+- **Accountability**: Someone specific is expected to DO something
+- **Deliverable**: There's a tangible outcome (send a file, build a feature, bring an item)
+- **Follow-up potential**: Someone might ask "did you do that thing?"
+
+**NOT a task** (even if it sounds like one):
+- Jokes, banter, rhetorical questions
+- Casual expressions ("give me a high five", "lmk if I should be worried")
+- Vibe checks ("can I get a HOOYAH", "thoughts?")
+- Feedback requests with no real deliverable ("what do you think about this?")
+- Social/emotional exchanges ("let me know if you're happy")
+
+### The "To-Do List" Test
+Ask yourself: **Would any reasonable person actually write this down as a task?**
+
+| Message | Task? | Why |
+|---------|-------|-----|
+| "Please send me the Q4 report by Friday" | ✅ YES | Clear deliverable, deadline, accountability |
+| "Can you review this PR today?" | ✅ YES | Specific action needed |
+| "Bring cookies to the meeting tomorrow" | ✅ YES | Real deliverable with timeline |
+| "lmk if i'm not supposed to be happy" | ❌ NO | It's a vibe check, not a deliverable |
+| "give me a fucking high five" | ❌ NO | Banter, not a to-do item |
+| "can I get a HOOOYAAAA" | ❌ NO | Team hype, not actionable |
+| "what do you think?" | ❌ NO | Casual question, no deliverable |
+| "let me know your thoughts when you get a chance" | ❌ NO | Too vague, no specific outcome |
+
+### Use your judgment!
+Don't pattern-match on words like "please", "can you", or "lmk". Those appear in casual chat all the time. Think about INTENT and whether there's real work to be done.
+
+If it's NOT a task, it might be:
+- \`general\` - casual chat, banter
+- \`question\` - asking for info/opinion
+- \`noise\` - reactions, vibes, fluff
+
 **Message:** "you just have to accept them when you refresh"
 \`\`\`json
 {
