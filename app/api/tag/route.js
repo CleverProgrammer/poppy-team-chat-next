@@ -592,6 +592,25 @@ When you see a new message about something discussed before, USE THE SAME canoni
 - Multiple people asking for the same thing
 - Questions and answers about same topic
 
+## TASK ACTIONS (IMPORTANT!)
+
+When a message is task-related, include a \`task_action\` field to signal what should happen:
+
+| task_action | When to use |
+|-------------|-------------|
+| \`"create"\` | A new task is being assigned or requested |
+| \`"complete"\` | A task is being marked as done (gratitude, acknowledgment, past tense) |
+| \`"cancel"\` | A task is being cancelled (nvm, forget it, no longer needed) |
+| \`null\` or omit | Not task-related at all |
+
+**This is how you tell the system to take action.** Don't just describe - signal intent!
+
+Examples:
+- "Amaanath should pick us up" → \`task_action: "create"\`
+- "thanks for picking us up" → \`task_action: "complete"\`
+- "nvm don't worry about the pickup" → \`task_action: "cancel"\`
+- "how's the weather?" → no task_action field
+
 ## BE CREATIVE
 
 These are examples, not rules. You might see patterns I haven't. Invent new types. Find better tags. The only measure: **Can humans find what they're looking for?**`

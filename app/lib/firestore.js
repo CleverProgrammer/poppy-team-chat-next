@@ -402,11 +402,9 @@ export async function sendMessageDM(
             summary: data.aiTags.summary,
           })
 
-          // Auto-create or update task if AI detected task-related type
-          // status_update with a canonical_tag can mark existing tasks as complete
-          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request' || 
-              (data.aiTags.type === 'status_update' && data.aiTags.canonical_tag)) {
-            console.log('📋 Task action from type:', data.aiTags.type, '| status:', data.aiTags.status)
+          // AI signals task intent via task_action field
+          if (data.aiTags.task_action) {
+            console.log('📋 AI task_action:', data.aiTags.task_action)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
@@ -948,10 +946,9 @@ export async function sendMessageDMWithImage(
             )
             saveCanonicalTag(data.aiTags)
 
-            // Auto-create or update task if AI detected task-related type
-            if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request' || 
-                (data.aiTags.type === 'status_update' && data.aiTags.canonical_tag)) {
-              console.log('📋 Task action from type:', data.aiTags.type, '| status:', data.aiTags.status)
+            // AI signals task intent via task_action field
+            if (data.aiTags.task_action) {
+              console.log('📋 AI task_action:', data.aiTags.task_action)
               createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
             }
           }
@@ -1179,9 +1176,9 @@ export async function sendMessageDMWithMedia(
               summary: data.aiTags.summary,
             })
 
-            // Auto-create task if AI detected this as a task or feature_request
-            if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
-              console.log('📋 Creating task from type:', data.aiTags.type)
+            // AI signals task intent via task_action field
+            if (data.aiTags.task_action) {
+              console.log('📋 AI task_action:', data.aiTags.task_action)
               createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
             }
           }
@@ -1331,9 +1328,9 @@ export async function sendMessageDMWithAudio(
             summary: data.aiTags.summary,
           })
 
-          // Auto-create task if AI detected this as a task or feature_request
-          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
-            console.log('📋 Creating task from type:', data.aiTags.type)
+          // AI signals task intent via task_action field
+          if (data.aiTags.task_action) {
+            console.log('📋 AI task_action:', data.aiTags.task_action)
             createTaskFromMessage(dmId, 'dm', docRef.id, '', user, recipient, data.aiTags)
           }
         }
@@ -1688,11 +1685,9 @@ export async function sendMessageDMWithReply(
             summary: data.aiTags.summary,
           })
 
-          // Auto-create or update task if AI detected task-related type
-          // status_update with a canonical_tag can mark existing tasks as complete
-          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request' || 
-              (data.aiTags.type === 'status_update' && data.aiTags.canonical_tag)) {
-            console.log('📋 Task action from type:', data.aiTags.type, '| status:', data.aiTags.status)
+          // AI signals task intent via task_action field
+          if (data.aiTags.task_action) {
+            console.log('📋 AI task_action:', data.aiTags.task_action)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
@@ -2512,13 +2507,8 @@ export async function createTaskFromMessage(
         const existingTask = existingSnap.docs[0]
         const existingData = existingTask.data()
 
-        // Check if AI detected task completion
-        const isCompleted =
-          aiTags.status === 'complete' ||
-          aiTags.status === 'done' ||
-          aiTags.status === 'completed' ||
-          aiTags.status === 'cancelled' ||
-          aiTags.status === 'canceled'
+        // AI signals completion/cancellation via task_action
+        const isCompleted = aiTags.task_action === 'complete' || aiTags.task_action === 'cancel'
 
         const updateData = {
           // Update with latest info
@@ -2531,20 +2521,20 @@ export async function createTaskFromMessage(
           updatedAt: serverTimestamp(),
         }
 
-        // Mark as completed if AI detected completion
+        // Mark as completed if AI signaled completion or cancellation
         if (isCompleted) {
           updateData.completed = true
           updateData.completedAt = serverTimestamp()
           updateData.completedBy = user.displayName || user.email
-          console.log('✅ Task marked COMPLETE:', existingTask.id, '| status:', aiTags.status)
+          console.log('✅ Task marked COMPLETE:', existingTask.id, '| task_action:', aiTags.task_action)
         }
 
         await updateDoc(doc(db, 'tasks', existingTask.id), updateData)
         console.log(
-          '✅ Task updated (deduped):',
+          '✅ Task updated:',
           existingTask.id,
-          '| canonical:',
-          canonicalTag,
+          '| action:',
+          aiTags.task_action,
           '| completed:',
           isCompleted
         )

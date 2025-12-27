@@ -28,6 +28,23 @@ The AI uses **judgment, not rigid rules**. The core question:
 ### DM Assignee Logic
 In a DM, it's simple: **the recipient IS the assignee**. Always. We don't need AI to figure this out — we have the context! The person you're talking to is the person you're assigning the task to.
 
+### Task Actions (Flexible Intent)
+Instead of hardcoding type matches like `type === 'task'`, the AI signals intent via a **`task_action`** field:
+
+| task_action | When AI returns it |
+|-------------|-------------------|
+| `"create"` | A new task is being assigned or requested |
+| `"complete"` | A task is being marked as done (gratitude, acknowledgment, past tense) |
+| `"cancel"` | A task is being cancelled (nvm, forget it, no longer needed) |
+| `null` or omitted | Not task-related at all |
+
+**The code just checks:** `if (aiTags.task_action) { processTask() }`
+
+This is more flexible because:
+- The AI can add new task_actions in the future without code changes
+- No rigid type matching — the AI signals intent directly
+- Works for any `type` the AI assigns (task, feature_request, etc.)
+
 ---
 
 ## Architecture Overview
@@ -48,10 +65,10 @@ In a DM, it's simple: **the recipient IS the assignee**. Always. We don't need A
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      POST /api/tag (background)                     │
 │                                                                     │
-│  AI returns: { "type": "task", "assignee": "olivia", ... }          │
+│  AI returns: { "task_action": "create", "assignee": "olivia", ... } │
 └─────────────────────────────────────────────────────────────────────┘
                                   │
-                                  ▼ (if type === "task")
+                                  ▼ (if task_action exists)
 ┌─────────────────────────────────────────────────────────────────────┐
 │                  CREATE TASK IN FIRESTORE                           │
 │                                                                     │
