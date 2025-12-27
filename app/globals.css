@@ -4238,33 +4238,32 @@ iframe[src*="vercel"] {
 /* Posts View Styles */
 .view-mode-toggle {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin: 0 16px;
-  background: var(--bg-input);
-  border-radius: 8px;
-  padding: 4px;
 }
 
 .view-mode-toggle .toggle-btn {
-  padding: 6px 16px;
+  padding: 4px 10px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   cursor: pointer;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 400;
   transition: all 0.2s;
+  opacity: 0.6;
 }
 
 .view-mode-toggle .toggle-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+  opacity: 1;
+  color: var(--text-secondary);
 }
 
 .view-mode-toggle .toggle-btn.active {
-  background: #667eea;
-  color: white;
+  opacity: 1;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .posts-view {
