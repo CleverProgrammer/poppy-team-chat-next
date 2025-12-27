@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import TaskPreview from './TaskPreview';
-import { subscribeToTasksByChat, toggleTaskComplete, deleteTask } from '../../lib/firestore';
+import { subscribeToTasksByChat, toggleTaskComplete } from '../../lib/firestore';
 
 export default function TasksSection({ chatId, chatType, user }) {
   const [tasks, setTasks] = useState([]);
   const [isExpanded, setIsExpanded] = useState(true);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [filter, setFilter] = useState('all'); // 'all', 'open', 'done'
 
   useEffect(() => {
     if (!chatId || !chatType) return;
@@ -27,18 +26,10 @@ export default function TasksSection({ chatId, chatType, user }) {
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    try {
-      await deleteTask(taskId);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-    }
-  };
-
   // Filter tasks
   const openTasks = tasks.filter(t => !t.completed);
   const completedTasks = tasks.filter(t => t.completed);
-  const displayTasks = showCompleted ? tasks : openTasks;
+  const displayTasks = filter === 'all' ? tasks : filter === 'open' ? openTasks : completedTasks;
 
   // Don't render if no tasks
   if (tasks.length === 0) {
@@ -46,57 +37,94 @@ export default function TasksSection({ chatId, chatType, user }) {
   }
 
   return (
-    <div className="mx-3 mb-3 rounded-2xl bg-black/20 border border-white/10 overflow-hidden">
-      {/* Header */}
-      <button 
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-lg">📋</span>
-          <span className="text-sm font-medium text-white">
-            {openTasks.length} open task{openTasks.length !== 1 ? 's' : ''}
-          </span>
-          {completedTasks.length > 0 && (
-            <span className="text-xs text-gray-500">
-              ({completedTasks.length} done)
-            </span>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {completedTasks.length > 0 && (
-            <button
-              className="text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded-lg hover:bg-purple-500/20 transition-all"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowCompleted(!showCompleted);
-              }}
-            >
-              {showCompleted ? 'Hide done' : 'Show done'}
-            </button>
-          )}
-          <span className={`text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}>
+    <div className="mx-3 mb-3">
+      {/* Minimal Header */}
+      <div className="flex items-center justify-between mb-2 px-1">
+        <div 
+          className="flex items-center gap-2 cursor-pointer select-none"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <span className={`text-[10px] text-gray-500 transition-transform duration-150 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}>
             ▼
           </span>
+          <span className="text-xs font-medium text-gray-400 tracking-wide uppercase">
+            Tasks
+          </span>
+          <span className="text-[10px] text-gray-600">
+            {openTasks.length} open
+          </span>
         </div>
-      </button>
+        
+        {/* Filter Pills */}
+        <div className="flex gap-1">
+          {['all', 'open', 'done'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-[10px] px-2 py-0.5 rounded-full transition-all ${
+                filter === f
+                  ? 'bg-white/10 text-gray-300'
+                  : 'text-gray-600 hover:text-gray-400'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
       
       {/* Tasks List */}
       {isExpanded && (
-        <div className="px-3 pb-3 space-y-2">
+        <div className="space-y-1">
           {displayTasks.length === 0 ? (
-            <div className="text-center py-4 text-gray-500 text-sm">
-              All tasks completed! 🎉
+            <div className="text-center py-3 text-gray-600 text-xs">
+              {filter === 'done' ? 'No completed tasks' : filter === 'open' ? 'All done! ✓' : 'No tasks yet'}
             </div>
           ) : (
             displayTasks.map(task => (
-              <TaskPreview
+              <div
                 key={task.id}
-                task={task}
-                onToggleComplete={handleToggleComplete}
-                onDelete={handleDeleteTask}
-              />
+                onClick={() => handleToggleComplete(task.id)}
+                className={`group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                  task.completed
+                    ? 'bg-white/2 hover:bg-white/4'
+                    : 'bg-white/3 hover:bg-white/6'
+                }`}
+              >
+                {/* Checkbox */}
+                <div className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all ${
+                  task.completed
+                    ? 'bg-green-500/20 border-green-500/50'
+                    : 'border-gray-600 group-hover:border-gray-500'
+                }`}>
+                  {task.completed && (
+                    <svg className="w-2.5 h-2.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+
+                {/* Task Content */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm truncate ${
+                    task.completed ? 'text-gray-500 line-through' : 'text-gray-300'
+                  }`}>
+                    {task.title}
+                  </p>
+                </div>
+
+                {/* Assignee */}
+                {task.assignedTo && (
+                  <span className="text-[10px] text-gray-600 shrink-0">
+                    → {task.assignedTo.split(' ')[0]}
+                  </span>
+                )}
+
+                {/* Priority dot */}
+                {!task.completed && task.priority === 'high' && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500/70 shrink-0" />
+                )}
+              </div>
             ))
           )}
         </div>

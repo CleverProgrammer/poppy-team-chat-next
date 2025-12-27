@@ -2471,7 +2471,7 @@ export async function createTaskFromMessage(
 
     if (aiTags.assignee) {
       const assigneeRaw = aiTags.assignee.toUpperCase().trim()
-      
+
       // "YOU" means the DM recipient - the person being spoken to
       if (assigneeRaw === 'YOU' && chatType === 'dm' && recipient) {
         assignedTo = recipient.displayName || recipient.email || 'Unknown'

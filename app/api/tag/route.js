@@ -720,7 +720,10 @@ export async function POST(request) {
     let openTasksSection = 'No open tasks in this conversation'
     if (openTasks.length > 0) {
       openTasksSection = openTasks
-        .map(t => `- ${t.canonicalTag}: "${t.title}" (assigned to: ${t.assignedTo}, priority: ${t.priority})`)
+        .map(
+          t =>
+            `- ${t.canonicalTag}: "${t.title}" (assigned to: ${t.assignedTo}, priority: ${t.priority})`
+        )
         .join('\n')
     }
     console.log(`📋 Open Tasks: ${openTasks.length} in this chat`)
