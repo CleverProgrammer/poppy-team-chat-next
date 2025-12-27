@@ -194,20 +194,18 @@ export default function ChatHeader({
         </div>
 
         {viewMode && onViewModeChange && (
-          <div className='view-mode-toggle'>
-            <button
-              className={`toggle-btn ${viewMode === 'messages' ? 'active' : ''}`}
-              onClick={() => onViewModeChange('messages')}
-            >
-              Messages
-            </button>
-            <button
-              className={`toggle-btn ${viewMode === 'posts' ? 'active' : ''}`}
-              onClick={() => onViewModeChange('posts')}
-            >
-              Posts
-            </button>
-          </div>
+          <button
+            onClick={() => onViewModeChange(viewMode === 'posts' ? 'messages' : 'posts')}
+            className={`ml-2 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+              viewMode === 'posts'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
+            } flex items-center gap-1.5`}
+            title={viewMode === 'posts' ? 'Back to messages' : 'View posts'}
+          >
+            <span>📝</span>
+            <span>Posts</span>
+          </button>
         )}
       </div>
 
