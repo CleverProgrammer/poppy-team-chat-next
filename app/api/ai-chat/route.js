@@ -24,26 +24,37 @@ async function trackAIUsage({
   toolsUsed,
 }) {
   try {
-    // Create readable doc ID: userName_timestamp (e.g., "rafeh_qazi_1735123456789")
-    const nameSlug = (userName || 'unknown').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-    const docId = `${nameSlug}_${Date.now()}`
-    
-    await adminDb.collection('ai_usage').doc(docId).set({
-      timestamp: new Date().toISOString(),
-      type,
-      model,
-      inputTokens,
-      outputTokens,
-      inputCost,
-      outputCost,
-      totalCost,
-      userId: userId || null,
-      userEmail: userEmail || null,
-      userName: userName || null,
-      chatId: chatId || null,
-      chatType: chatType || null,
-      toolsUsed: toolsUsed || [],
-    })
+    // Create fun readable doc ID: userName_color_animal_shortId (e.g., "rafeh_qazi_red_panda_abc12")
+    const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'gold', 'cyan']
+    const animals = ['panda', 'tiger', 'wolf', 'eagle', 'shark', 'fox', 'hawk', 'bear']
+    const color = colors[Math.floor(Math.random() * colors.length)]
+    const animal = animals[Math.floor(Math.random() * animals.length)]
+    const shortId = Math.random().toString(36).substring(2, 7)
+    const nameSlug = (userName || 'unknown')
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+    const docId = `${nameSlug}_${color}_${animal}_${shortId}`
+
+    await adminDb
+      .collection('ai_usage')
+      .doc(docId)
+      .set({
+        timestamp: new Date().toISOString(),
+        type,
+        model,
+        inputTokens,
+        outputTokens,
+        inputCost,
+        outputCost,
+        totalCost,
+        userId: userId || null,
+        userEmail: userEmail || null,
+        userName: userName || null,
+        chatId: chatId || null,
+        chatType: chatType || null,
+        toolsUsed: toolsUsed || [],
+      })
   } catch (error) {
     // Don't fail the request if tracking fails - just log it
     console.error('⚠️ Failed to track AI usage:', error.message)
