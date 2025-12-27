@@ -14,6 +14,7 @@ import ChatHeader from './ChatHeader'
 import ContextMenu from './ContextMenu'
 import PostsView from './PostsView'
 import PostPreview from './PostPreview'
+import TasksSection from './TasksSection'
 import VideoRecorder from './VideoRecorder'
 import WebVideoRecorder from './WebVideoRecorder'
 import ThreadView from './ThreadView'
@@ -1344,6 +1345,18 @@ export default function ChatWindow() {
                     increaseViewportBy={{ top: 1500, bottom: 1500 }}
                     // Add spacer at bottom for keyboard + extra padding on mobile for read receipts
                     components={{
+                      Header: () => {
+                        // Show tasks section at the top of the chat (DMs only for now)
+                        if (currentChat?.type !== 'dm') return null;
+                        const dmId = getDMId(user.uid, currentChat.id);
+                        return (
+                          <TasksSection
+                            chatId={dmId}
+                            chatType="dm"
+                            user={user}
+                          />
+                        );
+                      },
                       Footer: () => {
                         // On mobile (native), always add base padding for read receipts to not overlap input
                         // When keyboard is open, add keyboard height on top of that

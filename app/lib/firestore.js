@@ -16,6 +16,7 @@ import {
   limit,
   startAfter,
   increment,
+  where,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from './firebase'
@@ -286,6 +287,11 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
           updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
+          
+          // Auto-create task if AI detected this as a task
+          if (data.aiTags.type === 'task') {
+            createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+          }
         }
       })
       .catch(err => console.error('Tagging failed:', err))
@@ -818,6 +824,12 @@ export async function sendMessageDMWithImage(
           if (data.aiTags) {
             updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
               .catch(err => console.warn('Failed to save tags to Firestore:', err))
+            saveCanonicalTag(data.aiTags)
+            
+            // Auto-create task if AI detected this as a task
+            if (data.aiTags.type === 'task') {
+              createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+            }
           }
         })
         .catch(err => console.error('Tagging failed:', err))
@@ -1033,6 +1045,11 @@ export async function sendMessageDMWithMedia(
           updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
+          
+          // Auto-create task if AI detected this as a task
+          if (data.aiTags.type === 'task') {
+            createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+          }
         }
       })
       .catch(err => console.error('Tagging failed:', err))
@@ -1170,6 +1187,11 @@ export async function sendMessageDMWithAudio(
           updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
+          
+          // Auto-create task if AI detected this as a task
+          if (data.aiTags.type === 'task') {
+            createTaskFromMessage(dmId, 'dm', docRef.id, '', user, recipient, data.aiTags)
+          }
         }
       })
       .catch(err => console.error('Tagging failed:', err))
@@ -1500,6 +1522,11 @@ export async function sendMessageDMWithReply(
           updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
+          
+          // Auto-create task if AI detected this as a task
+          if (data.aiTags.type === 'task') {
+            createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
+          }
         }
       })
       .catch(err => console.error('Tagging failed:', err))
@@ -2053,4 +2080,205 @@ export function subscribeToViewedStories(userId, chatType, chatId, callback) {
       callback(new Set())
     }
   )
+}
+
+// ============================================
+// TASKS FUNCTIONS
+// ============================================
+
+/**
+ * Create a task from an AI-detected task message
+ * Called automatically when a message is tagged as type: 'task'
+ */
+export async function createTaskFromMessage(chatId, chatType, messageId, text, user, recipient, aiTags) {
+  try {
+    const tasksRef = collection(db, 'tasks')
+    
+    // Determine chat name for display
+    let chatName = ''
+    if (chatType === 'dm') {
+      chatName = recipient?.displayName || recipient?.email || 'Direct Message'
+    } else {
+      chatName = chatId // Channel name
+    }
+    
+    const taskData = {
+      // Task content
+      title: aiTags.summary || text.substring(0, 100),
+      originalMessageId: messageId,
+      originalMessageText: text,
+      
+      // Assignment
+      assignee: aiTags.assignee || null,
+      assigneeId: null, // We'll need to look this up if we want to query by user
+      assigner: user.displayName || user.email,
+      assignerId: user.uid,
+      
+      // Conversation context
+      chatId: chatId,
+      chatType: chatType,
+      chatName: chatName,
+      
+      // Task metadata
+      priority: aiTags.priority || 'medium',
+      dueDate: aiTags.due_date || null,
+      canonicalTag: aiTags.canonical_tag || null,
+      
+      // Status
+      status: aiTags.status || 'pending',
+      completed: false,
+      completedAt: null,
+      completedBy: null,
+      
+      // Timestamps
+      createdAt: serverTimestamp(),
+    }
+    
+    const docRef = await addDoc(tasksRef, taskData)
+    console.log('✅ Task auto-created from message:', docRef.id)
+    return docRef.id
+  } catch (error) {
+    console.error('Failed to create task from message:', error)
+    return null
+  }
+}
+
+/**
+ * Subscribe to tasks in a specific chat (DM or channel)
+ */
+export function subscribeToTasksByChat(chatId, chatType, callback) {
+  if (!chatId) {
+    callback([])
+    return () => {}
+  }
+
+  const tasksRef = collection(db, 'tasks')
+  const q = query(
+    tasksRef,
+    where('chatId', '==', chatId),
+    where('chatType', '==', chatType),
+    orderBy('createdAt', 'desc')
+  )
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const tasks = []
+      snapshot.forEach(doc => {
+        tasks.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(tasks)
+    },
+    error => {
+      console.error('Error loading tasks:', error)
+      callback([])
+    }
+  )
+}
+
+/**
+ * Subscribe to all tasks assigned to a specific user
+ * Used for "My Tasks" view
+ */
+export function subscribeToMyTasks(userId, userName, callback) {
+  if (!userId) {
+    callback([])
+    return () => {}
+  }
+
+  const tasksRef = collection(db, 'tasks')
+  
+  // Query by assignerId (tasks I created) OR assignee name (tasks assigned to me)
+  // Note: Firestore doesn't support OR queries directly, so we'll query by assignee name
+  // This is a simplification - in production you'd want assigneeId
+  const q = query(
+    tasksRef,
+    where('assignee', '==', userName?.toLowerCase() || ''),
+    orderBy('createdAt', 'desc')
+  )
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const tasks = []
+      snapshot.forEach(doc => {
+        tasks.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(tasks)
+    },
+    error => {
+      // If index doesn't exist, fall back to empty
+      console.error('Error loading my tasks:', error)
+      callback([])
+    }
+  )
+}
+
+/**
+ * Toggle task completion status
+ */
+export async function toggleTaskComplete(taskId, userId, userName) {
+  if (!taskId) return
+
+  try {
+    const taskRef = doc(db, 'tasks', taskId)
+    const taskSnap = await getDoc(taskRef)
+
+    if (taskSnap.exists()) {
+      const task = taskSnap.data()
+      const nowComplete = !task.completed
+
+      await updateDoc(taskRef, {
+        completed: nowComplete,
+        completedAt: nowComplete ? serverTimestamp() : null,
+        completedBy: nowComplete ? userName : null,
+        status: nowComplete ? 'complete' : 'pending',
+      })
+
+      console.log(`✅ Task ${taskId} marked as ${nowComplete ? 'complete' : 'pending'}`)
+    }
+  } catch (error) {
+    console.error('Error toggling task completion:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete a task
+ */
+export async function deleteTask(taskId) {
+  if (!taskId) return
+
+  try {
+    await deleteDoc(doc(db, 'tasks', taskId))
+    console.log('🗑️ Task deleted:', taskId)
+  } catch (error) {
+    console.error('Error deleting task:', error)
+    throw error
+  }
+}
+
+/**
+ * Update task details
+ */
+export async function updateTask(taskId, updates) {
+  if (!taskId) return
+
+  try {
+    const taskRef = doc(db, 'tasks', taskId)
+    await updateDoc(taskRef, {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    })
+    console.log('📝 Task updated:', taskId)
+  } catch (error) {
+    console.error('Error updating task:', error)
+    throw error
+  }
 }
