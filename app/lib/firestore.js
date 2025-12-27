@@ -15,9 +15,27 @@ import {
   arrayUnion,
   limit,
   startAfter,
+  increment,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from './firebase'
+
+// Helper to save canonical tags to Firestore for persistence
+async function saveCanonicalTag(aiTags) {
+  if (!aiTags?.canonical_tag || aiTags.type === 'noise') return;
+  
+  try {
+    await setDoc(doc(db, 'canonical_tags', aiTags.canonical_tag), {
+      name: aiTags.canonical_tag,
+      type: aiTags.type || 'unknown',
+      count: increment(1),
+      lastSeen: serverTimestamp(),
+      summary: aiTags.summary || null
+    }, { merge: true });
+  } catch (err) {
+    console.warn('Failed to save canonical tag:', err);
+  }
+}
 
 export async function saveUser(user) {
   if (!user) return
@@ -68,8 +86,9 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
     
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index to Ragie (fire and forget, don't block send)
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie (fire and forget, don't block send)
+    // When tags come back, save them to Firestore for UI display
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -82,7 +101,16 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
         senderId: user.uid,
         timestamp: new Date().toISOString(),
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
   } catch (error) {
     console.error('Error sending message:', error)
     throw error
@@ -219,8 +247,8 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
     console.log('🔔 Firebase Cloud Function should trigger now...')
     console.log('═══════════════════════════════════════════════════════════')
 
-    // Index to Ragie (fire and forget, don't block send)
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie (fire and forget, don't block send)
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -238,7 +266,16 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
         recipientName: recipient?.displayName || recipient?.email || null,
         recipientEmail: recipient?.email || null,
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
 
     // Add both users to each other's active DMs
     if (recipientId) {
@@ -663,10 +700,10 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
       timestamp: serverTimestamp(),
     })
 
-    // Index to Ragie (fire and forget, don't block send)
+    // Tag and index to Ragie (fire and forget, don't block send)
     // 1. Sync accompanying text (if any)
     if (text) {
-      fetch('/api/ragie/sync', {
+      fetch('/api/tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -679,7 +716,15 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
           senderId: user.uid,
           timestamp: new Date().toISOString(),
         }),
-      }).catch(err => console.error('Ragie text sync failed:', err))
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.aiTags) {
+            updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
+              .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          }
+        })
+        .catch(err => console.error('Tagging failed:', err))
     }
 
     // 2. Sync each image to Ragie - extract captions/OCR from images
@@ -734,10 +779,10 @@ export async function sendMessageDMWithImage(
       timestamp: serverTimestamp(),
     })
 
-    // Index to Ragie (fire and forget, don't block send)
+    // Tag and index to Ragie (fire and forget, don't block send)
     // 1. Sync accompanying text (if any)
     if (text) {
-      fetch('/api/ragie/sync', {
+      fetch('/api/tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -754,7 +799,15 @@ export async function sendMessageDMWithImage(
           recipientName: recipient?.displayName || recipient?.email || null,
           recipientEmail: recipient?.email || null,
         }),
-      }).catch(err => console.error('Ragie text sync failed:', err))
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.aiTags) {
+            updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
+              .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          }
+        })
+        .catch(err => console.error('Tagging failed:', err))
     }
 
     // 2. Sync each image to Ragie - extract captions/OCR from images
@@ -848,9 +901,9 @@ export async function sendMessageWithMedia(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index text to Ragie if present
+    // Tag and index to Ragie if text present
     if (text) {
-      fetch('/api/ragie/sync', {
+      fetch('/api/tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -860,10 +913,19 @@ export async function sendMessageWithMedia(
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
-          senderId: user.uid,
-          timestamp: new Date().toISOString(),
-        }),
-      }).catch(err => console.error('Ragie sync failed:', err))
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
     }
   } catch (error) {
     console.error('Error sending message with media:', error)
@@ -932,9 +994,9 @@ export async function sendMessageDMWithMedia(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index text to Ragie if present
+    // Tag and index to Ragie if text present
     if (text) {
-      fetch('/api/ragie/sync', {
+      fetch('/api/tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -949,9 +1011,18 @@ export async function sendMessageDMWithMedia(
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
-          recipientEmail: recipient?.email || null,
-        }),
-      }).catch(err => console.error('Ragie sync failed:', err))
+        recipientEmail: recipient?.email || null,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
     }
 
     // Add to active DMs
@@ -996,8 +1067,8 @@ export async function sendMessageWithAudio(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index to Ragie (empty text but still index for context)
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie (empty text but still index for context)
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1010,7 +1081,16 @@ export async function sendMessageWithAudio(
         senderId: user.uid,
         timestamp: new Date().toISOString(),
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
   } catch (error) {
     console.error('Error sending message with audio:', error)
     throw error
@@ -1052,8 +1132,8 @@ export async function sendMessageDMWithAudio(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index to Ragie
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1070,7 +1150,16 @@ export async function sendMessageDMWithAudio(
         recipientName: recipient?.displayName || recipient?.email || null,
         recipientEmail: recipient?.email || null,
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)
@@ -1292,8 +1381,8 @@ export async function sendMessageWithReply(channelId, user, text, replyTo, linkP
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index to Ragie (fire and forget, don't block send)
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie (fire and forget, don't block send)
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1306,7 +1395,16 @@ export async function sendMessageWithReply(channelId, user, text, replyTo, linkP
         senderId: user.uid,
         timestamp: new Date().toISOString(),
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
   } catch (error) {
     console.error('Error sending message with reply:', error)
     throw error
@@ -1364,8 +1462,8 @@ export async function sendMessageDMWithReply(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Index to Ragie (fire and forget, don't block send)
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie (fire and forget, don't block send)
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1382,7 +1480,16 @@ export async function sendMessageDMWithReply(
         recipientName: recipient?.displayName || recipient?.email || null,
         recipientEmail: recipient?.email || null,
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)
@@ -1469,8 +1576,8 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
       timestamp: serverTimestamp(),
     })
 
-    // Index to Ragie (fire and forget, don't block send)
-    fetch('/api/ragie/sync', {
+    // Tag and index to Ragie (fire and forget, don't block send)
+    fetch('/api/tag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1483,7 +1590,16 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
         senderId: isAI ? 'ai' : userId,
         timestamp: new Date().toISOString(),
       }),
-    }).catch(err => console.error('Ragie sync failed:', err))
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'aiChats', userId, 'messages', docRef.id), { aiTags: data.aiTags })
+            .catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
   } catch (error) {
     console.error('Error sending AI message:', error)
     throw error

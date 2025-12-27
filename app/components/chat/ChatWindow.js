@@ -1260,6 +1260,7 @@ export default function ChatWindow() {
             allUsers={allUsers}
             currentUserId={user?.uid}
             currentUser={user}
+            messages={messages}
           />
 
           {viewMode === 'posts' ? (

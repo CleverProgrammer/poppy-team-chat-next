@@ -73,8 +73,17 @@ async function processAIRequest(
   const now = new Date()
   const dateTimeContext = `
 CURRENT DATE & TIME:
-- Today is: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-- Current time: ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+- Today is: ${now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })}
+- Current time: ${now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })}
 - Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
 - ISO timestamp: ${now.toISOString()}`
 
@@ -152,18 +161,43 @@ When users ask about ANYTHING with a time reference (this week, yesterday, last 
 
 === HOW TO FIND INFORMATION ===
 
-1. FIRST: CHECK THE CHAT CONTEXT PROVIDED
-   - You have the last 50 messages from this conversation right here
-   - Look through them FIRST before using any tools
-   - Most questions can be answered from the immediate chat history
+🚨🚨🚨 MOST IMPORTANT RULE: USE search_chat_history AGGRESSIVELY! 🚨🚨🚨
 
-2. SECOND: USE search_chat_history (Ragie.ai)
-   - If you can't find it in the immediate context, search ALL past chat messages
-   - This is your MEMORY system - it contains everything ever said
-   - Use it for: "do you remember...", "what did I say about...", past conversations, preferences, facts shared before
+You have access to EVERY message ever sent in this workspace through search_chat_history.
+This is your SUPERPOWER. USE IT CONSTANTLY. Don't be shy about it!
+
+ALWAYS USE search_chat_history WHEN:
+- User asks about ANYTHING that happened before (even if vague)
+- User asks a question and you don't have the answer in immediate context
+- User asks about: people, decisions, features, bugs, tasks, revenue, goals, metrics, conversations
+- User says: "remember", "what about", "when did", "who said", "did anyone", "what happened"
+- User asks the same/similar question AGAIN = they want you to SEARCH HARDER
+- User seems frustrated or says "no" / "that's not it" = SEARCH CHAT HISTORY IMMEDIATELY
+- ANY question that could have been discussed in the past = SEARCH FIRST, think later
+- User asks about team members, who does what, assignments, etc.
+- User asks about any topic you're not 100% certain about from immediate context
+
+THE 80% RULE: If there's even a 20% chance the answer is in chat history, USE THE TOOL!
+
+DON'T BE LAZY! Checking chat context (50 messages) is NOT enough.
+The real gold is in search_chat_history - use it proactively, not as a last resort.
+
+=== SEARCH STRATEGY ===
+
+1. QUICK GLANCE: Check the last 50 messages for obvious answers
+2. IF NOT OBVIOUS → IMMEDIATELY USE search_chat_history
+   - Don't say "I don't see that in our conversation"
+   - Don't ask "can you tell me more?"
+   - Just SEARCH! The answer is probably in there!
+
+3. search_chat_history (Ragie.ai) - YOUR MEMORY SYSTEM
+   - Contains EVERY message ever sent across ALL channels and DMs
+   - Searchable by content, people, dates, topics
    - FOR TIME-BOUND QUERIES: Use startDate and endDate parameters!
+   - Use topK of 20-50 to get more context
+   - Try MULTIPLE searches with different phrasings if first one doesn't work
 
-3. THIRD: USE CLAVIS AI TOOLS
+4. IF STILL NOT FOUND: USE CLAVIS AI TOOLS
    - These give you access to external systems: Linear, Google Calendar, Notion, Tavily, etc.
    
    === LINEAR (Project Management) ===
@@ -199,9 +233,14 @@ CRITICAL DATE HANDLING:
 - When scheduling or checking calendar: use ISO format (YYYY-MM-DD)
 - TIME-BOUND SEARCHES: Calculate exact date ranges and pass them to tools!
 
-Be persistent and exhaustive in trying to find information.
-Only say "I don't know" as an ABSOLUTE LAST RESORT after trying everything.
-Don't ask permission to search or remember things - just do it.
+🔥 GOLDEN RULES 🔥
+1. NEVER say "I don't see that" without using search_chat_history first!
+2. NEVER say "I don't know" without at least 2-3 different search attempts!
+3. NEVER ask "can you tell me more?" - just SEARCH with what you have!
+4. If user asks again or says "no that's wrong" = SEARCH CHAT HISTORY IMMEDIATELY
+5. Don't ask permission to search - JUST DO IT
+6. Be aggressive about finding information - the user is counting on you!
+7. When in doubt, SEARCH. When certain, SEARCH ANYWAY to confirm.
 `
 
   // Build messages array from chat history
@@ -211,11 +250,11 @@ Don't ask permission to search or remember things - just do it.
   // Add recent chat history if provided (last 50 messages for context)
   if (chatHistory && chatHistory.length > 0) {
     const recentHistory = chatHistory.slice(-50)
-    
+
     // Collect all messages into a single context block for clarity
     let historyBlock = `═══ CHAT HISTORY (${recentHistory.length} messages) ═══\n`
     historyBlock += `Note: [${currentUserName}] = the person you're talking to. "I/me" in their questions refers to [${currentUserName}].\n\n`
-    
+
     recentHistory.forEach(msg => {
       if (msg.sender && msg.text) {
         const isCurrentUser = msg.senderId === user?.id
@@ -223,9 +262,9 @@ Don't ask permission to search or remember things - just do it.
         historyBlock += `[${msg.sender}]${marker}: ${msg.text}\n`
       }
     })
-    
+
     historyBlock += `\n═══ END OF HISTORY ═══`
-    
+
     messages.push({
       role: 'user',
       content: historyBlock,
@@ -281,11 +320,13 @@ Don't ask permission to search or remember things - just do it.
         },
         startDate: {
           type: 'string',
-          description: 'ISO date string for the start of the time range (e.g., "2025-12-16T00:00:00Z"). Use this for time-bound queries like "this week", "yesterday", "last month".',
+          description:
+            'ISO date string for the start of the time range (e.g., "2025-12-16T00:00:00Z"). Use this for time-bound queries like "this week", "yesterday", "last month".',
         },
         endDate: {
           type: 'string',
-          description: 'ISO date string for the end of the time range (e.g., "2025-12-20T23:59:59Z"). Use this for time-bound queries.',
+          description:
+            'ISO date string for the end of the time range (e.g., "2025-12-20T23:59:59Z"). Use this for time-bound queries.',
         },
       },
       required: ['query'],
@@ -414,11 +455,15 @@ Don't ask permission to search or remember things - just do it.
           console.log(`🔍 RAGIE: Searching chat history for: "${toolUse.input.query}"`)
           console.log(`🔍 RAGIE: Current chat context:`, currentChat)
           if (toolUse.input.startDate || toolUse.input.endDate) {
-            console.log(`🔍 RAGIE: Date filter - from: ${toolUse.input.startDate || 'any'} to: ${toolUse.input.endDate || 'any'}`)
+            console.log(
+              `🔍 RAGIE: Date filter - from: ${toolUse.input.startDate || 'any'} to: ${
+                toolUse.input.endDate || 'any'
+              }`
+            )
           }
           const results = await searchChatHistory(
-            userId, 
-            toolUse.input.query, 
+            userId,
+            toolUse.input.query,
             currentChat,
             toolUse.input.startDate,
             toolUse.input.endDate

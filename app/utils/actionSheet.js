@@ -88,7 +88,7 @@ export const showMessageActionsSheet = async ({
   }
 
   if (isOwnMessage) {
-    options.push({ title: '🧠 Add to Team AI Memory' });
+    options.push({ title: '🧠 Team Memory' });
   }
 
   const result = await ActionSheet.showActions({
@@ -128,7 +128,7 @@ export const showMessageActionsSheet = async ({
     case '💬 Make it a message':
       onDemote?.();
       break;
-    case '🧠 Add to Team AI Memory':
+    case '🧠 Team Memory':
       onAddToTeamMemory?.();
       break;
   }

@@ -187,7 +187,7 @@ export default function MessageActionSheet({
             {isOwnMessage && (
               <button className="action-sheet-action-btn" onClick={() => handleAction(onAddToTeamMemory)}>
                 <span className="action-icon">🧠</span>
-                <span>Add to Team AI Memory</span>
+                <span>Team Memory</span>
               </button>
             )}
             {/* Copy - only if message has text */}

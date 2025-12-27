@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDevMode } from '../../contexts/DevModeContext'
 import SignOutButton from '../auth/SignOutButton'
 import ChannelStoryRing from '../chat/ChannelStoryRing'
 import DMStoryRing from '../chat/DMStoryRing'
@@ -20,6 +21,7 @@ export default function Sidebar({
   onOpenSearch,
 }) {
   const { user, setPasswordForAccount } = useAuth()
+  const { isDevMode, toggleDevMode, canAccessDevMode } = useDevMode()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [password, setPassword] = useState('')
@@ -368,6 +370,33 @@ export default function Sidebar({
             >
               Set Password
             </button>
+            {canAccessDevMode && (
+              <button
+                className='user-menu-item'
+                onClick={() => {
+                  toggleDevMode()
+                  setShowUserMenu(false)
+                }}
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  fontSize: '12px',
+                  opacity: 0.7
+                }}
+              >
+                <span>🛠️ Dev Mode</span>
+                <span style={{ 
+                  fontSize: '10px', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px',
+                  background: isDevMode ? '#22c55e' : '#374151',
+                  color: isDevMode ? '#fff' : '#9ca3af'
+                }}>
+                  {isDevMode ? 'ON' : 'OFF'}
+                </span>
+              </button>
+            )}
             <SignOutButton />
           </div>
         )}

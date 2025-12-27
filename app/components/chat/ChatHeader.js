@@ -1,7 +1,9 @@
 'use client'
 
+import { useMemo } from 'react'
 import ChannelStoryRing from './ChannelStoryRing'
 import DMStoryRing from './DMStoryRing'
+import { useDevMode } from '../../contexts/DevModeContext'
 
 export default function ChatHeader({
   currentChat,
@@ -13,7 +15,26 @@ export default function ChatHeader({
   allUsers,
   currentUserId, // Current logged-in user's ID for DM stories
   currentUser = null, // Current user object for story view tracking
+  messages = [], // Messages for cost calculation
 }) {
+  const { isDevMode } = useDevMode()
+
+  // Calculate today's tagging cost from messages
+  const todayCost = useMemo(() => {
+    if (!isDevMode) return 0
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStart = today.getTime() / 1000 // Firestore timestamp in seconds
+    
+    return messages.reduce((total, msg) => {
+      const msgTime = msg.timestamp?.seconds || 0
+      if (msgTime >= todayStart && msg.aiTags?._cost) {
+        return total + msg.aiTags._cost
+      }
+      return total
+    }, 0)
+  }, [messages, isDevMode])
   const getIcon = () => {
     if (currentChat.type === 'channel') return '#'
     if (currentChat.type === 'ai')
@@ -151,6 +172,19 @@ export default function ChatHeader({
             </span>
             <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
           </div>
+          {isDevMode && todayCost > 0 && (
+            <span style={{ 
+              marginLeft: '12px',
+              fontSize: '10px', 
+              color: '#9ca3af', 
+              fontFamily: 'monospace',
+              background: '#1f2937',
+              padding: '2px 8px',
+              borderRadius: '4px'
+            }}>
+              🏷️ ${todayCost.toFixed(4)} today
+            </span>
+          )}
         </div>
 
         {viewMode && onViewModeChange && (

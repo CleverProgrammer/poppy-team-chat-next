@@ -97,7 +97,7 @@ export async function searchChatHistory(userId, query, currentChat, startDate = 
   const response = await ragie.retrievals.retrieve({
     query,
     filter,
-    topK: 30, // High topK for comprehensive results
+    topK: 50, // High topK for comprehensive results
     rerank: true,
     recencyBias: true
   });

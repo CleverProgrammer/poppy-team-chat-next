@@ -17,7 +17,9 @@ export async function POST(request) {
       // Recipient info for DMs
       recipientId,
       recipientName,
-      recipientEmail
+      recipientEmail,
+      // AI-generated tags for better retrieval
+      aiTags
     } = await request.json();
 
     if (!messageId || !text || !chatId || !chatType) {
@@ -50,7 +52,26 @@ export async function POST(request) {
       if (recipientEmail) metadata.recipientEmail = recipientEmail;
     }
 
-    console.log(`📚 Ragie: Indexing message ${messageId} to ${chatType}:${chatId}`);
+    // Add AI-generated tags for better semantic retrieval
+    if (aiTags) {
+      metadata.message_type = aiTags.type || null;
+      metadata.tags = aiTags.tags || [];
+      metadata.canonical_tag = aiTags.canonical_tag || null;
+      metadata.summary = aiTags.summary || null;
+      metadata.priority = aiTags.priority || null;
+      metadata.temperature = aiTags.temperature || null;
+      // Additional fields that may be present
+      if (aiTags.assignee) metadata.assignee = aiTags.assignee;
+      if (aiTags.assigner) metadata.assigner = aiTags.assigner;
+      if (aiTags.status) metadata.status = aiTags.status;
+      if (aiTags.due_date) metadata.due_date = aiTags.due_date;
+      if (aiTags.votes) metadata.votes = aiTags.votes;
+      if (aiTags.voters) metadata.voters = aiTags.voters;
+      if (aiTags.participants) metadata.tag_participants = aiTags.participants;
+      if (aiTags.data) metadata.extracted_data = JSON.stringify(aiTags.data);
+    }
+
+    console.log(`📚 Ragie: Indexing message ${messageId} to ${chatType}:${chatId}${aiTags ? ` [${aiTags.type}]` : ''}`);
 
     // Create document in Ragie with message content and metadata
     const document = await ragie.documents.createRaw({

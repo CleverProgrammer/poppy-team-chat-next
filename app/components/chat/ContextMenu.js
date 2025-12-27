@@ -231,7 +231,7 @@ export default function ContextMenu({
               {!isPost && onVideoReply && <button onClick={handleVideoReply}>🎬 Video Reply</button>}
               {/* 3. Add to Team Memory */}
               {isOwnMessage && (
-                <button onClick={handleAddToTeamMemory}>🧠 Add to Team AI Memory</button>
+                <button onClick={handleAddToTeamMemory}>🧠 Team Memory</button>
               )}
               {/* 3. Copy */}
               {(message?.text || message?.content) && (
