@@ -507,6 +507,8 @@ WHAT NOT TO SAVE:
   }
 
   // Handle tool use loop
+  let lastMemoryToolMessage = null // Track memory tool success message as fallback
+
   while (data.stop_reason === 'tool_use') {
     console.log('🔧 Poppy AI: Claude wants to use a tool')
 
@@ -593,6 +595,11 @@ WHAT NOT TO SAVE:
           })
           toolResponse = { content: result }
           console.log(`🧠 MEMORY: ${result.success ? '✅ Added successfully' : '❌ Failed'}`)
+
+          // Save the success message as fallback (Claude sometimes doesn't respond after tool use)
+          if (result.success && result.message) {
+            lastMemoryToolMessage = result.message
+          }
         } else {
           // Call MCP tools with tracing
           console.log(`${toolCategory}: Executing for user ${userId}`)
@@ -728,7 +735,9 @@ WHAT NOT TO SAVE:
   }
 
   const textBlock = data.content.find(block => block.type === 'text')
-  const aiResponse = textBlock ? textBlock.text : 'Hmm, I got confused there. Try asking again!'
+  // Use Claude's text response, or fallback to memory tool message, or generic error
+  const aiResponse =
+    textBlock?.text || lastMemoryToolMessage || 'Hmm, I got confused there. Try asking again!'
 
   if (sendStatus) sendStatus('Done!')
 
