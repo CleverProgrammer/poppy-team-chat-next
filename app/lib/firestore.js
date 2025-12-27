@@ -21,6 +21,45 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from './firebase'
 
+// Fun adjectives and animals for human-readable task IDs
+const TASK_ID_ADJECTIVES = [
+  'swift', 'brave', 'calm', 'eager', 'fair', 'gentle', 'happy', 'keen',
+  'lucky', 'merry', 'neat', 'proud', 'quick', 'sharp', 'warm', 'wise',
+  'bold', 'cool', 'fresh', 'grand', 'bright', 'clever', 'cosmic', 'epic'
+]
+
+const TASK_ID_ANIMALS = [
+  'panda', 'tiger', 'eagle', 'fox', 'wolf', 'bear', 'hawk', 'lion',
+  'owl', 'raven', 'shark', 'whale', 'falcon', 'phoenix', 'dragon', 'koala',
+  'otter', 'badger', 'lynx', 'jaguar', 'cobra', 'viper', 'crane', 'heron'
+]
+
+/**
+ * Generate a human-readable task ID
+ * Format: first_few_words_adjective_animal_123456
+ * Example: bring_cookies_swift_panda_a1b2c3
+ */
+function generateTaskId(text) {
+  // Extract first 2-3 meaningful words from the text
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special chars
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !['the', 'and', 'for', 'you', 'please', 'can', 'could', 'would', 'should', 'hey', 'hi'].includes(w))
+    .slice(0, 3)
+  
+  const slug = words.join('_') || 'task'
+  
+  // Pick random adjective and animal
+  const adjective = TASK_ID_ADJECTIVES[Math.floor(Math.random() * TASK_ID_ADJECTIVES.length)]
+  const animal = TASK_ID_ANIMALS[Math.floor(Math.random() * TASK_ID_ANIMALS.length)]
+  
+  // Generate 6-char random suffix
+  const suffix = Math.random().toString(36).substring(2, 8)
+  
+  return `${slug}_${adjective}_${animal}_${suffix}`
+}
+
 // Helper to save canonical tags to Firestore for persistence
 async function saveCanonicalTag(aiTags) {
   if (!aiTags?.canonical_tag || aiTags.type === 'noise') return;
@@ -2187,9 +2226,13 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
       createdAt: serverTimestamp(),
     }
     
-    const docRef = await addDoc(tasksRef, taskData)
-    console.log('✅ Task auto-created from message:', docRef.id, '| assignedTo:', assignedTo)
-    return docRef.id
+    // Generate human-readable task ID
+    const taskId = generateTaskId(text || aiTags.summary || 'task')
+    const taskDocRef = doc(db, 'tasks', taskId)
+    
+    await setDoc(taskDocRef, taskData)
+    console.log('✅ Task auto-created:', taskId, '| assignedTo:', assignedTo)
+    return taskId
   } catch (error) {
     console.error('Failed to create task from message:', error)
     return null
