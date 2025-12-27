@@ -34,25 +34,31 @@ async function trackAIUsage({
     const color = colors[Math.floor(Math.random() * colors.length)]
     const animal = animals[Math.floor(Math.random() * animals.length)]
     const shortId = Math.random().toString(36).substring(2, 7)
-    const nameSlug = (userName || 'unknown').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+    const nameSlug = (userName || 'unknown')
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
     const docId = `${nameSlug}_${color}_${animal}_${shortId}`
-    
-    await adminDb.collection('ai_usage').doc(docId).set({
-      timestamp: new Date().toISOString(),
-      type,
-      model,
-      inputTokens,
-      outputTokens,
-      inputCost,
-      outputCost,
-      totalCost,
-      userId: userId || null,
-      userEmail: userEmail || null,
-      userName: userName || null,
-      messageId: messageId || null,
-      chatId: chatId || null,
-      chatType: chatType || null,
-    })
+
+    await adminDb
+      .collection('ai_usage')
+      .doc(docId)
+      .set({
+        timestamp: new Date().toISOString(),
+        type,
+        model,
+        inputTokens,
+        outputTokens,
+        inputCost,
+        outputCost,
+        totalCost,
+        userId: userId || null,
+        userEmail: userEmail || null,
+        userName: userName || null,
+        messageId: messageId || null,
+        chatId: chatId || null,
+        chatType: chatType || null,
+      })
   } catch (error) {
     // Don't fail the request if tracking fails - just log it
     console.error('⚠️ Failed to track AI usage:', error.message)
@@ -91,9 +97,13 @@ async function persistCanonicalTag(aiTags, sender) {
         if (!currentVoters.includes(voterName)) {
           updateData.votes = (doc.data().votes || 0) + 1
           updateData.voters = [...currentVoters, voterName]
-          console.log(`🗳️  FIRESTORE VOTE: Added "${voterName}" to "${tagId}" (now ${updateData.votes} votes)`)
+          console.log(
+            `🗳️  FIRESTORE VOTE: Added "${voterName}" to "${tagId}" (now ${updateData.votes} votes)`
+          )
         } else {
-          console.log(`🗳️  FIRESTORE VOTE: "${voterName}" already voted for "${tagId}" (skipping duplicate)`)
+          console.log(
+            `🗳️  FIRESTORE VOTE: "${voterName}" already voted for "${tagId}" (skipping duplicate)`
+          )
         }
       }
 

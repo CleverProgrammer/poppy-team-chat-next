@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import ChannelStoryRing from './ChannelStoryRing'
 import DMStoryRing from './DMStoryRing'
+import TasksModal from './TasksModal'
 import { useDevMode } from '../../contexts/DevModeContext'
 
 export default function ChatHeader({
@@ -18,6 +19,7 @@ export default function ChatHeader({
   messages = [], // Messages for cost calculation
 }) {
   const { isDevMode } = useDevMode()
+  const [showTasksModal, setShowTasksModal] = useState(false)
 
   // Calculate today's tagging cost from messages
   const todayCost = useMemo(() => {
@@ -185,6 +187,18 @@ export default function ChatHeader({
               🏷️ ${todayCost.toFixed(4)} today
             </span>
           )}
+          
+          {/* Tasks button - only show for DMs and channels, not AI */}
+          {currentChat.type !== 'ai' && (
+            <button
+              onClick={() => setShowTasksModal(true)}
+              className='ml-3 px-3 py-1.5 text-xs font-medium rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-1.5'
+              title='View tasks'
+            >
+              <span>📋</span>
+              <span>Tasks</span>
+            </button>
+          )}
         </div>
 
         {viewMode && onViewModeChange && (
@@ -224,7 +238,26 @@ export default function ChatHeader({
           {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
         </div>
         <div className='chat-header-status'>{getSubtitle()}</div>
+        
+        {/* Mobile tasks button */}
+        {currentChat.type !== 'ai' && (
+          <button
+            onClick={() => setShowTasksModal(true)}
+            className='absolute right-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-white transition-colors'
+            title='View tasks'
+          >
+            📋
+          </button>
+        )}
       </div>
+
+      {/* Tasks Modal */}
+      <TasksModal
+        isOpen={showTasksModal}
+        onClose={() => setShowTasksModal(false)}
+        user={currentUser}
+        currentChat={currentChat}
+      />
     </>
   )
 }

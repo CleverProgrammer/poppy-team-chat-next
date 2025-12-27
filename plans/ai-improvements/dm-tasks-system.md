@@ -8,6 +8,28 @@ When someone says "send me the report by Friday" or "can you review this PR", th
 
 ---
 
+## Task Detection Philosophy: The TASK MASTER Approach
+
+The AI uses **judgment, not rigid rules**. The core question:
+
+> **"Would this actually end up on someone's to-do list?"**
+
+### A REAL task has:
+1. **Accountability** - Someone specific is expected to DO something
+2. **Deliverable** - There's a tangible outcome (send a file, build a feature, bring an item)
+3. **Follow-up potential** - Someone might ask "did you do that thing?"
+
+### NOT a task (even if it sounds like one):
+- Jokes, banter, rhetorical questions
+- Casual expressions ("give me a high five", "lmk if I should be worried")
+- Vibe checks ("can I get a HOOYAH", "thoughts?")
+- Feedback requests with no real deliverable
+
+### DM Assignee Logic
+In a DM, it's simple: **the recipient IS the assignee**. Always. We don't need AI to figure this out — we have the context! The person you're talking to is the person you're assigning the task to.
+
+---
+
 ## Architecture Overview
 
 ```

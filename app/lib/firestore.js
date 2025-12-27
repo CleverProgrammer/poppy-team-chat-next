@@ -2158,22 +2158,21 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
     }
     
     // Smart assignee detection:
-    // 1. If AI detected a specific assignee name, use it (for channels with multiple people)
-    // 2. If in a DM and no specific assignee, default to the recipient (the other person)
-    // 3. Otherwise, leave unassigned
-    let assignedTo = aiTags.assignee || null
+    // In a DM, it's simple: you're talking to ONE person, so they're the assignee. Period.
+    // No need for AI to figure this out - we have the context!
+    let assignedTo = null
     let assignedToUserId = null
     let assignedToEmail = null
     
-    // In a DM, if no explicit assignee detected, assume it's for the recipient
     if (chatType === 'dm' && recipient) {
-      // Default to recipient if no assignee specified, or if AI said it's for the other person
-      if (!assignedTo || assignedTo.toLowerCase() === recipient?.displayName?.toLowerCase() || 
-          assignedTo.toLowerCase() === recipient?.email?.split('@')[0]?.toLowerCase()) {
-        assignedTo = recipient.displayName || recipient.email
-        assignedToUserId = recipient.uid || recipient.id
-        assignedToEmail = recipient.email
-      }
+      // In a DM, the recipient IS the assignee. Always. That's who you're talking to.
+      assignedTo = recipient.displayName || recipient.email || 'Unknown'
+      assignedToUserId = recipient.uid || recipient.id || null
+      assignedToEmail = recipient.email || null
+      console.log('📋 DM Task → Auto-assigned to recipient:', assignedTo, '(', assignedToUserId, ')')
+    } else if (aiTags.assignee) {
+      // In channels, use whatever the AI detected
+      assignedTo = aiTags.assignee
     }
     
     const canonicalTag = aiTags.canonical_tag || null
