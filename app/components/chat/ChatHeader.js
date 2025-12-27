@@ -179,34 +179,32 @@ export default function ChatHeader({
               ${todayCost.toFixed(3)}
             </span>
           )}
+        </div>
+
+        {/* Right side buttons - Posts & Tasks */}
+        <div className='flex items-center gap-2'>
+          {viewMode && onViewModeChange && (
+            <button
+              onClick={() => onViewModeChange(viewMode === 'posts' ? 'messages' : 'posts')}
+              className={`px-3 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                viewMode === 'posts'
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Posts
+            </button>
+          )}
           
-          {/* Tasks button - only show for DMs and channels, not AI */}
           {currentChat.type !== 'ai' && (
             <button
               onClick={() => setShowTasksModal(true)}
-              className='ml-3 px-3 py-1.5 text-xs font-medium rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-1.5'
-              title='View tasks'
+              className='px-3 py-1 text-[11px] font-medium rounded-md text-gray-500 hover:text-gray-300 transition-colors'
             >
-              <span>📋</span>
-              <span>Tasks</span>
+              Tasks
             </button>
           )}
         </div>
-
-        {viewMode && onViewModeChange && (
-          <button
-            onClick={() => onViewModeChange(viewMode === 'posts' ? 'messages' : 'posts')}
-            className={`ml-2 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              viewMode === 'posts'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
-            } flex items-center gap-1.5`}
-            title={viewMode === 'posts' ? 'Back to messages' : 'View posts'}
-          >
-            <span>📝</span>
-            <span>Posts</span>
-          </button>
-        )}
       </div>
 
       {/* Mobile iMessage-style Header */}
@@ -229,16 +227,25 @@ export default function ChatHeader({
         </div>
         <div className='chat-header-status'>{getSubtitle()}</div>
         
-        {/* Mobile tasks button */}
-        {currentChat.type !== 'ai' && (
-          <button
-            onClick={() => setShowTasksModal(true)}
-            className='absolute right-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-white transition-colors'
-            title='View tasks'
-          >
-            📋
-          </button>
-        )}
+        {/* Mobile buttons - right side */}
+        <div className='absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2'>
+          {viewMode && onViewModeChange && (
+            <button
+              onClick={() => onViewModeChange(viewMode === 'posts' ? 'messages' : 'posts')}
+              className={`text-[11px] font-medium ${viewMode === 'posts' ? 'text-white' : 'text-gray-500'}`}
+            >
+              Posts
+            </button>
+          )}
+          {currentChat.type !== 'ai' && (
+            <button
+              onClick={() => setShowTasksModal(true)}
+              className='text-[11px] font-medium text-gray-500'
+            >
+              Tasks
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tasks Modal */}
