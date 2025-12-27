@@ -327,8 +327,12 @@ export async function sendMessageDM(dmId, user, text, recipientId, recipient = n
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
           
-          // Auto-create task if AI detected this as a task
-          if (data.aiTags.type === 'task') {
+          // Log what the AI tagged this as
+          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
+          
+          // Auto-create task if AI detected this as a task or feature_request
+          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
+            console.log('📋 Creating task from type:', data.aiTags.type)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
@@ -1085,8 +1089,12 @@ export async function sendMessageDMWithMedia(
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
           
-          // Auto-create task if AI detected this as a task
-          if (data.aiTags.type === 'task') {
+          // Log what the AI tagged this as
+          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
+          
+          // Auto-create task if AI detected this as a task or feature_request
+          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
+            console.log('📋 Creating task from type:', data.aiTags.type)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
@@ -1227,8 +1235,12 @@ export async function sendMessageDMWithAudio(
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
           
-          // Auto-create task if AI detected this as a task
-          if (data.aiTags.type === 'task') {
+          // Log what the AI tagged this as
+          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
+          
+          // Auto-create task if AI detected this as a task or feature_request
+          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
+            console.log('📋 Creating task from type:', data.aiTags.type)
             createTaskFromMessage(dmId, 'dm', docRef.id, '', user, recipient, data.aiTags)
           }
         }
@@ -1562,8 +1574,12 @@ export async function sendMessageDMWithReply(
             .catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
           
-          // Auto-create task if AI detected this as a task
-          if (data.aiTags.type === 'task') {
+          // Log what the AI tagged this as
+          console.log('🏷️ AI Tag Result:', { type: data.aiTags.type, canonical: data.aiTags.canonical_tag, summary: data.aiTags.summary })
+          
+          // Auto-create task if AI detected this as a task or feature_request
+          if (data.aiTags.type === 'task' || data.aiTags.type === 'feature_request') {
+            console.log('📋 Creating task from type:', data.aiTags.type)
             createTaskFromMessage(dmId, 'dm', docRef.id, text, user, recipient, data.aiTags)
           }
         }
