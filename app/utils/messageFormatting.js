@@ -14,7 +14,7 @@ export function isFirebaseImageUrl(url) {
 }
 
 // Inline image component with loading/error state
-function InlineImage({ src }) {
+function InlineImage({ src, onImageClick }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -73,7 +73,12 @@ function InlineImage({ src }) {
         }}
         onClick={(e) => {
           e.stopPropagation();
-          window.open(cleanSrc, '_blank');
+          // Use lightbox if callback provided, otherwise fallback to new window
+          if (onImageClick) {
+            onImageClick([cleanSrc], 0);
+          } else {
+            window.open(cleanSrc, '_blank');
+          }
         }}
         onLoad={() => setLoaded(true)}
         onError={(e) => {
@@ -88,14 +93,14 @@ function InlineImage({ src }) {
   );
 }
 
-export function linkifyText(text) {
+export function linkifyText(text, onImageClick = null) {
   const parts = text.split(urlRegex);
 
   return parts.map((part, index) => {
     if (part.match(urlRegex)) {
       // Check if it's a Firebase Storage image URL - render as image
       if (isFirebaseImageUrl(part)) {
-        return <InlineImage key={index} src={part} />;
+        return <InlineImage key={index} src={part} onImageClick={onImageClick} />;
       }
       // Regular link
       return (
