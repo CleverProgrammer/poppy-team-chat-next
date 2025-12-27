@@ -1097,7 +1097,7 @@ export async function sendMessageWithMedia(
         .catch(err => console.error('Tagging failed:', err))
     }
 
-    // Sync image to Ragie - analyze with Claude Vision and index
+    // Sync image(s) to Ragie - analyze with Claude Vision and index
     if (imageUrls.length > 0) {
       // Format recent messages for context (last 15, simplified)
       const contextMessages = (recentMessages || [])
@@ -1112,7 +1112,7 @@ export async function sendMessageWithMedia(
           messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
-          imageUrl: imageUrls[0],
+          imageUrls, // Send all images for batch analysis
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
@@ -1245,7 +1245,7 @@ export async function sendMessageDMWithMedia(
         .catch(err => console.error('Tagging failed:', err))
     }
 
-    // Sync image to Ragie - analyze with Claude Vision and index
+    // Sync image(s) to Ragie - analyze with Claude Vision and index
     if (imageUrls.length > 0) {
       // Format recent messages for context (last 15, simplified)
       const contextMessages = (recentMessages || [])
@@ -1260,7 +1260,7 @@ export async function sendMessageDMWithMedia(
           messageId: docRef.id,
           chatId: dmId,
           chatType: 'dm',
-          imageUrl: imageUrls[0],
+          imageUrls, // Send all images for batch analysis
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,

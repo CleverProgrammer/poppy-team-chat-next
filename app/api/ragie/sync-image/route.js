@@ -74,44 +74,78 @@ async function fetchImageAsBase64(imageUrl) {
 }
 
 /**
- * Analyze image with Claude Vision
+ * Analyze one or more images with Claude Vision
+ * Supports batch analysis for multiple images in one request
  */
-async function analyzeImageWithClaude(imageUrl, accompanyingText = '', recentMessages = []) {
+async function analyzeImagesWithClaude(imageUrls, accompanyingText = '', recentMessages = []) {
   const anthropic = new Anthropic({
     apiKey: process.env.KEYWORDS_AI_API_KEY,
     baseURL: 'https://api.keywordsai.co/api/anthropic/',
   })
 
-  const { base64, mediaType } = await fetchImageAsBase64(imageUrl)
+  // Normalize to array
+  const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls]
+  const imageCount = urls.length
+
+  // Fetch all images as base64 in parallel
+  const imageData = await Promise.all(urls.map(url => fetchImageAsBase64(url)))
 
   // Build chat context from recent messages
   let chatContext = ''
   if (recentMessages && recentMessages.length > 0) {
-    chatContext = `\n\n=== RECENT CHAT CONTEXT (last ${recentMessages.length} messages before this image) ===\n`
+    chatContext = `\n\n=== RECENT CHAT CONTEXT (last ${recentMessages.length} messages before ${
+      imageCount > 1 ? 'these images' : 'this image'
+    }) ===\n`
     recentMessages.forEach(msg => {
       if (msg.sender && msg.text) {
         chatContext += `[${msg.sender}]: ${msg.text}\n`
       }
     })
-    chatContext += `=== END CONTEXT ===\n\nUse this context to better understand what the image might be about and who's involved in the conversation.`
+    chatContext += `=== END CONTEXT ===\n\nUse this context to better understand what ${
+      imageCount > 1 ? 'these images are' : 'the image is'
+    } about and who's involved in the conversation.`
   }
 
-  const basePrompt = `You are an image analyzer for an internal team chat app. Your job is to give context about what this image is about so it can help the team understand and reference it later.
+  // Adjust prompt based on number of images
+  const imagePhrase = imageCount > 1 ? `these ${imageCount} images` : 'this image'
 
-Key elements to focus on:
-1. What is this image showing? Describe it in plain language.
-2. Any text visible in the image - quote it exactly (OCR).
+  const basePrompt = `You are an image analyzer for an internal team chat app. Your job is to give context about what ${imagePhrase} ${
+    imageCount > 1 ? 'are' : 'is'
+  } about so it can help the team understand and reference ${imageCount > 1 ? 'them' : 'it'} later.
+
+${
+  imageCount > 1
+    ? `You're looking at ${imageCount} images shared together. Analyze them as a cohesive set - they might be related (before/after, sequence, comparison, etc).
+
+`
+    : ''
+}Key elements to focus on:
+1. What ${
+    imageCount > 1 ? 'are these images' : 'is this image'
+  } showing? Describe in plain language.
+2. Any text visible - quote it exactly (OCR).
 3. People, objects, locations, brands, logos, or notable items.
-4. If it's a screenshot, what app/website is it from and what's happening?
-5. If it's a chart/graph/data, what are the key takeaways?
-6. Any context that would help a teammate understand what this is about.
+4. If ${
+    imageCount > 1 ? "they're screenshots" : "it's a screenshot"
+  }, what app/website and what's happening?
+5. If ${
+    imageCount > 1 ? "they're charts/graphs" : "it's a chart/graph"
+  }, what are the key takeaways?
+6. ${
+    imageCount > 1
+      ? 'How do these images relate to each other?'
+      : 'Any context that would help a teammate understand this.'
+  }
 
-Speak in plain, natural language. Keep it short and punchy - 3-5 sentences max. Format as plain text, not markdown.
+Speak in plain, natural language. Keep it short and punchy - ${
+    imageCount > 1 ? '4-6' : '3-5'
+  } sentences max. Format as plain text, not markdown.
 
 At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. Use people's actual names when you can see them in the image OR from the chat context! Don't say "someone" when you know who's talking. Examples:
 - "tldr: Mohamed just hit his 1-year mark with Poppy, absolute legend 🔥"
 - "tldr: Rafeh cooking up a new landing page design, looks clean af"
 - "tldr: David and Naz going back and forth about the rebrand lol"
+- "tldr: Before/after of the homepage - night and day difference 🔥"
 - "tldr: Just a cute dog pic, nothing work-related here 🐕"
 
 Be personal. Use names. Talk like a team member, not a robot.${chatContext}`
@@ -119,10 +153,25 @@ Be personal. Use names. Talk like a team member, not a robot.${chatContext}`
   const analysisPrompt = accompanyingText
     ? `${basePrompt}
 
-The person sharing this image said: "${accompanyingText}"
+The person sharing ${imagePhrase} said: "${accompanyingText}"
 
-Use that context to help explain what this image is about and why they might be sharing it.`
+Use that context to help explain what ${imagePhrase} ${
+        imageCount > 1 ? 'are' : 'is'
+      } about and why they might be sharing ${imageCount > 1 ? 'them' : 'it'}.`
     : basePrompt
+
+  // Build content array with all images + the prompt
+  const content = [
+    ...imageData.map(({ base64, mediaType }) => ({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: mediaType,
+        data: base64,
+      },
+    })),
+    { type: 'text', text: analysisPrompt },
+  ]
 
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-5-20250929',
@@ -130,17 +179,7 @@ Use that context to help explain what this image is about and why they might be 
     messages: [
       {
         role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: base64,
-            },
-          },
-          { type: 'text', text: analysisPrompt },
-        ],
+        content,
       },
     ],
   })
@@ -149,12 +188,14 @@ Use that context to help explain what this image is about and why they might be 
     analysis: response.content[0]?.text || 'Unable to analyze image',
     inputTokens: response.usage?.input_tokens || 0,
     outputTokens: response.usage?.output_tokens || 0,
+    imageCount,
   }
 }
 
 /**
- * Sync an image to Ragie for RAG retrieval
+ * Sync image(s) to Ragie for RAG retrieval
  * First analyzes with Claude Vision, then indexes the analysis to Ragie
+ * Supports single image (imageUrl) or multiple images (imageUrls)
  */
 export async function POST(request) {
   try {
@@ -162,7 +203,8 @@ export async function POST(request) {
       messageId,
       chatId,
       chatType,
-      imageUrl,
+      imageUrl, // Single image (backwards compatibility)
+      imageUrls, // Multiple images (new)
       sender,
       senderEmail,
       senderId,
@@ -175,17 +217,23 @@ export async function POST(request) {
       recentMessages, // Optional: last 10-20 messages for context
     } = await request.json()
 
-    if (!messageId || !imageUrl || !chatId || !chatType) {
+    // Support both single imageUrl and array imageUrls
+    const urls = imageUrls?.length > 0 ? imageUrls : imageUrl ? [imageUrl] : []
+
+    if (!messageId || urls.length === 0 || !chatId || !chatType) {
       return NextResponse.json(
-        { error: 'Missing required fields: messageId, imageUrl, chatId, chatType' },
+        { error: 'Missing required fields: messageId, imageUrl/imageUrls, chatId, chatType' },
         { status: 400 }
       )
     }
 
-    console.log(`🖼️ Processing image ${messageId} from ${imageUrl}`)
+    const imageCount = urls.length
+    console.log(
+      `🖼️ Processing ${imageCount} image${imageCount > 1 ? 's' : ''} for message ${messageId}`
+    )
 
-    // Step 1: Analyze image with Claude Vision
-    console.log(`🔍 Claude Vision: Analyzing image...`)
+    // Step 1: Analyze image(s) with Claude Vision
+    console.log(`🔍 Claude Vision: Analyzing ${imageCount} image${imageCount > 1 ? 's' : ''}...`)
     if (recentMessages?.length) {
       console.log(`📝 Context: Including ${recentMessages.length} recent messages`)
     }
@@ -193,21 +241,21 @@ export async function POST(request) {
     let tokens = { input: 0, output: 0 }
 
     try {
-      const result = await analyzeImageWithClaude(imageUrl, text, recentMessages || [])
+      const result = await analyzeImagesWithClaude(urls, text, recentMessages || [])
       imageAnalysis = result.analysis
       tokens = { input: result.inputTokens, output: result.outputTokens }
-      
+
       // Calculate cost (Sonnet 4.5: $3/1M input, $15/1M output)
       const inputCost = (tokens.input / 1_000_000) * 3
       const outputCost = (tokens.output / 1_000_000) * 15
       const totalCost = inputCost + outputCost
-      
+
       console.log(`✅ Claude Vision: Got analysis (${imageAnalysis.length} chars)`)
       console.log(`💰 Tokens: ${tokens.input} in / ${tokens.output} out = $${totalCost.toFixed(6)}`)
 
       // Track AI usage to Firestore
       trackAIUsage({
-        type: 'image_analysis',
+        type: imageCount > 1 ? 'multi_image_analysis' : 'image_analysis',
         model: 'claude-sonnet-4-5-20250929',
         inputTokens: tokens.input,
         outputTokens: tokens.output,
@@ -219,12 +267,16 @@ export async function POST(request) {
       })
     } catch (error) {
       console.error(`⚠️ Claude Vision failed, falling back to URL-only:`, error.message)
-      imageAnalysis = `[Image shared by ${sender}]${text ? ` with message: "${text}"` : ''}`
+      imageAnalysis = `[${imageCount} image${imageCount > 1 ? 's' : ''} shared by ${sender}]${
+        text ? ` with message: "${text}"` : ''
+      }`
     }
 
     // Step 2: Build content for Ragie indexing
     // Combine sender context + analysis for better searchability
-    const indexContent = `[${sender}] shared an image${text ? ` with message: "${text}"` : ''}
+    const indexContent = `[${sender}] shared ${imageCount} image${imageCount > 1 ? 's' : ''}${
+      text ? ` with message: "${text}"` : ''
+    }
 
 Image Analysis:
 ${imageAnalysis}`
@@ -239,7 +291,8 @@ ${imageAnalysis}`
       chatType,
       chatId,
       contentType: 'image',
-      imageUrl,
+      imageUrls: urls,
+      imageCount,
       accompanyingText: text || '',
       hasAnalysis: imageAnalysis.length > 50, // Flag if we got real analysis
     }
@@ -260,7 +313,11 @@ ${imageAnalysis}`
       metadata,
     })
 
-    console.log(`✅ Ragie: Indexed image ${messageId}, doc ID: ${document.id}`)
+    console.log(
+      `✅ Ragie: Indexed ${imageCount} image${
+        imageCount > 1 ? 's' : ''
+      } for ${messageId}, doc ID: ${document.id}`
+    )
 
     return NextResponse.json({
       success: true,
@@ -268,6 +325,7 @@ ${imageAnalysis}`
       messageId,
       analysis: imageAnalysis,
       tokens,
+      imageCount,
     })
   } catch (error) {
     console.error('❌ Image sync error:', error)
