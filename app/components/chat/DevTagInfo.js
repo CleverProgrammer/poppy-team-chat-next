@@ -15,7 +15,7 @@ export default function DevTagInfo({ aiTags }) {
   const type = aiTags.type
 
   // Type badge colors - subtle pill style
-  const getTypeBadgeClasses = (type) => {
+  const getTypeBadgeClasses = type => {
     switch (type) {
       case 'task':
         return 'bg-purple-500/10 text-purple-400/70 border-purple-500/20'
@@ -40,7 +40,7 @@ export default function DevTagInfo({ aiTags }) {
   }
 
   // Priority badge colors
-  const getPriorityBadgeClasses = (priority) => {
+  const getPriorityBadgeClasses = priority => {
     switch (priority) {
       case 'critical':
         return 'bg-red-600/30 text-red-200'
@@ -59,23 +59,23 @@ export default function DevTagInfo({ aiTags }) {
     <>
       {/* Inline dev info with spacing from timestamp */}
       <button
-        onClick={(e) => {
+        onClick={e => {
           e.stopPropagation()
           setShowModal(true)
         }}
-        className="inline-flex items-center gap-1.5 ml-3 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
-        title="Click to see AI classification details"
+        className='inline-flex items-center gap-1.5 ml-5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity'
+        title='Click to see AI classification details'
       >
         {/* Cost */}
-        {cost && (
-          <span className="text-[9px] font-mono text-gray-400">
-            ${cost.toFixed(4)}
-          </span>
-        )}
-        
+        {cost && <span className='text-[9px] font-mono text-gray-400'>${cost.toFixed(4)}</span>}
+
         {/* Type pill - subtle colors */}
         {type && (
-          <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full border ${getTypeBadgeClasses(type)}`}>
+          <span
+            className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full border ${getTypeBadgeClasses(
+              type
+            )}`}
+          >
             {type.replace('_', ' ')}
           </span>
         )}
@@ -84,33 +84,37 @@ export default function DevTagInfo({ aiTags }) {
       {/* Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-gray-900 border border-gray-700 rounded-xl p-5 max-w-md w-full mx-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className='bg-gray-900 border border-gray-700 rounded-xl p-5 max-w-md w-full mx-4 shadow-2xl'
+            onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <div className='flex items-center justify-between mb-4'>
+              <h3 className='text-lg font-semibold text-white flex items-center gap-2'>
                 🏷️ AI Classification
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className='text-gray-400 hover:text-white transition-colors'
               >
                 ✕
               </button>
             </div>
 
             {/* Classification Details */}
-            <div className="space-y-3">
+            <div className='space-y-3'>
               {/* Type */}
               {type && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Type</span>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full border ${getTypeBadgeClasses(type)}`}>
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Type</span>
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded-full border ${getTypeBadgeClasses(
+                      type
+                    )}`}
+                  >
                     {type.replace('_', ' ')}
                   </span>
                 </div>
@@ -118,9 +122,13 @@ export default function DevTagInfo({ aiTags }) {
 
               {/* Priority */}
               {aiTags.priority && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Priority</span>
-                  <span className={`text-xs font-medium px-2 py-1 rounded ${getPriorityBadgeClasses(aiTags.priority)}`}>
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Priority</span>
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded ${getPriorityBadgeClasses(
+                      aiTags.priority
+                    )}`}
+                  >
                     {aiTags.priority}
                   </span>
                 </div>
@@ -128,9 +136,9 @@ export default function DevTagInfo({ aiTags }) {
 
               {/* Status */}
               {aiTags.status && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Status</span>
-                  <span className="text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded">
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Status</span>
+                  <span className='text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded'>
                     {aiTags.status}
                   </span>
                 </div>
@@ -138,9 +146,9 @@ export default function DevTagInfo({ aiTags }) {
 
               {/* Canonical Tag */}
               {aiTags.canonical_tag && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Canonical</span>
-                  <span className="text-xs text-indigo-300 bg-indigo-900/30 px-2 py-1 rounded font-mono">
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Canonical</span>
+                  <span className='text-xs text-indigo-300 bg-indigo-900/30 px-2 py-1 rounded font-mono'>
                     {aiTags.canonical_tag}
                   </span>
                 </div>
@@ -148,23 +156,21 @@ export default function DevTagInfo({ aiTags }) {
 
               {/* Summary */}
               {aiTags.summary && (
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">Summary</span>
-                  <span className="text-xs text-gray-300">
-                    {aiTags.summary}
-                  </span>
+                <div className='flex items-start gap-2'>
+                  <span className='text-xs text-gray-500 w-20 shrink-0'>Summary</span>
+                  <span className='text-xs text-gray-300'>{aiTags.summary}</span>
                 </div>
               )}
 
               {/* Tags */}
               {aiTags.tags && aiTags.tags.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">Tags</span>
-                  <div className="flex flex-wrap gap-1">
+                <div className='flex items-start gap-2'>
+                  <span className='text-xs text-gray-500 w-20 shrink-0'>Tags</span>
+                  <div className='flex flex-wrap gap-1'>
                     {aiTags.tags.map((tag, i) => (
                       <span
                         key={i}
-                        className="text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded"
+                        className='text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded'
                       >
                         #{tag}
                       </span>
@@ -175,39 +181,33 @@ export default function DevTagInfo({ aiTags }) {
 
               {/* Assignee (for tasks) */}
               {aiTags.assignee && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Assignee</span>
-                  <span className="text-xs text-purple-300">
-                    @{aiTags.assignee}
-                  </span>
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Assignee</span>
+                  <span className='text-xs text-purple-300'>@{aiTags.assignee}</span>
                 </div>
               )}
 
               {/* Due Date */}
               {aiTags.due_date && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Due Date</span>
-                  <span className="text-xs text-yellow-300">
-                    📅 {aiTags.due_date}
-                  </span>
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Due Date</span>
+                  <span className='text-xs text-yellow-300'>📅 {aiTags.due_date}</span>
                 </div>
               )}
 
               {/* Cost */}
               {cost && (
-                <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
-                  <span className="text-xs text-gray-500 w-20">API Cost</span>
-                  <span className="text-xs font-mono text-green-400">
-                    ${cost.toFixed(6)}
-                  </span>
+                <div className='flex items-center gap-2 pt-2 border-t border-gray-800'>
+                  <span className='text-xs text-gray-500 w-20'>API Cost</span>
+                  <span className='text-xs font-mono text-green-400'>${cost.toFixed(6)}</span>
                 </div>
               )}
 
               {/* Tokens */}
               {aiTags._tokens && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20">Tokens</span>
-                  <span className="text-xs font-mono text-gray-400">
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500 w-20'>Tokens</span>
+                  <span className='text-xs font-mono text-gray-400'>
                     {aiTags._tokens.input_tokens} in / {aiTags._tokens.output_tokens} out
                   </span>
                 </div>
@@ -215,11 +215,11 @@ export default function DevTagInfo({ aiTags }) {
             </div>
 
             {/* Raw JSON toggle (for debugging) */}
-            <details className="mt-4 pt-3 border-t border-gray-800">
-              <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-400">
+            <details className='mt-4 pt-3 border-t border-gray-800'>
+              <summary className='text-xs text-gray-500 cursor-pointer hover:text-gray-400'>
                 Raw JSON
               </summary>
-              <pre className="mt-2 text-[10px] text-gray-400 bg-gray-950 p-3 rounded overflow-auto max-h-40">
+              <pre className='mt-2 text-[10px] text-gray-400 bg-gray-950 p-3 rounded overflow-auto max-h-40'>
                 {JSON.stringify(aiTags, null, 2)}
               </pre>
             </details>
@@ -229,4 +229,3 @@ export default function DevTagInfo({ aiTags }) {
     </>
   )
 }
-
