@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 import assemblyai from '../../../lib/assemblyai-client.js'
 import { adminDb } from '../../../lib/firebase-admin.js'
 
@@ -8,6 +9,52 @@ import { adminDb } from '../../../lib/firebase-admin.js'
  * - Speaker diarization: included
  */
 const COST_PER_SECOND = 0.00025
+
+/**
+ * Generate a short TLDR from transcription using Claude
+ */
+async function generateTLDR(transcriptionText, sender) {
+  try {
+    const anthropic = new Anthropic({
+      apiKey: process.env.KEYWORDS_AI_API_KEY,
+      baseURL: 'https://api.keywordsai.co/api/anthropic/',
+    })
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 100,
+      messages: [
+        {
+          role: 'user',
+          content: `You are summarizing a voice message from ${sender} in a team chat app.
+
+Voice message content:
+"${transcriptionText}"
+
+Write a casual, punchy 1-line TLDR (max 80 chars). Talk like a team member, not a robot. Use the person's name if relevant. No quotes around the response.
+
+Examples:
+- "asking about the design review deadline"
+- "quick update on the API integration"
+- "wants feedback on the new landing page"
+- "checking in about tomorrow's standup"`,
+        },
+      ],
+    })
+
+    const tldr = response.content[0]?.text?.trim() || null
+    
+    // Return TLDR and token usage for cost tracking
+    return {
+      tldr,
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+    }
+  } catch (error) {
+    console.error('⚠️ Failed to generate TLDR:', error.message)
+    return { tldr: null, inputTokens: 0, outputTokens: 0 }
+  }
+}
 
 /**
  * Track AI usage to Firestore for analytics and cost monitoring
@@ -148,12 +195,26 @@ export async function POST(request) {
         .join('\n')
     }
 
+    // Generate AI TLDR from transcription
+    let tldr = null
+    let tldrCost = 0
+    if (transcript.text && transcript.text.length > 0) {
+      const tldrResult = await generateTLDR(transcript.text, sender)
+      tldr = tldrResult.tldr
+      // Calculate TLDR cost (Claude Sonnet: $3/1M input, $15/1M output)
+      tldrCost = (tldrResult.inputTokens / 1_000_000) * 3 + (tldrResult.outputTokens / 1_000_000) * 15
+      console.log(`✨ TLDR generated: "${tldr}" (cost: $${tldrCost.toFixed(6)})`)
+    }
+
+    const finalCost = totalCost + tldrCost
+
     // Build response
     const response = {
       success: true,
       transcription: {
         text: transcript.text, // Plain text transcription
         formatted: formattedTranscript, // With speaker labels if available
+        tldr, // AI-generated short summary
         speakerCount: transcript.utterances
           ? new Set(transcript.utterances.map(u => u.speaker)).size
           : 1,
@@ -166,8 +227,10 @@ export async function POST(request) {
         durationFormatted: formatDuration(audioDuration),
       },
       cost: {
-        amount: totalCost,
-        breakdown: `${audioDuration}s × $${COST_PER_SECOND}/s`,
+        amount: finalCost,
+        transcriptionCost: totalCost,
+        tldrCost,
+        breakdown: `${audioDuration}s × $${COST_PER_SECOND}/s + TLDR`,
       },
       processingTimeSeconds: parseFloat(processingTime),
     }

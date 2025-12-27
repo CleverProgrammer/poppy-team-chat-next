@@ -191,6 +191,18 @@ export default function Sidebar({
       return `📷 ${imageCount} ${photoLabel}`
     }
     
+    // Audio/Voice messages - show TLDR if available
+    if (message.audioUrl) {
+      if (message.transcription?.tldr) {
+        const maxLength = 60
+        const tldr = message.transcription.tldr
+        const truncatedTldr = tldr.length > maxLength ? tldr.substring(0, maxLength) + '...' : tldr
+        return `✨ 🎙️ ${truncatedTldr}`
+      }
+      // Fallback if no transcription yet
+      return '🎙️ Voice message'
+    }
+    
     if (message.muxPlaybackIds?.length > 0) {
       return 'Video message'
     }

@@ -2489,6 +2489,46 @@ iframe[src*="vercel"] {
   max-width: 280px;
 }
 
+/* Voice TLDR - AI summary at top with ✨ */
+.voice-tldr {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.voice-tldr.sent {
+  background: rgba(102, 126, 234, 0.2);
+}
+
+.voice-tldr.received {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.voice-tldr-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.voice-tldr-text {
+  font-size: 12px;
+  line-height: 1.4;
+  font-style: italic;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.voice-tldr.sent .voice-tldr-text {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.voice-tldr.received .voice-tldr-text {
+  color: rgba(0, 0, 0, 0.6);
+}
+
 /* Transcription display - shown by default below voice message */
 .voice-transcription {
   padding: 8px 12px;

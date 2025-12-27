@@ -78,8 +78,19 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent, transcri
   const displayTime = isPlaying ? currentTime : audioDuration
   const currentSpeed = SPEED_OPTIONS[speedIndex]
 
+  const tldr = transcription?.tldr
+
   return (
     <div className='voice-message-wrapper'>
+      {/* AI TLDR - shown at top with ✨ */}
+      {tldr && (
+        <div className={`voice-tldr ${isSent ? 'sent' : 'received'}`}>
+          <span className='voice-tldr-icon'>✨</span>
+          <span className='voice-tldr-text'>{tldr}</span>
+        </div>
+      )}
+
+      {/* Voice waveform player */}
       <div className={`voice-message ${isSent ? 'sent' : 'received'}`}>
         <button
           className='voice-play-button'
@@ -112,7 +123,7 @@ export default function VoiceMessage({ audioUrl, audioDuration, isSent, transcri
         )}
       </div>
 
-      {/* Transcription - shown by default, click to expand if truncated */}
+      {/* Full transcription - shown by default, click to expand if truncated */}
       {transcriptionText && (
         <div 
           className={`voice-transcription ${isSent ? 'sent' : 'received'} ${needsTruncation && !isExpanded ? 'truncated' : ''}`}

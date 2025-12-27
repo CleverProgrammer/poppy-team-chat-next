@@ -1382,12 +1382,16 @@ export async function sendMessageWithAudio(
       .then(data => {
         if (data.success && data.transcription?.text) {
           console.log('🎙️ Audio transcribed:', data.transcription?.text?.substring(0, 50) + '...')
+          if (data.transcription.tldr) {
+            console.log('✨ TLDR:', data.transcription.tldr)
+          }
           
           // Save transcription to Firestore
           updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
             transcription: {
               text: data.transcription.text,
               formatted: data.transcription.formatted,
+              tldr: data.transcription.tldr || null,
               speakerCount: data.transcription.speakerCount,
               confidence: data.transcription.confidence,
               _cost: data.cost.amount,
@@ -1526,12 +1530,16 @@ export async function sendMessageDMWithAudio(
       .then(data => {
         if (data.success && data.transcription?.text) {
           console.log('🎙️ Audio transcribed:', data.transcription?.text?.substring(0, 50) + '...')
+          if (data.transcription.tldr) {
+            console.log('✨ TLDR:', data.transcription.tldr)
+          }
           
           // Save transcription to Firestore
           updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
             transcription: {
               text: data.transcription.text,
               formatted: data.transcription.formatted,
+              tldr: data.transcription.tldr || null,
               speakerCount: data.transcription.speakerCount,
               confidence: data.transcription.confidence,
               _cost: data.cost.amount,
