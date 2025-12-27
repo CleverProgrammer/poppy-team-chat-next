@@ -5,7 +5,7 @@ import ChannelStoryRing from './ChannelStoryRing'
 import DMStoryRing from './DMStoryRing'
 import TasksModal from './TasksModal'
 import { useDevMode } from '../../contexts/DevModeContext'
-import { subscribeToTasksByChat, getDMId } from '../../lib/firestore'
+import { subscribeToHasUnviewedTasks, markTasksAsViewed, getDMId } from '../../lib/firestore'
 
 export default function ChatHeader({
   currentChat,
@@ -21,22 +21,35 @@ export default function ChatHeader({
 }) {
   const { isDevMode } = useDevMode()
   const [showTasksModal, setShowTasksModal] = useState(false)
-  const [openTasksCount, setOpenTasksCount] = useState(0)
+  const [hasUnviewedTasks, setHasUnviewedTasks] = useState(false)
 
-  // Subscribe to tasks to get count for the blue dot indicator
+  // Subscribe to check for unviewed tasks
   useEffect(() => {
     if (!currentChat || !currentUserId || currentChat.type === 'ai') return
 
     const chatId =
       currentChat.type === 'dm' ? getDMId(currentUserId, currentChat.id) : currentChat.id
 
-    const unsubscribe = subscribeToTasksByChat(chatId, currentChat.type, tasks => {
-      const openCount = tasks.filter(t => !t.completed).length
-      setOpenTasksCount(openCount)
-    })
+    const unsubscribe = subscribeToHasUnviewedTasks(
+      currentUserId,
+      chatId,
+      currentChat.type,
+      (hasUnviewed) => {
+        setHasUnviewedTasks(hasUnviewed)
+      }
+    )
 
     return () => unsubscribe()
   }, [currentChat, currentUserId])
+
+  // When modal opens, mark tasks as viewed
+  useEffect(() => {
+    if (showTasksModal && currentChat && currentUserId && currentChat.type !== 'ai') {
+      const chatId =
+        currentChat.type === 'dm' ? getDMId(currentUserId, currentChat.id) : currentChat.id
+      markTasksAsViewed(currentUserId, chatId, currentChat.type)
+    }
+  }, [showTasksModal, currentChat, currentUserId])
 
   // Calculate today's tagging cost from messages
   const todayCost = useMemo(() => {
@@ -54,12 +67,6 @@ export default function ChatHeader({
       return total
     }, 0)
   }, [messages, isDevMode])
-  const getIcon = () => {
-    if (currentChat.type === 'channel') return '#'
-    if (currentChat.type === 'ai')
-      return <img src='/poppy-icon.png' alt='Poppy' style={{ width: '20px', height: '20px' }} />
-    return '💬'
-  }
 
   const getSubtitle = () => {
     if (currentChat.type === 'channel') return 'Team chat'
@@ -155,11 +162,11 @@ export default function ChatHeader({
     )
   }
 
-  // Tasks button with blue dot indicator
+  // Tasks button with blue dot indicator for unviewed tasks
   const TasksButton = ({ className }) => (
     <button onClick={() => setShowTasksModal(true)} className={`relative ${className}`}>
       Tasks
-      {openTasksCount > 0 && (
+      {hasUnviewedTasks && (
         <span
           className='absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full'
           style={{ backgroundColor: '#3b82f6' }}

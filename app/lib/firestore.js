@@ -2704,6 +2704,115 @@ export function subscribeToMyTasks(userId, userName, callback) {
 }
 
 /**
+ * Mark tasks as viewed for a user/chat
+ * This clears the "unread tasks" blue dot
+ */
+export async function markTasksAsViewed(userId, chatId, chatType) {
+  if (!userId || !chatId) return
+
+  try {
+    const tasksViewedRef = doc(db, 'tasksViewed', userId)
+    const chatKey = `${chatType}:${chatId}`
+
+    await setDoc(
+      tasksViewedRef,
+      {
+        [chatKey]: serverTimestamp(),
+      },
+      { merge: true }
+    )
+  } catch (error) {
+    console.error('Error marking tasks as viewed:', error)
+  }
+}
+
+/**
+ * Subscribe to check if there are unviewed tasks for a chat
+ * Returns true if any task's createdAt is after the lastViewed timestamp
+ */
+export function subscribeToHasUnviewedTasks(userId, chatId, chatType, callback) {
+  if (!userId || !chatId) {
+    callback(false)
+    return () => {}
+  }
+
+  const chatKey = `${chatType}:${chatId}`
+  let lastViewedTime = null
+  let tasks = []
+  let unsubTasks = null
+  let unsubViewed = null
+
+  // Helper to check and callback
+  const checkUnviewed = () => {
+    if (tasks.length === 0) {
+      callback(false)
+      return
+    }
+
+    // If never viewed, all tasks are "unread"
+    if (!lastViewedTime) {
+      callback(true)
+      return
+    }
+
+    // Check if any task was created after last viewed
+    const hasUnviewed = tasks.some(task => {
+      const taskTime = task.createdAt?.toMillis?.() || task.createdAt?.seconds * 1000 || 0
+      const viewedTime = lastViewedTime?.toMillis?.() || lastViewedTime?.seconds * 1000 || 0
+      return taskTime > viewedTime
+    })
+
+    callback(hasUnviewed)
+  }
+
+  // Subscribe to tasks
+  const tasksRef = collection(db, 'tasks')
+  const q = query(
+    tasksRef,
+    where('chatId', '==', chatId),
+    where('chatType', '==', chatType),
+    orderBy('createdAt', 'desc')
+  )
+
+  unsubTasks = onSnapshot(
+    q,
+    snapshot => {
+      tasks = []
+      snapshot.forEach(doc => {
+        tasks.push({ id: doc.id, ...doc.data() })
+      })
+      checkUnviewed()
+    },
+    error => {
+      console.error('Error subscribing to tasks for unviewed check:', error)
+      callback(false)
+    }
+  )
+
+  // Subscribe to viewed timestamp
+  const tasksViewedRef = doc(db, 'tasksViewed', userId)
+  unsubViewed = onSnapshot(
+    tasksViewedRef,
+    docSnap => {
+      if (docSnap.exists()) {
+        lastViewedTime = docSnap.data()[chatKey] || null
+      } else {
+        lastViewedTime = null
+      }
+      checkUnviewed()
+    },
+    error => {
+      console.error('Error subscribing to tasks viewed time:', error)
+    }
+  )
+
+  return () => {
+    if (unsubTasks) unsubTasks()
+    if (unsubViewed) unsubViewed()
+  }
+}
+
+/**
  * Toggle task completion status
  */
 export async function toggleTaskComplete(taskId, userId, userName) {
