@@ -2460,36 +2460,33 @@ export async function createTaskFromMessage(
     }
 
     // Smart assignee detection:
-    // In a DM, it's simple: you're talking to ONE person, so they're the assignee. Period.
-    // No need for AI to figure this out - we have the context!
+    // 1. If AI detected an explicit assignee name → use that (fuzzy match to real user)
+    // 2. If in a DM and no explicit assignee → default to the recipient
+    // 3. Otherwise → leave unassigned
     let assignedTo = null
     let assignedToUserId = null
     let assignedToEmail = null
 
-    if (chatType === 'dm' && recipient) {
-      // In a DM, the recipient IS the assignee. Always. That's who you're talking to.
-      assignedTo = recipient.displayName || recipient.email || 'Unknown'
-      assignedToUserId = recipient.uid || recipient.id || null
-      assignedToEmail = recipient.email || null
-      console.log(
-        '📋 DM Task → Auto-assigned to recipient:',
-        assignedTo,
-        '(',
-        assignedToUserId,
-        ')'
-      )
-    } else if (aiTags.assignee) {
-      // In channels, try to fuzzy match the name to a real user
+    if (aiTags.assignee) {
+      // AI detected an explicit assignee - fuzzy match to a real user
       const matchedUser = await fuzzyMatchUser(aiTags.assignee)
 
       if (matchedUser) {
         assignedTo = matchedUser.displayName || matchedUser.email
         assignedToUserId = matchedUser.uid || matchedUser.id
         assignedToEmail = matchedUser.email
+        console.log(`📋 Task assigned to "${aiTags.assignee}" → matched to "${assignedTo}"`)
       } else {
-        // Couldn't match, keep the AI's raw assignee name
+        // Couldn't match to a real user, keep the AI's raw assignee name
         assignedTo = aiTags.assignee
+        console.log(`📋 Task assigned to "${aiTags.assignee}" (no user match found)`)
       }
+    } else if (chatType === 'dm' && recipient) {
+      // No explicit assignee in DM → default to the recipient
+      assignedTo = recipient.displayName || recipient.email || 'Unknown'
+      assignedToUserId = recipient.uid || recipient.id || null
+      assignedToEmail = recipient.email || null
+      console.log(`📋 DM Task → defaulting to recipient: ${assignedTo}`)
     }
 
     const canonicalTag = aiTags.canonical_tag || null
