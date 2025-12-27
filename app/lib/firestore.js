@@ -544,6 +544,7 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
       snapshot => {
         let newMessageId = null
         let newMessage = null
+        let hasImageAnalysis = false
 
         if (!snapshot.empty) {
           // Find the first message that's NOT private (or is private but visible to this user)
@@ -554,17 +555,22 @@ export function subscribeToLastMessages(userId, dmUserIds, callback) {
           })
 
           if (visibleMessage) {
+            const data = visibleMessage.data()
             newMessageId = visibleMessage.id
+            hasImageAnalysis = !!data.imageAnalysis
             newMessage = {
               id: visibleMessage.id,
-              ...visibleMessage.data(),
+              ...data,
             }
           }
         }
 
-        // Only update and callback if the visible last message has actually changed
-        // This prevents re-renders when private messages from other users are added
-        if (lastMessageIds[otherUserId] !== newMessageId) {
+        // Update if message ID changed OR if imageAnalysis was added to an existing message
+        const prevMessage = lastMessages[otherUserId]
+        const analysisAdded = newMessageId && prevMessage?.id === newMessageId && 
+                              !prevMessage?.imageAnalysis && hasImageAnalysis
+        
+        if (lastMessageIds[otherUserId] !== newMessageId || analysisAdded) {
           lastMessageIds[otherUserId] = newMessageId
           lastMessages[otherUserId] = newMessage
           callback({ ...lastMessages })
@@ -607,6 +613,7 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
       snapshot => {
         let newMessageId = null
         let newMessage = null
+        let hasImageAnalysis = false
 
         if (!snapshot.empty) {
           // Find the first message that's NOT private (or is private but visible to this user)
@@ -620,17 +627,22 @@ export function subscribeToChannelLastMessages(channelIds, callback, userId = nu
           })
 
           if (visibleMessage) {
+            const data = visibleMessage.data()
             newMessageId = visibleMessage.id
+            hasImageAnalysis = !!data.imageAnalysis
             newMessage = {
               id: visibleMessage.id,
-              ...visibleMessage.data(),
+              ...data,
             }
           }
         }
 
-        // Only update and callback if the visible last message has actually changed
-        // This prevents re-renders when private messages from other users are added
-        if (lastMessageIds[channelId] !== newMessageId) {
+        // Update if message ID changed OR if imageAnalysis was added to an existing message
+        const prevMessage = lastMessages[channelId]
+        const analysisAdded = newMessageId && prevMessage?.id === newMessageId && 
+                              !prevMessage?.imageAnalysis && hasImageAnalysis
+        
+        if (lastMessageIds[channelId] !== newMessageId || analysisAdded) {
           lastMessageIds[channelId] = newMessageId
           lastMessages[channelId] = newMessage
           callback({ ...lastMessages })
