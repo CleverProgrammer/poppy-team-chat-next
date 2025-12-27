@@ -281,6 +281,18 @@ When someone indicates a task is done, cancelled, or no longer needed, use the S
   "summary": "Task completed - already handled"
 }
 \`\`\`
+
+**Message:** "amaanath bro thanks for picking us up from the airport"
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "amaanath_airport_pickup",
+  "status": "complete",
+  "summary": "Task completed - thanked for completing"
+}
+\`\`\`
+*Gratitude = done! When someone thanks for doing X, X is complete.*
+
 *CRITICAL: Use the SAME canonical_tag so the original task gets marked complete!*
 
 **Message:** "actually forget about the report, we don't need it anymore"
@@ -298,6 +310,9 @@ When someone indicates a task is done, cancelled, or no longer needed, use the S
 - "already done" / "you've done that" / "it's done" → status: "complete"
 - "finished" / "completed" / "all set" → status: "complete"
 - "don't worry about it" / "no need anymore" → status: "cancelled"
+- **GRATITUDE = COMPLETION**: "thanks for doing X" / "appreciate you doing X" / "thanks for picking us up" → status: "complete"
+  - When someone thanks another person for doing something, IT'S DONE. Mark it complete!
+  - Use the SAME canonical_tag as the original task
 
 ## WHAT IS A TASK? (IMPORTANT - READ THIS!)
 
