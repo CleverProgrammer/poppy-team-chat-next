@@ -865,24 +865,35 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
         .catch(err => console.error('Tagging failed:', err))
     }
 
-    // 2. Sync each image to Ragie - extract captions/OCR from images
-    allImageUrls.forEach((url, index) => {
+    // 2. Sync each image to Ragie - analyze with Claude Vision and index
+    // We only need to analyze the first image for the message (to avoid duplicate analysis)
+    if (allImageUrls.length > 0) {
       fetch('/api/ragie/sync-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messageId: docRef.id + '_img' + (index > 0 ? `_${index}` : ''),
+          messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
-          imageUrl: url,
+          imageUrl: allImageUrls[0],
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
           timestamp: new Date().toISOString(),
         }),
-      }).catch(err => console.error('Ragie image sync failed:', err))
-    })
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Save the image analysis back to the message document
+          if (data.analysis) {
+            updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+              imageAnalysis: data.analysis,
+            }).catch(err => console.warn('Failed to save image analysis:', err))
+          }
+        })
+        .catch(err => console.error('Ragie image sync failed:', err))
+    }
   } catch (error) {
     console.error('Error sending message with image:', error)
     throw error
@@ -956,16 +967,16 @@ export async function sendMessageDMWithImage(
         .catch(err => console.error('Tagging failed:', err))
     }
 
-    // 2. Sync each image to Ragie - extract captions/OCR from images
-    allImageUrls.forEach((url, index) => {
+    // 2. Sync image to Ragie - analyze with Claude Vision and index
+    if (allImageUrls.length > 0) {
       fetch('/api/ragie/sync-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messageId: docRef.id + '_img' + (index > 0 ? `_${index}` : ''),
+          messageId: docRef.id,
           chatId: dmId,
           chatType: 'dm',
-          imageUrl: url,
+          imageUrl: allImageUrls[0],
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
@@ -976,8 +987,18 @@ export async function sendMessageDMWithImage(
           recipientName: recipient?.displayName || recipient?.email || null,
           recipientEmail: recipient?.email || null,
         }),
-      }).catch(err => console.error('Ragie image sync failed:', err))
-    })
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Save the image analysis back to the message document
+          if (data.analysis) {
+            updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
+              imageAnalysis: data.analysis,
+            }).catch(err => console.warn('Failed to save image analysis:', err))
+          }
+        })
+        .catch(err => console.error('Ragie image sync failed:', err))
+    }
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)
@@ -1073,6 +1094,35 @@ export async function sendMessageWithMedia(
           }
         })
         .catch(err => console.error('Tagging failed:', err))
+    }
+
+    // Sync image to Ragie - analyze with Claude Vision and index
+    if (imageUrls.length > 0) {
+      fetch('/api/ragie/sync-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: channelId,
+          chatType: 'channel',
+          imageUrl: imageUrls[0],
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+        }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Save the image analysis back to the message document
+          if (data.analysis) {
+            updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+              imageAnalysis: data.analysis,
+            }).catch(err => console.warn('Failed to save image analysis:', err))
+          }
+        })
+        .catch(err => console.error('Image analysis failed:', err))
     }
   } catch (error) {
     console.error('Error sending message with media:', error)
@@ -1184,6 +1234,39 @@ export async function sendMessageDMWithMedia(
           }
         })
         .catch(err => console.error('Tagging failed:', err))
+    }
+
+    // Sync image to Ragie - analyze with Claude Vision and index
+    if (imageUrls.length > 0) {
+      fetch('/api/ragie/sync-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: dmId,
+          chatType: 'dm',
+          imageUrl: imageUrls[0],
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+          participants: dmId.split('_').slice(1),
+          recipientId: recipientId,
+          recipientName: recipient?.displayName || recipient?.email || null,
+          recipientEmail: recipient?.email || null,
+        }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Save the image analysis back to the message document
+          if (data.analysis) {
+            updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
+              imageAnalysis: data.analysis,
+            }).catch(err => console.warn('Failed to save image analysis:', err))
+          }
+        })
+        .catch(err => console.error('Image analysis failed:', err))
     }
 
     // Add to active DMs

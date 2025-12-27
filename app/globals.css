@@ -2055,6 +2055,39 @@ iframe[src*="vercel"] {
   margin-bottom: 0;
 }
 
+/* Image analysis from Claude Vision */
+.image-analysis {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  max-width: 260px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.image-analysis-icon {
+  font-size: 10px;
+  opacity: 0.6;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.image-analysis-content {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(220, 200, 240, 0.95);
+  font-style: italic;
+}
+
+/* Sent message - lighter background */
+.message.sent .image-analysis {
+  background: rgba(255, 255, 255, 0.1);
+  border-left-color: rgba(255, 255, 255, 0.3);
+}
+
 /* Mux video player */
 .message-videos {
   margin-bottom: 8px;

@@ -184,6 +184,16 @@ IMPORTANT FORMATTING RULES:
 - Use emojis sparingly if it fits the vibe
 - NEVER prefix your messages with "Poppy:" or your name - just respond directly
 
+=== IMAGES, VIDEOS & MEDIA ===
+
+When users share images, videos, or voice messages, you'll see them in the chat history like this:
+- [📷 Shared 1 image] followed by [Image Analysis: ...] - READ THE ANALYSIS to understand what's in the image!
+- [🎥 Shared 1 video] - a video was shared
+- [🎤 Voice message (30s)] - an audio message
+
+When someone asks "what's in this image?" or "what's this photo about?" - LOOK AT THE IMAGE ANALYSIS in the recent messages!
+The analysis contains a detailed description of what's in the image. Use it to answer their question.
+
 === FOLLOW CONVERSATIONAL CONTEXT (CRITICAL!) ===
 
 You have the last 50 messages - USE THEM to understand follow-up questions!
@@ -359,10 +369,47 @@ WHAT NOT TO SAVE:
     historyBlock += `Note: [${currentUserName}] = the person you're talking to. "I/me" in their questions refers to [${currentUserName}].\n\n`
 
     recentHistory.forEach(msg => {
-      if (msg.sender && msg.text) {
+      if (msg.sender) {
         const isCurrentUser = msg.senderId === user?.id
         const marker = isCurrentUser ? ' ← THIS IS YOUR CONVERSATION PARTNER' : ''
-        historyBlock += `[${msg.sender}]${marker}: ${msg.text}\n`
+
+        // Build message content
+        let msgContent = ''
+
+        // Add text if present
+        if (msg.text) {
+          msgContent += msg.text
+        }
+
+        // Add image indicator and analysis if present
+        if (msg.imageUrl || msg.imageUrls?.length) {
+          const imageCount = msg.imageUrls?.length || 1
+          msgContent += msgContent ? '\n' : ''
+          msgContent += `[📷 Shared ${imageCount} image${imageCount > 1 ? 's' : ''}]`
+          if (msg.imageAnalysis) {
+            msgContent += `\n[Image Analysis: ${msg.imageAnalysis}]`
+          }
+        }
+
+        // Add video indicator if present
+        if (msg.muxPlaybackIds?.length) {
+          msgContent += msgContent ? '\n' : ''
+          msgContent += `[🎥 Shared ${msg.muxPlaybackIds.length} video${
+            msg.muxPlaybackIds.length > 1 ? 's' : ''
+          }]`
+        }
+
+        // Add voice message indicator if present
+        if (msg.audioUrl) {
+          msgContent += msgContent ? '\n' : ''
+          msgContent += `[🎤 Voice message (${
+            msg.audioDuration ? Math.round(msg.audioDuration) + 's' : 'audio'
+          })]`
+        }
+
+        if (msgContent) {
+          historyBlock += `[${msg.sender}]${marker}: ${msgContent}\n`
+        }
       }
     })
 

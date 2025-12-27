@@ -1025,6 +1025,23 @@ export default function MessageItem({
               })()}
             </div>
           )}
+          
+          {/* Image analysis TLDR from Claude Vision */}
+          {msg.imageAnalysis && (() => {
+            // Extract just the TLDR from the full analysis
+            const tldrMatch = msg.imageAnalysis.match(/tldr:\s*(.+?)(?:\n|$)/i)
+            const tldr = tldrMatch ? tldrMatch[1].trim() : null
+            
+            return tldr ? (
+              <div className='image-analysis'>
+                <span className='image-analysis-icon' title='AI-generated description'>✨</span>
+                <div className='image-analysis-content'>
+                  {tldr}
+                </div>
+              </div>
+            ) : null
+          })()}
+          
           {/* Voice message */}
           {msg.audioUrl && (
             <VoiceMessage
