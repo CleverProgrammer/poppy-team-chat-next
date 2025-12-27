@@ -57,11 +57,11 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className='w-full max-w-[500px] p-0 gap-0 border-0 rounded-[32px] overflow-hidden shadow-2xl [&>button]:hidden'
+        className='w-full max-w-[520px] p-0 gap-0 border-0 rounded-[32px] overflow-hidden shadow-2xl [&>button]:hidden'
         style={{ backgroundColor: '#1a1625' }}
       >
-        {/* Header */}
-        <div className='px-12 pt-12 pb-8'>
+        {/* Header - centered with lots of padding */}
+        <div className='px-16 pt-14 pb-10'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-3'>
               <span className='text-white font-semibold text-xl'>{chatName}</span>
@@ -77,8 +77,8 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
           </div>
         </div>
 
-        {/* Tasks list */}
-        <div className='px-12 pb-16 max-h-[60vh] overflow-y-auto'>
+        {/* Tasks list - generous padding */}
+        <div className='px-16 pb-20 max-h-[60vh] overflow-y-auto'>
           {openTasks.length === 0 && completedTasks.length === 0 ? (
             <div className='text-center py-24'>
               <div className='text-6xl mb-5'>🎉</div>
@@ -86,14 +86,15 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
               <p style={{ color: 'rgba(167,139,250,0.4)' }} className='text-base mt-2'>Tasks are auto-detected from messages</p>
             </div>
           ) : (
-            <div className='space-y-4'>
+            <div>
               {/* Open tasks */}
-              {openTasks.map(task => (
+              {openTasks.map((task, index) => (
                 <TaskItem
                   key={task.id}
                   task={task}
                   onToggle={handleToggle}
                   formatDueDate={formatDueDate}
+                  isLast={index === openTasks.length - 1 && completedTasks.length === 0}
                 />
               ))}
 
@@ -102,7 +103,7 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
                 <>
                   <button
                     onClick={() => setShowCompleted(!showCompleted)}
-                    className='flex items-center gap-2 py-8 transition-colors hover:opacity-80'
+                    className='flex items-center gap-2 py-10 transition-colors hover:opacity-80'
                     style={{ color: 'rgba(167,139,250,0.5)' }}
                   >
                     {showCompleted ? (
@@ -119,18 +120,15 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
                   </button>
 
                   {/* Completed tasks */}
-                  {showCompleted && (
-                    <div className='space-y-4'>
-                      {completedTasks.map(task => (
-                        <TaskItem
-                          key={task.id}
-                          task={task}
-                          onToggle={handleToggle}
-                          formatDueDate={formatDueDate}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  {showCompleted && completedTasks.map((task, index) => (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      onToggle={handleToggle}
+                      formatDueDate={formatDueDate}
+                      isLast={index === completedTasks.length - 1}
+                    />
+                  ))}
                 </>
               )}
             </div>
@@ -147,7 +145,7 @@ function TaskItem({ task, onToggle, formatDueDate }) {
 
   return (
     <div
-      className='flex items-start gap-6 py-4 cursor-pointer group'
+      className='flex items-start gap-6 py-6 cursor-pointer group'
       onClick={(e) => onToggle(e, task.id)}
     >
       {/* Checkbox - rounded square */}
