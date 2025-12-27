@@ -207,3 +207,92 @@ export async function getTopicVotes(query) {
     return [];
   }
 }
+
+/**
+ * Add information to the Team AI Memory via Ragie
+ * This allows Poppy to save important info when users ask "remember this"
+ *
+ * @param {Object} params - The memory to add
+ * @param {string} params.content - The information to remember
+ * @param {string} params.source - Who provided this information
+ * @param {string} params.context - Optional context about why this is important
+ * @param {string} params.addedBy - Who asked Poppy to remember this
+ * @param {string} params.addedByEmail - Email of the person who asked
+ * @param {string} params.addedById - User ID of the person who asked
+ * @returns {Object} Result with success status and message
+ */
+export async function addToTeamMemory({ content, source, context, addedBy, addedByEmail, addedById }) {
+  console.log('🧠 TEAM MEMORY ADD ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🧠 Content:', content?.substring(0, 100) + (content?.length > 100 ? '...' : ''));
+  console.log('🧠 Source:', source);
+  console.log('🧠 Added by:', addedBy);
+
+  // Basic content moderation - reject obviously inappropriate content
+  const inappropriatePatterns = [
+    /\b(porn|xxx|nude|naked|sex|fuck\s*me|dick|cock|pussy|ass\s*hole)\b/i,
+    /\b(kill\s*(yourself|myself)|suicide|murder)\b/i,
+  ];
+
+  for (const pattern of inappropriatePatterns) {
+    if (pattern.test(content)) {
+      console.log('❌ MEMORY: Rejected - inappropriate content detected');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      return {
+        success: false,
+        message: 'I can\'t save that to team memory. Let\'s keep it professional! 😊',
+      };
+    }
+  }
+
+  try {
+    const timestamp = new Date().toISOString();
+    const messageId = `memory_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    // Build metadata for global team memory
+    const metadata = {
+      messageId,
+      sender: source || addedBy || 'Unknown',
+      senderEmail: addedByEmail || '',
+      senderId: addedById || '',
+      timestamp,
+      chatType: 'team_memory',  // Special type that bypasses all permission filters
+      chatId: 'team_memory',    // Global team memory
+      isTeamMemory: true,       // Flag for easy filtering
+      addedViaAI: true,         // Flag to show this was added via Poppy
+      addedBy: addedBy || 'Unknown',
+      addedByEmail: addedByEmail || '',
+      context: context || '',
+    };
+
+    // Build the content with clear formatting
+    let textContent = `[Team Memory from ${source || addedBy}]`;
+    if (context) {
+      textContent += ` (Context: ${context})`;
+    }
+    textContent += `: ${content}`;
+
+    console.log('🧠 MEMORY: Indexing to Ragie...');
+
+    const document = await ragie.documents.createRaw({
+      data: textContent,
+      metadata,
+    });
+
+    console.log(`✅ MEMORY: Added successfully, doc ID: ${document.id}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    return {
+      success: true,
+      message: `Got it! I've saved that to Team Memory. Everyone can now ask me about: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+      documentId: document.id,
+    };
+  } catch (error) {
+    console.error('❌ MEMORY ERROR:', error.message);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return {
+      success: false,
+      message: 'Sorry, I couldn\'t save that to team memory. Please try again!',
+      error: error.message,
+    };
+  }
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
-import { searchChatHistory, getTopicVotes } from '../../lib/retrieval-router.js'
+import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 
@@ -247,6 +247,31 @@ STRATEGY: For vote questions, use BOTH tools:
 1. get_topic_votes → gives you the count and names
 2. search_chat_history → gives you context about what was said
 
+=== TEAM MEMORY (add_to_team_memory) ===
+
+USE add_to_team_memory WHEN:
+- User says "remember this" / "save this" / "add to memory"
+- User says "@poppy remember..." or "poppy, remember..."
+- User explicitly asks you to store something for the team
+- User says "make sure we don't forget..."
+- User shares important info and asks you to keep track of it
+
+This saves info to Team Memory so EVERYONE on the team can ask you about it later.
+
+WHAT TO SAVE:
+✅ Important decisions, dates, deadlines
+✅ Useful info (login credentials - NOT passwords, meeting notes, processes)
+✅ Team preferences, contacts, resources
+✅ Anything explicitly requested to be remembered
+
+WHAT NOT TO SAVE:
+❌ Jokes, memes, casual banter
+❌ Inappropriate or sexual content
+❌ Personal private info that shouldn't be shared team-wide
+❌ Obvious/trivial things
+
+When saving, use the MESSAGE CONTEXT to understand what they want remembered. Often they'll say "remember this" referring to something said earlier in the conversation.
+
 🔥 GOLDEN RULES 🔥
 1. NEVER say "I don't see that" without using search_chat_history first!
 2. NEVER say "I don't know" without at least 2-3 different search attempts!
@@ -365,6 +390,33 @@ STRATEGY: For vote questions, use BOTH tools:
     },
   })
 
+  // Add team memory tool - allows AI to save important info for the whole team
+  tools.push({
+    name: 'add_to_team_memory',
+    description:
+      'Save important information to the Team AI Memory so everyone on the team can ask Poppy about it later. Use this when users say things like "remember this", "save this", "add to memory", "@poppy remember", or explicitly ask you to store something for the team. ONLY save useful, appropriate, work-related information. Do NOT save jokes, inappropriate content, or trivial messages.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description:
+            'The information to save to team memory. Should be a clear, concise summary of what to remember. Include relevant context.',
+        },
+        source: {
+          type: 'string',
+          description: 'Who provided this information (the person who asked you to remember it)',
+        },
+        context: {
+          type: 'string',
+          description:
+            'Optional: Additional context about why this is important or when it might be useful',
+        },
+      },
+      required: ['content', 'source'],
+    },
+  })
+
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -465,6 +517,8 @@ STRATEGY: For vote questions, use BOTH tools:
         toolCategory = '🔍 RAGIE'
       } else if (toolUse.name === 'get_topic_votes') {
         toolCategory = '🗳️  VOTES'
+      } else if (toolUse.name === 'add_to_team_memory') {
+        toolCategory = '🧠 MEMORY'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -517,6 +571,21 @@ STRATEGY: For vote questions, use BOTH tools:
             const totalVotes = results.reduce((sum, r) => sum + (r.votes || 0), 0)
             console.log(`🗳️  VOTES: Total votes across matches: ${totalVotes}`)
           }
+        } else if (toolUse.name === 'add_to_team_memory') {
+          // Handle adding to team memory
+          console.log(`🧠 MEMORY: Adding to team memory...`)
+          console.log(`🧠 MEMORY: Content: "${toolUse.input.content?.substring(0, 100)}..."`)
+          console.log(`🧠 MEMORY: Source: ${toolUse.input.source}`)
+          const result = await addToTeamMemory({
+            content: toolUse.input.content,
+            source: toolUse.input.source,
+            context: toolUse.input.context,
+            addedBy: user?.name || user?.email || 'Unknown',
+            addedByEmail: user?.email,
+            addedById: user?.id,
+          })
+          toolResponse = { content: result }
+          console.log(`🧠 MEMORY: ${result.success ? '✅ Added successfully' : '❌ Failed'}`)
         } else {
           // Call MCP tools with tracing
           console.log(`${toolCategory}: Executing for user ${userId}`)
