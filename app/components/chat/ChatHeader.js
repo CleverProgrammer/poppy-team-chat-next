@@ -34,7 +34,7 @@ export default function ChatHeader({
       currentUserId,
       chatId,
       currentChat.type,
-      (hasUnviewed) => {
+      hasUnviewed => {
         setHasUnviewedTasks(hasUnviewed)
       }
     )
