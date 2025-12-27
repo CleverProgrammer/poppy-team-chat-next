@@ -2175,16 +2175,36 @@ export async function createTaskFromMessage(chatId, chatType, messageId, text, u
       if (!existingSnap.empty) {
         // Update existing task instead of creating a new one
         const existingTask = existingSnap.docs[0]
-        await updateDoc(doc(db, 'tasks', existingTask.id), {
+        const existingData = existingTask.data()
+        
+        // Check if AI detected task completion
+        const isCompleted = aiTags.status === 'complete' || 
+                           aiTags.status === 'done' || 
+                           aiTags.status === 'completed' ||
+                           aiTags.status === 'cancelled' ||
+                           aiTags.status === 'canceled'
+        
+        const updateData = {
           // Update with latest info
-          title: aiTags.summary || existingTask.data().title,
+          title: aiTags.summary || existingData.title,
           originalMessageId: messageId, // Point to most recent message
           originalMessageText: text,
-          priority: aiTags.priority || existingTask.data().priority,
-          dueDate: aiTags.due_date || existingTask.data().dueDate,
+          priority: aiTags.priority || existingData.priority,
+          dueDate: aiTags.due_date || existingData.dueDate,
+          status: aiTags.status || existingData.status,
           updatedAt: serverTimestamp(),
-        })
-        console.log('✅ Task updated (deduped):', existingTask.id, '| canonical:', canonicalTag)
+        }
+        
+        // Mark as completed if AI detected completion
+        if (isCompleted) {
+          updateData.completed = true
+          updateData.completedAt = serverTimestamp()
+          updateData.completedBy = user.displayName || user.email
+          console.log('✅ Task marked COMPLETE:', existingTask.id, '| status:', aiTags.status)
+        }
+        
+        await updateDoc(doc(db, 'tasks', existingTask.id), updateData)
+        console.log('✅ Task updated (deduped):', existingTask.id, '| canonical:', canonicalTag, '| completed:', isCompleted)
         return existingTask.id
       }
     }

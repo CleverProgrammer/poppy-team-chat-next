@@ -246,6 +246,49 @@ Then tag generously. Multiple angles. The way a human brain would connect it.
 \`\`\`
 *Full lifecycle linked: request → in progress → shipped*
 
+## TASK COMPLETION DETECTION
+
+When someone indicates a task is done, cancelled, or no longer needed, use the SAME canonical_tag and set status:
+
+**Message:** "can you bring a raincoat tomorrow?"
+\`\`\`json
+{
+  "type": "task",
+  "canonical_tag": "bring_raincoat_tomorrow",
+  "assignee": "[recipient if in DM]",
+  "priority": "medium",
+  "due_date": "tomorrow",
+  "summary": "Bring raincoat tomorrow"
+}
+\`\`\`
+
+**Message:** "oh nvm I see you've already done that"
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "bring_raincoat_tomorrow",
+  "status": "complete",
+  "summary": "Task completed - already handled"
+}
+\`\`\`
+*CRITICAL: Use the SAME canonical_tag so the original task gets marked complete!*
+
+**Message:** "actually forget about the report, we don't need it anymore"
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "[original task's canonical_tag]",
+  "status": "cancelled",
+  "summary": "Task cancelled - no longer needed"
+}
+\`\`\`
+
+### Task completion phrases:
+- "nvm" / "never mind" / "forget it" → status: "cancelled"
+- "already done" / "you've done that" / "it's done" → status: "complete"
+- "finished" / "completed" / "all set" → status: "complete"
+- "don't worry about it" / "no need anymore" → status: "cancelled"
+
 **Message:** "you just have to accept them when you refresh"
 \`\`\`json
 {
