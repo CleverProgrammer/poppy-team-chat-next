@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ChannelStoryRing from './ChannelStoryRing'
 import DMStoryRing from './DMStoryRing'
 import TasksModal from './TasksModal'
 import { useDevMode } from '../../contexts/DevModeContext'
+import { subscribeToTasksByChat, getDMId } from '../../lib/firestore'
 
 export default function ChatHeader({
   currentChat,
@@ -20,6 +21,23 @@ export default function ChatHeader({
 }) {
   const { isDevMode } = useDevMode()
   const [showTasksModal, setShowTasksModal] = useState(false)
+  const [openTasksCount, setOpenTasksCount] = useState(0)
+
+  // Subscribe to tasks to get count for the blue dot indicator
+  useEffect(() => {
+    if (!currentChat || !currentUserId || currentChat.type === 'ai') return
+
+    const chatId = currentChat.type === 'dm' 
+      ? getDMId(currentUserId, currentChat.id) 
+      : currentChat.id
+
+    const unsubscribe = subscribeToTasksByChat(chatId, currentChat.type, (tasks) => {
+      const openCount = tasks.filter(t => !t.completed).length
+      setOpenTasksCount(openCount)
+    })
+
+    return () => unsubscribe()
+  }, [currentChat, currentUserId])
 
   // Calculate today's tagging cost from messages
   const todayCost = useMemo(() => {
@@ -142,6 +160,22 @@ export default function ChatHeader({
     )
   }
 
+  // Tasks button with blue dot indicator
+  const TasksButton = ({ className }) => (
+    <button
+      onClick={() => setShowTasksModal(true)}
+      className={`relative ${className}`}
+    >
+      Tasks
+      {openTasksCount > 0 && (
+        <span 
+          className='absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full'
+          style={{ backgroundColor: '#3b82f6' }}
+        />
+      )}
+    </button>
+  )
+
   return (
     <>
       {/* Desktop Header - iMessage style with avatar and name pill */}
@@ -197,12 +231,7 @@ export default function ChatHeader({
           )}
           
           {currentChat.type !== 'ai' && (
-            <button
-              onClick={() => setShowTasksModal(true)}
-              className='px-3 py-1 text-[11px] font-medium rounded-md text-gray-500 hover:text-gray-300 transition-colors'
-            >
-              Tasks
-            </button>
+            <TasksButton className='px-3 py-1 text-[11px] font-medium rounded-md text-gray-500 hover:text-gray-300 transition-colors' />
           )}
         </div>
       </div>
@@ -238,12 +267,7 @@ export default function ChatHeader({
             </button>
           )}
           {currentChat.type !== 'ai' && (
-            <button
-              onClick={() => setShowTasksModal(true)}
-              className='text-[11px] font-medium text-gray-500'
-            >
-              Tasks
-            </button>
+            <TasksButton className='text-[11px] font-medium text-gray-500' />
           )}
         </div>
       </div>

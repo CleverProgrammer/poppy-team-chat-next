@@ -88,13 +88,12 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
           ) : (
             <div>
               {/* Open tasks */}
-              {openTasks.map((task, index) => (
+              {openTasks.map((task) => (
                 <TaskItem
                   key={task.id}
                   task={task}
                   onToggle={handleToggle}
                   formatDueDate={formatDueDate}
-                  isLast={index === openTasks.length - 1 && completedTasks.length === 0}
                 />
               ))}
 
@@ -120,13 +119,12 @@ export default function TasksModal({ isOpen, onClose, user, currentChat }) {
                   </button>
 
                   {/* Completed tasks */}
-                  {showCompleted && completedTasks.map((task, index) => (
+                  {showCompleted && completedTasks.map((task) => (
                     <TaskItem
                       key={task.id}
                       task={task}
                       onToggle={handleToggle}
                       formatDueDate={formatDueDate}
-                      isLast={index === completedTasks.length - 1}
                     />
                   ))}
                 </>
