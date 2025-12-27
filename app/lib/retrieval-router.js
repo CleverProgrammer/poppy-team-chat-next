@@ -143,7 +143,7 @@ export async function getTopicVotes(query) {
     
     if (exactDoc.exists) {
       const data = exactDoc.data();
-      console.log(`✅ Found exact match: ${exactDoc.id}`);
+      console.log(`✅ FIRESTORE: Found exact match: ${exactDoc.id}`);
       console.log(`   Type: ${data.type}, Votes: ${data.votes || 0}, Voters: ${data.voters?.join(', ') || 'none'}`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return [{
@@ -191,9 +191,9 @@ export async function getTopicVotes(query) {
     matches.sort((a, b) => (b.votes || 0) - (a.votes || 0));
 
     if (matches.length === 0) {
-      console.log('📭 No matching features found');
+      console.log('📭 No matching topics found');
     } else {
-      console.log(`✅ Found ${matches.length} matching feature(s):`);
+      console.log(`✅ Found ${matches.length} matching topic(s):`);
       matches.forEach((m, i) => {
         console.log(`   ${i + 1}. ${m.name} - ${m.votes} votes from: ${m.voters.join(', ') || 'none'}`);
       });
@@ -202,7 +202,7 @@ export async function getTopicVotes(query) {
 
     return matches;
   } catch (error) {
-    console.error('❌ Error fetching feature votes:', error.message);
+    console.error('❌ FIRESTORE ERROR: Failed to fetch topic votes:', error.message);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     return [];
   }

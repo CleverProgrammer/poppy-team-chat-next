@@ -9,6 +9,76 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // Format: Map<canonical_tag, { type, count, lastSeen, summary }>
 const canonicalTagsCache = new Map()
 
+/**
+ * Persist canonical_tag to Firestore and handle vote tracking
+ * Votes are counted when AI outputs a `voter` field - simple as that
+ */
+async function persistCanonicalTag(aiTags, sender) {
+  if (!aiTags.canonical_tag) return
+
+  const tagId = aiTags.canonical_tag
+  const tagRef = adminDb.collection('canonical_tags').doc(tagId)
+
+  try {
+    const doc = await tagRef.get()
+    const now = new Date().toISOString()
+
+    // Get voter name - ONLY from explicit voter field, no fallbacks
+    const voterName = aiTags.voter
+
+    if (doc.exists) {
+      // Update existing tag
+      const updateData = {
+        count: (doc.data().count || 0) + 1,
+        lastSeen: now,
+      }
+
+      // If there's an explicit voter, count the vote
+      if (voterName) {
+        const currentVoters = doc.data().voters || []
+
+        // Only add if not already in voters list (prevent duplicates)
+        if (!currentVoters.includes(voterName)) {
+          updateData.votes = (doc.data().votes || 0) + 1
+          updateData.voters = [...currentVoters, voterName]
+          console.log(`🗳️  FIRESTORE VOTE: Added "${voterName}" to "${tagId}" (now ${updateData.votes} votes)`)
+        } else {
+          console.log(`🗳️  FIRESTORE VOTE: "${voterName}" already voted for "${tagId}" (skipping duplicate)`)
+        }
+      }
+
+      // Update summary if we have a better one
+      if (aiTags.summary && !doc.data().summary) {
+        updateData.summary = aiTags.summary
+      }
+
+      await tagRef.update(updateData)
+      console.log(`💾 FIRESTORE: Updated topic "${tagId}"`)
+    } else {
+      // Create new tag
+      const newTagData = {
+        name: tagId,
+        type: aiTags.type || 'unknown',
+        summary: aiTags.summary || '',
+        count: 1,
+        votes: voterName ? 1 : 0,
+        voters: voterName ? [voterName] : [],
+        createdAt: now,
+        lastSeen: now,
+      }
+
+      if (voterName) {
+        console.log(`🗳️  FIRESTORE VOTE: Created "${tagId}" with first vote from "${voterName}"`)
+      }
+
+      await tagRef.set(newTagData)
+      console.log(`💾 FIRESTORE: Created topic "${tagId}"`)
+    }
+  } catch (error) {
+    console.error(`❌ FIRESTORE ERROR: Failed to persist "${tagId}":`, error.message)
+  }
+}
+
 // Fetch recent messages from Firestore for context
 async function getRecentMessages(chatId, chatType, limit = 5) {
   try {
@@ -246,36 +316,87 @@ Then tag generously. Multiple angles. The way a human brain would connect it.
 \`\`\`
 *Numbers extracted. Queryable.*
 
+## VOTE TRACKING (CRITICAL!)
+
+When someone expresses interest, agreement, or commitment to ANY topic/idea, add a "voter" field with their name.
+
 **Message:** "yeah i agree we definitely need that"
 (context: someone just suggested adding dark mode)
 \`\`\`json
 {
-  "type": "endorsement",
+  "type": "status_update",
   "canonical_tag": "dark_mode",
-  "tags": ["dark_mode", "agreement", "support", "+1"],
-  "queries": ["who wants dark mode", "dark mode votes", "dark mode supporters"],
-  "endorser": "sawwa",
-  "endorses": "dark_mode",
-  "summary": "+1 for dark mode from Sawwa"
+  "tags": ["dark_mode", "agreement"],
+  "voter": "sawwa",
+  "summary": "Sawwa wants dark mode"
 }
 \`\`\`
-*Verbal agreement = vote. Links to original request via canonical_tag.*
 
-**Message:** "omg yes please!! I've been wanting this forever"
-(context: someone requested GIF support)
+**Message:** "yo i'm down to go to germany"
 \`\`\`json
 {
-  "type": "endorsement",
-  "canonical_tag": "gif_support",
-  "tags": ["gifs", "agreement", "enthusiasm", "+1"],
-  "queries": ["who wants gifs", "gif votes"],
-  "endorser": "athena",
-  "endorses": "gif_support",
-  "temperature": "hot",
-  "summary": "+1 for GIF support from Athena (enthusiastic)"
+  "type": "idea",
+  "canonical_tag": "germany_team_meetup",
+  "tags": ["germany", "trip", "meetup"],
+  "voter": "rafeh",
+  "summary": "Rafeh wants to go to Germany"
 }
 \`\`\`
-*Enthusiasm captured in temperature field.*
+*"I'm down" = vote. The sender is the voter.*
+
+**Message:** "yo thinking of going to norway this year. i'd be down"
+\`\`\`json
+{
+  "type": "idea",
+  "canonical_tag": "norway_team_trip",
+  "tags": ["norway", "trip", "team_travel"],
+  "voter": "rafeh",
+  "summary": "Rafeh proposing Norway trip and is in"
+}
+\`\`\`
+*Proposing an idea AND saying "I'd be down" = they're voting for their own idea!*
+
+**Message:** "david is also down to go to germany"
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "germany_team_meetup",
+  "tags": ["germany", "trip"],
+  "voter": "david",
+  "summary": "David is in for Germany (reported by someone else)"
+}
+\`\`\`
+*Someone reporting that David is in → voter is "david", not the sender.*
+
+**Message:** "naz said he'd be down for norway too"
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "norway_team_trip",
+  "tags": ["norway", "trip"],
+  "voter": "naz",
+  "summary": "Naz is in for Norway"
+}
+\`\`\`
+
+**Message:** "count me in!"
+(context: team planning an event)
+\`\`\`json
+{
+  "type": "status_update",
+  "canonical_tag": "[from context]",
+  "voter": "[sender name]",
+  "summary": "[sender] is in"
+}
+\`\`\`
+
+### When to add "voter" field:
+- "I'm down" / "I'd be down" / "I'm in" / "I'm game" → voter = sender
+- "count me in" / "sign me up" → voter = sender
+- "I agree" / "+1" / "yes please" → voter = sender
+- "[Person] is down" / "[Person] wants in" → voter = that person's name
+
+The "type" field can be anything (idea, status_update, feature_request, etc.) - just ADD the "voter" field when there's interest expressed. Don't overcomplicate it!
 
 **Message:** "haha"
 \`\`\`json
@@ -293,81 +414,12 @@ Then tag generously. Multiple angles. The way a human brain would connect it.
 \`\`\`
 *Vibes only. Skip.*
 
-## THE DEDUPLICATION & VOTING MAGIC
+## THE DEDUPLICATION MAGIC
 
-When you see a new message about something discussed before, USE THE SAME canonical_tag.
-
-## ENDORSEMENTS & PARTICIPATION (CRITICAL)
-
-Any time someone expresses agreement, interest, commitment, or participation in a topic, YOU MUST EXTRACT THEM AS AN \`endorser\`.
-This applies to EVERYTHING: feature requests, trip planning, lunch decisions, meeting attendance, etc.
-
-**Message:** "yeah i agree we definitely need that"
-(context: someone just suggested adding dark mode)
-\`\`\`json
-{
-  "type": "endorsement",
-  "canonical_tag": "dark_mode",
-  "tags": ["dark_mode", "agreement", "support", "+1"],
-  "queries": ["who wants dark mode", "dark mode votes", "dark mode supporters"],
-  "endorser": "sawwa",
-  "endorses": "dark_mode",
-  "summary": "+1 for dark mode from Sawwa"
-}
-\`\`\`
-
-**Message:** "omg yes please!! I've been wanting this forever"
-(context: someone requested GIF support)
-\`\`\`json
-{
-  "type": "endorsement",
-  "canonical_tag": "gif_support",
-  "tags": ["gifs", "agreement", "enthusiasm", "+1"],
-  "queries": ["who wants gifs", "gif votes"],
-  "endorser": "athena",
-  "endorses": "gif_support",
-  "temperature": "hot",
-  "summary": "+1 for GIF support from Athena (enthusiastic)"
-}
-\`\`\`
-
-**Message:** "Im down to go to germany"
-(context: discussing team meetup in Germany)
-\`\`\`json
-{
-  "type": "decision",
-  "canonical_tag": "germany_team_meetup",
-  "tags": ["germany", "team_meetup", "travel", "commitment"],
-  "queries": ["who is going to germany", "germany trip attendees"],
-  "endorser": "qazi",
-  "endorses": "germany_team_meetup",
-  "summary": "Qazi is down for Germany trip"
-}
-\`\`\`
-*Notice: "I'm down" = endorsement/participation. Captured in \`endorser\` field.*
-
-**Message:** "yo i heard david is also down"
-(context: discussing team meetup in Germany)
-\`\`\`json
-{
-  "type": "status_update",
-  "canonical_tag": "germany_team_meetup",
-  "tags": ["germany", "team_meetup", "travel", "david"],
-  "queries": ["is david going to germany"],
-  "endorser": "david",
-  "endorses": "germany_team_meetup",
-  "summary": "David is down for Germany trip (reported by Qazi)"
-}
-\`\`\`
-*Notice: Even though Qazi sent it, David is the one committing. David is the \`endorser\`.*
-
-**Message:** "haha"
-\`\`\`json
-{
-  "type": "noise"
-}
-\`\`\`
-*Nothing to remember here.*
+When you see a new message about something discussed before, USE THE SAME canonical_tag. Check existing tags first. This links:
+- Request → assignment → progress → shipped
+- Multiple people asking for the same thing
+- Questions and answers about same topic
 
 ## BE CREATIVE
 
@@ -499,8 +551,7 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     if (aiTags.temperature) console.log(`🌡️  Temperature:   ${aiTags.temperature}`)
     if (aiTags.assignee) console.log(`👤 Assignee:      ${aiTags.assignee}`)
     if (aiTags.assigner) console.log(`👤 Assigner:      ${aiTags.assigner}`)
-    if (aiTags.endorser) console.log(`✋ Endorser:      ${aiTags.endorser}`)
-    if (aiTags.endorses) console.log(`👍 Endorses:      ${aiTags.endorses}`)
+    if (aiTags.voter) console.log(`🗳️  Voter:         ${aiTags.voter}`)
     if (aiTags.status) console.log(`📊 Status:        ${aiTags.status}`)
     if (aiTags.due_date) console.log(`📅 Due Date:      ${aiTags.due_date}`)
     if (aiTags.votes) console.log(`👍 Votes:         ${aiTags.votes}`)
@@ -511,29 +562,19 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     // Update canonical tags cache for deduplication
     if (aiTags.canonical_tag && aiTags.type !== 'noise') {
       const existing = canonicalTagsCache.get(aiTags.canonical_tag)
-      
-      // Generic vote tracking in cache
-      let newVotes = existing?.votes || 0;
-      let newVoters = existing?.voters || [];
-
-      if (aiTags.endorser) {
-        if (!newVoters.includes(aiTags.endorser)) {
-          newVoters.push(aiTags.endorser);
-          newVotes++;
-        }
-      }
-
       canonicalTagsCache.set(aiTags.canonical_tag, {
         type: aiTags.type || existing?.type || 'unknown',
         count: (existing?.count || 0) + 1,
-        votes: newVotes,
-        voters: newVoters,
         lastSeen: new Date().toISOString(),
         summary: aiTags.summary || existing?.summary,
       })
       console.log(
-        `💾 Cache Updated:  ${aiTags.canonical_tag} (${canonicalTagsCache.size} total tags in cache, ${newVotes} votes)`
+        `💾 Cache Updated:  ${aiTags.canonical_tag} (${canonicalTagsCache.size} total tags in cache)`
       )
+
+      // Persist canonical_tag to Firestore for vote tracking
+      // Vote only counts if AI explicitly outputs a `voter` field
+      await persistCanonicalTag(aiTags, sender)
     }
 
     // Sync to Ragie with enriched metadata (directly, no internal fetch)
@@ -641,8 +682,7 @@ async function syncToRagie(data, aiTags) {
     if (aiTags.due_date) metadata.due_date = aiTags.due_date
     if (aiTags.votes) metadata.votes = aiTags.votes
     if (aiTags.voters) metadata.voters = aiTags.voters
-    if (aiTags.endorser) metadata.endorser = aiTags.endorser
-    if (aiTags.endorses) metadata.endorses = aiTags.endorses
+    if (aiTags.voter) metadata.voter = aiTags.voter
     if (aiTags.participants) metadata.tag_participants = aiTags.participants
     if (aiTags.data) metadata.extracted_data = JSON.stringify(aiTags.data)
   }
