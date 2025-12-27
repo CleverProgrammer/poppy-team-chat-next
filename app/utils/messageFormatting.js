@@ -1,11 +1,96 @@
+'use client';
+
+import React, { useState } from 'react';
+
 // URL regex pattern used across the app
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+// Check if URL is a Firebase Storage image URL
+export function isFirebaseImageUrl(url) {
+  if (!url) return false;
+  // Very simple check - if it contains firebasestorage, treat it as an image
+  // The component will handle errors gracefully
+  return url.includes('firebasestorage');
+}
+
+// Inline image component with loading/error state
+function InlineImage({ src }) {
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Clean the URL - remove any trailing punctuation that might have been captured
+  const cleanSrc = src.replace(/[,.:;!?]+$/, '');
+  
+  // Debug log
+  console.log('🖼️ InlineImage rendering:', { src, cleanSrc, failed, loaded });
+
+  if (failed) {
+    return (
+      <a
+        href={cleanSrc}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="message-link inline-image-link"
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+      >
+        🖼️ View Image
+      </a>
+    );
+  }
+
+  return (
+    <div className="inline-image-container" style={{ margin: '8px 0' }}>
+      {!loaded && (
+        <div style={{ 
+          width: '200px', 
+          height: '150px', 
+          background: 'rgba(255,255,255,0.1)', 
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'rgba(255,255,255,0.5)'
+        }}>
+          Loading...
+        </div>
+      )}
+      <img
+        src={cleanSrc}
+        alt="Shared image"
+        className="inline-image"
+        referrerPolicy="no-referrer"
+        style={{
+          maxWidth: '240px',
+          maxHeight: '280px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          display: loaded ? 'block' : 'none',
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          window.open(cleanSrc, '_blank');
+        }}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          console.error('Image failed to load:', cleanSrc);
+          setFailed(true);
+        }}
+      />
+    </div>
+  );
+}
 
 export function linkifyText(text) {
   const parts = text.split(urlRegex);
 
   return parts.map((part, index) => {
     if (part.match(urlRegex)) {
+      // Check if it's a Firebase Storage image URL - render as image
+      if (isFirebaseImageUrl(part)) {
+        return <InlineImage key={index} src={part} />;
+      }
+      // Regular link
       return (
         <a
           key={index}

@@ -187,12 +187,25 @@ IMPORTANT FORMATTING RULES:
 === IMAGES, VIDEOS & MEDIA ===
 
 When users share images, videos, or voice messages, you'll see them in the chat history like this:
-- [📷 Shared 1 image] followed by [Image Analysis: ...] - READ THE ANALYSIS to understand what's in the image!
+- [📷 Shared 1 image] followed by [Image URLs: ...] and [Image Analysis: ...] 
 - [🎥 Shared 1 video] - a video was shared
 - [🎤 Voice message (30s)] - an audio message
 
-When someone asks "what's in this image?" or "what's this photo about?" - LOOK AT THE IMAGE ANALYSIS in the recent messages!
-The analysis contains a detailed description of what's in the image. Use it to answer their question.
+READ THE IMAGE ANALYSIS to understand what's in the image, and USE THE IMAGE URLs to share them!
+
+=== SHOWING IMAGES IN RESPONSES (CRITICAL!) ===
+
+When you see [Image URLs: https://firebasestorage...] in the chat history, INCLUDE THAT URL IN YOUR RESPONSE!
+The app will automatically render Firebase Storage URLs as actual inline images.
+
+Example - if someone asks "who is Pudgy?" and you see an image of Pudgy in the chat:
+✅ GOOD: "Pudgy is your baby bulldog! 🐕 Here he is:
+
+https://firebasestorage.googleapis.com/v0/b/..."
+
+❌ BAD: "Pudgy is your baby bulldog!" (missing the image URL!)
+
+ALWAYS include the image URL on its own line when referencing images. Users LOVE seeing the actual photos!
 
 === FOLLOW CONVERSATIONAL CONTEXT (CRITICAL!) ===
 
@@ -381,11 +394,16 @@ WHAT NOT TO SAVE:
           msgContent += msg.text
         }
 
-        // Add image indicator and analysis if present
+        // Add image indicator, URLs, and analysis if present
         if (msg.imageUrl || msg.imageUrls?.length) {
-          const imageCount = msg.imageUrls?.length || 1
+          const imageUrls = msg.imageUrls || (msg.imageUrl ? [msg.imageUrl] : [])
+          const imageCount = imageUrls.length
           msgContent += msgContent ? '\n' : ''
           msgContent += `[📷 Shared ${imageCount} image${imageCount > 1 ? 's' : ''}]`
+          // Include the actual image URLs so Claude can share them in responses
+          if (imageUrls.length > 0) {
+            msgContent += `\n[Image URLs: ${imageUrls.join(', ')}]`
+          }
           if (msg.imageAnalysis) {
             msgContent += `\n[Image Analysis: ${msg.imageAnalysis}]`
           }
@@ -460,7 +478,7 @@ WHAT NOT TO SAVE:
   tools.push({
     name: 'search_chat_history',
     description:
-      'Search through past chat messages to find relevant conversations. Use this when users ask about things discussed before, personal info shared in past chats, or any historical context from previous conversations. IMPORTANT: For time-bound queries (this week, yesterday, last month, etc.), ALWAYS use startDate and endDate to filter results!',
+      'Search through past chat messages AND images to find relevant conversations. Results can include text messages AND image analyses with their URLs (in imageUrls field). When results have imageUrls, INCLUDE THEM IN YOUR RESPONSE so users can see the actual images! Use this when users ask about things discussed before, images shared, personal info shared in past chats, or any historical context. IMPORTANT: For time-bound queries (this week, yesterday, last month, etc.), ALWAYS use startDate and endDate to filter results!',
     input_schema: {
       type: 'object',
       properties: {
@@ -505,7 +523,7 @@ WHAT NOT TO SAVE:
   tools.push({
     name: 'add_to_team_memory',
     description:
-      'Save important information to the Team AI Memory so everyone on the team can ask Poppy about it later. Use this when users say things like "remember this", "save this", "add to memory", "@poppy remember", or explicitly ask you to store something for the team. LOOK AT THE RECENT CHAT HISTORY to understand what they want remembered - they often say "remember this" referring to something discussed earlier. Summarize the key info in a clear, useful way that captures WHO said WHAT.',
+      'Save important information to the Team AI Memory so everyone on the team can ask Poppy about it later. Use this when users say things like "remember this", "save this", "add to memory", "@poppy remember", or explicitly ask you to store something for the team. LOOK AT THE RECENT CHAT HISTORY to understand what they want remembered - they often say "remember this" referring to something discussed earlier. Summarize the key info in a clear, useful way that captures WHO said WHAT. If there are relevant images in the chat, include their URLs!',
     input_schema: {
       type: 'object',
       properties: {
@@ -522,6 +540,12 @@ WHAT NOT TO SAVE:
           type: 'string',
           description:
             'Brief context: what topic/discussion is this from? (e.g., "Q1 planning discussion", "Germany trip planning")',
+        },
+        imageUrls: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Optional: Array of image URLs to save with this memory. Include if the memory references specific images shared in chat.',
         },
       },
       required: ['content', 'source'],
@@ -697,6 +721,9 @@ WHAT NOT TO SAVE:
           console.log(`🧠 MEMORY: Adding to team memory...`)
           console.log(`🧠 MEMORY: Content: "${toolUse.input.content?.substring(0, 100)}..."`)
           console.log(`🧠 MEMORY: Source: ${toolUse.input.source}`)
+          if (toolUse.input.imageUrls?.length) {
+            console.log(`🧠 MEMORY: Including ${toolUse.input.imageUrls.length} image(s)`)
+          }
           const result = await addToTeamMemory({
             content: toolUse.input.content,
             source: toolUse.input.source,
@@ -704,6 +731,7 @@ WHAT NOT TO SAVE:
             addedBy: user?.name || user?.email || 'Unknown',
             addedByEmail: user?.email,
             addedById: user?.id,
+            imageUrls: toolUse.input.imageUrls || null,
           })
           toolResponse = { content: result }
           console.log(`🧠 MEMORY: ${result.success ? '✅ Added successfully' : '❌ Failed'}`)

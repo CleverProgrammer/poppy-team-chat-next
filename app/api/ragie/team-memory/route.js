@@ -51,7 +51,9 @@ export async function POST(request) {
         contentType: 'image',
         imageIndex: i,
         totalImages: allImageUrls.length,
-        hasAccompanyingText: !!text
+        hasAccompanyingText: !!text,
+        imageUrls: allImageUrls, // Include all URLs so search can return them
+        imageUrl: url, // Also include this specific image URL
       };
 
       console.log(`🧠 Team Memory: Adding image ${i + 1}/${allImageUrls.length} from ${sender}`);

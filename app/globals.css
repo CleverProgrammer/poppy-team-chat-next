@@ -696,6 +696,26 @@ html {
   color: #c7e8ff;
 }
 
+/* Inline images rendered from Firebase URLs in AI responses */
+.inline-image-container {
+  display: block;
+  margin: 8px 0;
+}
+
+.inline-image {
+  max-width: 240px;
+  max-height: 280px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.inline-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
 /* Copy button */
 .copy-message-btn {
   position: absolute;

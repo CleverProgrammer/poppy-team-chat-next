@@ -108,7 +108,12 @@ export async function searchChatHistory(userId, query, currentChat, startDate = 
     score: chunk.score,
     sender: chunk.metadata?.sender || 'Unknown',
     timestamp: chunk.metadata?.timestamp || '',
-    chatId: chunk.metadata?.chatId || ''
+    chatId: chunk.metadata?.chatId || '',
+    // Media fields for images/videos/audio
+    contentType: chunk.metadata?.contentType || 'text',
+    imageUrls: chunk.metadata?.imageUrls || null,
+    imageCount: chunk.metadata?.imageCount || 0,
+    messageId: chunk.metadata?.messageId || '',
   }));
 
   // Log result status clearly
@@ -116,9 +121,11 @@ export async function searchChatHistory(userId, query, currentChat, startDate = 
     console.log('📭 RESULT: No data found matching query within permission scope');
     console.log('   ℹ️  This is NOT a permission denial - user has access, but no matching content exists');
   } else {
-    console.log(`✅ RESULT: Found ${results.length} matching message(s)`);
+    const imageResults = results.filter(r => r.contentType === 'image');
+    console.log(`✅ RESULT: Found ${results.length} matching item(s)${imageResults.length > 0 ? ` (${imageResults.length} with images)` : ''}`);
     results.forEach((r, i) => {
-      console.log(`   ${i + 1}. [${r.sender}] score: ${r.score?.toFixed(3)} | chat: ${r.chatId}`);
+      const mediaTag = r.contentType === 'image' ? ` 🖼️ ${r.imageCount} img` : '';
+      console.log(`   ${i + 1}. [${r.sender}] score: ${r.score?.toFixed(3)} | chat: ${r.chatId}${mediaTag}`);
     });
   }
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -219,13 +226,15 @@ export async function getTopicVotes(query) {
  * @param {string} params.addedBy - Who asked Poppy to remember this
  * @param {string} params.addedByEmail - Email of the person who asked
  * @param {string} params.addedById - User ID of the person who asked
+ * @param {Array} params.imageUrls - Optional array of image URLs to include
  * @returns {Object} Result with success status and message
  */
-export async function addToTeamMemory({ content, source, context, addedBy, addedByEmail, addedById }) {
+export async function addToTeamMemory({ content, source, context, addedBy, addedByEmail, addedById, imageUrls }) {
   console.log('🧠 TEAM MEMORY ADD ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🧠 Content:', content?.substring(0, 100) + (content?.length > 100 ? '...' : ''));
   console.log('🧠 Source:', source);
   console.log('🧠 Added by:', addedBy);
+  if (imageUrls?.length) console.log('🧠 Images:', imageUrls.length);
 
   // Basic content moderation - reject obviously inappropriate content
   const inappropriatePatterns = [
@@ -249,6 +258,7 @@ export async function addToTeamMemory({ content, source, context, addedBy, added
     const messageId = `memory_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
     // Build metadata for global team memory
+    const hasImages = imageUrls?.length > 0;
     const metadata = {
       messageId,
       sender: source || addedBy || 'Unknown',
@@ -262,12 +272,21 @@ export async function addToTeamMemory({ content, source, context, addedBy, added
       addedBy: addedBy || 'Unknown',
       addedByEmail: addedByEmail || '',
       context: context || '',
+      // Include image URLs if present
+      ...(hasImages && { 
+        contentType: 'image',
+        imageUrls,
+        imageCount: imageUrls.length,
+      }),
     };
 
     // Build the content with clear formatting
     let textContent = `[Team Memory from ${source || addedBy}]`;
     if (context) {
       textContent += ` (Context: ${context})`;
+    }
+    if (hasImages) {
+      textContent += ` [${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''} attached]`;
     }
     textContent += `: ${content}`;
 
