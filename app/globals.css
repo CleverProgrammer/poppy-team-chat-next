@@ -2479,6 +2479,100 @@ iframe[src*="vercel"] {
   opacity: 0.8;
 }
 
+/* Voice Message Wrapper - contains message + transcription */
+.voice-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+/* Transcription toggle button */
+.voice-transcription-toggle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.voice-message.sent .voice-transcription-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.voice-transcription-toggle:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.voice-message.sent .voice-transcription-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Transcription display */
+.voice-transcription {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 400px;
+  position: relative;
+}
+
+.voice-transcription.sent {
+  background: rgba(102, 126, 234, 0.15);
+  color: #e0e0e0;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.voice-transcription.received {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.voice-transcription-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.voice-transcription-cost {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 9px;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.voice-transcription.received .voice-transcription-cost {
+  color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Cost badge shown inline when transcription is hidden (dev mode) */
+.voice-cost-badge {
+  font-size: 9px;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: -2px;
+}
+
 /* Recording Indicator */
 .recording-indicator {
   position: fixed;

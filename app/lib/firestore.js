@@ -1364,6 +1364,37 @@ export async function sendMessageWithAudio(
         }
       })
       .catch(err => console.error('Tagging failed:', err))
+
+    // Transcribe audio with AssemblyAI (fire and forget)
+    fetch('/api/media/transcribe-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audioUrl: audioUrl,
+        messageId: docRef.id,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        enableSpeakerDiarization: true,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log('🎙️ Audio transcribed:', data.transcription?.text?.substring(0, 50) + '...')
+          updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+            transcription: {
+              text: data.transcription.text,
+              formatted: data.transcription.formatted,
+              speakerCount: data.transcription.speakerCount,
+              confidence: data.transcription.confidence,
+              _cost: data.cost.amount,
+              _durationSeconds: data.audio.durationSeconds,
+            },
+          }).catch(err => console.warn('Failed to save transcription to Firestore:', err))
+        }
+      })
+      .catch(err => console.error('Audio transcription failed:', err))
   } catch (error) {
     console.error('Error sending message with audio:', error)
     throw error
@@ -1447,6 +1478,37 @@ export async function sendMessageDMWithAudio(
         }
       })
       .catch(err => console.error('Tagging failed:', err))
+
+    // Transcribe audio with AssemblyAI (fire and forget)
+    fetch('/api/media/transcribe-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audioUrl: audioUrl,
+        messageId: docRef.id,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        enableSpeakerDiarization: true,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log('🎙️ Audio transcribed:', data.transcription?.text?.substring(0, 50) + '...')
+          updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
+            transcription: {
+              text: data.transcription.text,
+              formatted: data.transcription.formatted,
+              speakerCount: data.transcription.speakerCount,
+              confidence: data.transcription.confidence,
+              _cost: data.cost.amount,
+              _durationSeconds: data.audio.durationSeconds,
+            },
+          }).catch(err => console.warn('Failed to save transcription to Firestore:', err))
+        }
+      })
+      .catch(err => console.error('Audio transcription failed:', err))
 
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)

@@ -1032,6 +1032,7 @@ export default function MessageItem({
               audioUrl={msg.audioUrl}
               audioDuration={msg.audioDuration}
               isSent={isOwnMessage}
+              transcription={msg.transcription}
             />
           )}
           {/* Loom video embed */}
