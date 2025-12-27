@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
-import { searchChatHistory } from '../../lib/retrieval-router.js'
+import { searchChatHistory, getTopicVotes } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 
@@ -333,6 +333,23 @@ CRITICAL DATE HANDLING:
     },
   })
 
+  // Add topic vote/endorsement lookup tool
+  tools.push({
+    name: 'get_topic_votes',
+    description:
+      'Look up how many people have endorsed or agreed with a topic, idea, proposal, or request. Use this when users ask "how many people want X?", "who agrees with Y?", "is Z popular?", "how many votes does X have?", or any question about support/agreement for any topic.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The topic, idea, or proposal to look up (e.g., "dark mode", "big bear trip", "team offsite", "new pricing")',
+        },
+      },
+      required: ['query'],
+    },
+  })
+
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -431,6 +448,8 @@ CRITICAL DATE HANDLING:
       let toolCategory = '🔧 MCP'
       if (toolUse.name === 'search_chat_history') {
         toolCategory = '🔍 RAGIE'
+      } else if (toolUse.name === 'get_topic_votes') {
+        toolCategory = '🗳️  VOTES'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -472,6 +491,16 @@ CRITICAL DATE HANDLING:
           console.log(`🔍 RAGIE: Found ${results.length} results`)
           if (results.length > 0) {
             console.log(`🔍 RAGIE: Sample result:`, results[0])
+          }
+        } else if (toolUse.name === 'get_topic_votes') {
+          // Handle topic vote lookup
+          console.log(`🗳️  VOTES: Looking up votes for: "${toolUse.input.query}"`)
+          const results = await getTopicVotes(toolUse.input.query)
+          toolResponse = { content: results }
+          console.log(`🗳️  VOTES: Found ${results.length} matching topic(s)`)
+          if (results.length > 0) {
+            const totalVotes = results.reduce((sum, r) => sum + (r.votes || 0), 0)
+            console.log(`🗳️  VOTES: Total votes across matches: ${totalVotes}`)
           }
         } else {
           // Call MCP tools with tracing
