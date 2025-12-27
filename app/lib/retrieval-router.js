@@ -103,18 +103,35 @@ export async function searchChatHistory(userId, query, currentChat, startDate = 
     recencyBias: true
   });
 
-  const results = (response.scoredChunks || []).map(chunk => ({
-    text: chunk.text,
-    score: chunk.score,
-    sender: chunk.metadata?.sender || 'Unknown',
-    timestamp: chunk.metadata?.timestamp || '',
-    chatId: chunk.metadata?.chatId || '',
-    // Media fields for images/videos/audio
-    contentType: chunk.metadata?.contentType || 'text',
-    imageUrls: chunk.metadata?.imageUrls || null,
-    imageCount: chunk.metadata?.imageCount || 0,
-    messageId: chunk.metadata?.messageId || '',
-  }));
+  const results = (response.scoredChunks || []).map(chunk => {
+    // Ragie stores metadata at both chunk level and document level
+    // imageUrls is typically in document_metadata (document-level)
+    const chunkMeta = chunk.metadata || {};
+    const docMeta = chunk.document_metadata || chunk.documentMetadata || {};
+    
+    // Merge both metadata sources, with document metadata taking precedence for media fields
+    const imageUrls = docMeta.imageUrls || chunkMeta.imageUrls || null;
+    const contentType = docMeta.contentType || chunkMeta.contentType || 'text';
+    const imageCount = docMeta.imageCount || chunkMeta.imageCount || 0;
+    
+    // Log if we found imageUrls to help debug
+    if (imageUrls) {
+      console.log(`🖼️ Found imageUrls in ${docMeta.imageUrls ? 'document_metadata' : 'chunk.metadata'}:`, imageUrls);
+    }
+    
+    return {
+      text: chunk.text,
+      score: chunk.score,
+      sender: docMeta.sender || chunkMeta.sender || 'Unknown',
+      timestamp: docMeta.timestamp || chunkMeta.timestamp || '',
+      chatId: docMeta.chatId || chunkMeta.chatId || '',
+      // Media fields - check both metadata sources
+      contentType,
+      imageUrls,
+      imageCount,
+      messageId: docMeta.messageId || chunkMeta.messageId || '',
+    };
+  });
 
   // Log result status clearly
   if (results.length === 0) {

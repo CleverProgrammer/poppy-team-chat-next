@@ -19,10 +19,14 @@ function InlineImage({ src }) {
   const [loaded, setLoaded] = useState(false);
 
   // Clean the URL - remove any trailing punctuation that might have been captured
-  const cleanSrc = src.replace(/[,.:;!?]+$/, '');
+  // Also remove trailing closing parentheses/brackets that might have been captured
+  const cleanSrc = src.replace(/[,.:;!?)>\]]+$/, '');
   
-  // Debug log
-  console.log('🖼️ InlineImage rendering:', { src, cleanSrc, failed, loaded });
+  // Debug log - show full URL for debugging 404 issues
+  console.log('🖼️ InlineImage rendering:');
+  console.log('   Original src:', src);
+  console.log('   Cleaned src:', cleanSrc);
+  console.log('   State:', { failed, loaded });
 
   if (failed) {
     return (
@@ -72,8 +76,11 @@ function InlineImage({ src }) {
           window.open(cleanSrc, '_blank');
         }}
         onLoad={() => setLoaded(true)}
-        onError={() => {
-          console.error('Image failed to load:', cleanSrc);
+        onError={(e) => {
+          console.error('❌ Image failed to load (404?)');
+          console.error('   URL attempted:', cleanSrc);
+          console.error('   Original URL:', src);
+          console.error('   Error event:', e);
           setFailed(true);
         }}
       />
