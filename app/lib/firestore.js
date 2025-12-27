@@ -2293,16 +2293,16 @@ export function subscribeToViewedStories(userId, chatType, chatId, callback) {
  */
 async function fuzzyMatchUser(nameOrNickname) {
   if (!nameOrNickname) return null
-  
+
   const searchTerm = nameOrNickname.toLowerCase().trim()
-  
+
   try {
     const usersSnap = await getDocs(collection(db, 'users'))
     const users = []
     usersSnap.forEach(doc => {
       users.push({ id: doc.id, ...doc.data() })
     })
-    
+
     // Score each user based on how well they match
     const scored = users.map(user => {
       let score = 0
@@ -2311,22 +2311,25 @@ async function fuzzyMatchUser(nameOrNickname) {
       const emailPrefix = email.split('@')[0]
       const firstName = displayName.split(' ')[0]
       const lastName = displayName.split(' ').slice(-1)[0]
-      const initials = displayName.split(' ').map(w => w[0]).join('')
-      
+      const initials = displayName
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+
       // Exact matches (highest priority)
       if (displayName === searchTerm) score += 100
       if (emailPrefix === searchTerm) score += 90
       if (firstName === searchTerm) score += 80
       if (lastName === searchTerm) score += 70
-      
+
       // Initials match (e.g., "JD" matches "Jawwad Doe", "JR" matches "Jawwad Rehman")
       if (initials === searchTerm.toUpperCase()) score += 75
-      
+
       // Partial matches
       if (displayName.includes(searchTerm)) score += 50
       if (firstName.startsWith(searchTerm)) score += 45
       if (emailPrefix.includes(searchTerm)) score += 40
-      
+
       // Common nickname patterns
       const nicknamePatterns = {
         // First syllable nicknames
@@ -2335,33 +2338,99 @@ async function fuzzyMatchUser(nameOrNickname) {
         // Common nickname suffixes removed
         [firstName.replace(/ie$|y$|ey$/, '')]: 25,
       }
-      
+
       for (const [pattern, points] of Object.entries(nicknamePatterns)) {
         if (pattern && searchTerm === pattern) score += points
       }
-      
+
       // Levenshtein-like similarity (simple version)
       if (firstName.length > 2 && searchTerm.length > 2) {
         // Check if most characters match
         const commonChars = [...searchTerm].filter(c => firstName.includes(c)).length
         if (commonChars >= searchTerm.length * 0.7) score += 20
       }
-      
+
       return { user, score }
     })
-    
+
     // Get best match if score is above threshold
     const bestMatch = scored.sort((a, b) => b.score - a.score)[0]
-    
+
     if (bestMatch && bestMatch.score >= 30) {
-      console.log(`🎯 Fuzzy matched "${nameOrNickname}" → "${bestMatch.user.displayName}" (score: ${bestMatch.score})`)
+      console.log(
+        `🎯 Fuzzy matched "${nameOrNickname}" → "${bestMatch.user.displayName}" (score: ${bestMatch.score})`
+      )
       return bestMatch.user
     }
-    
-    console.log(`❓ Could not fuzzy match "${nameOrNickname}" to any user`)
+
+    // Local matching failed - try AI as fallback
+    console.log(`🤖 Fuzzy match failed for "${nameOrNickname}", asking AI...`)
+    const aiMatch = await askAIToMatchUser(nameOrNickname, users)
+    if (aiMatch) {
+      return aiMatch
+    }
+
+    console.log(`❓ Could not match "${nameOrNickname}" to any user (AI also couldn't)`)
     return null
   } catch (error) {
     console.error('Error in fuzzy match:', error)
+    return null
+  }
+}
+
+/**
+ * Ask AI to match a nickname to a user when local fuzzy matching fails
+ */
+async function askAIToMatchUser(nickname, users) {
+  try {
+    // Build a simple list of users for the AI
+    const userList = users.map(u => ({
+      name: u.displayName || 'Unknown',
+      email: u.email || '',
+      id: u.uid || u.id,
+    }))
+
+    const response = await fetch('/api/tag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `MATCH_USER_TASK: Match "${nickname}" to a team member.
+
+Team:
+${userList.map(u => `- ${u.name} <${u.email}>`).join('\n')}
+
+Return JSON: {"matched_email": "email@example.com"} or {"matched_email": null} if no match.
+Match nicknames, initials, shortened names. Be confident or return null.`,
+        sender: 'system',
+        chatId: 'task_assignment',
+        chatType: 'system',
+        messageId: `match_${Date.now()}`,
+      }),
+    })
+
+    if (!response.ok) {
+      console.warn('AI match request failed')
+      return null
+    }
+
+    const data = await response.json()
+    const summary = data.aiTags?.summary || ''
+
+    // Look for an email in the response
+    const emailMatch = summary.match(/[\w.-]+@[\w.-]+\.\w+/)
+    if (emailMatch) {
+      const matchedEmail = emailMatch[0].toLowerCase()
+      const matchedUser = users.find(u => u.email?.toLowerCase() === matchedEmail)
+
+      if (matchedUser) {
+        console.log(`🤖 AI matched "${nickname}" → "${matchedUser.displayName}" (${matchedEmail})`)
+        return matchedUser
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.warn('AI user matching failed:', error.message)
     return null
   }
 }
@@ -2412,7 +2481,7 @@ export async function createTaskFromMessage(
     } else if (aiTags.assignee) {
       // In channels, try to fuzzy match the name to a real user
       const matchedUser = await fuzzyMatchUser(aiTags.assignee)
-      
+
       if (matchedUser) {
         assignedTo = matchedUser.displayName || matchedUser.email
         assignedToUserId = matchedUser.uid || matchedUser.id
