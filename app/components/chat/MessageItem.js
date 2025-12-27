@@ -18,6 +18,7 @@ import { updateMessageMediaDimensions, updateMessageLinkPreview, getDMId } from 
 import LinkPreview from './LinkPreview'
 import { useDevMode } from '../../contexts/DevModeContext'
 import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
+import DevTagInfo from './DevTagInfo'
 import { cn } from '../../utils/cn'
 
 // Maximum dimensions for single images/videos
@@ -582,33 +583,13 @@ export default function MessageItem({
         {isSent && (
           <div className='message-timestamp-sent'>
             <MessageTimestamp timestamp={msg.timestamp} />
-            {isDevMode && msg.aiTags?._cost && (
-              <span style={{ 
-                marginLeft: '6px', 
-                fontSize: '9px', 
-                color: '#6b7280', 
-                opacity: 0.6,
-                fontFamily: 'monospace'
-              }}>
-                ${msg.aiTags._cost.toFixed(4)}
-              </span>
-            )}
+            {isDevMode && msg.aiTags && <DevTagInfo aiTags={msg.aiTags} />}
           </div>
         )}
         {!isSent && (
           <div className='message-timestamp-received'>
             <MessageTimestamp timestamp={msg.timestamp} />
-            {isDevMode && msg.aiTags?._cost && (
-              <span style={{ 
-                marginLeft: '6px', 
-                fontSize: '9px', 
-                color: '#6b7280', 
-                opacity: 0.6,
-                fontFamily: 'monospace'
-              }}>
-                ${msg.aiTags._cost.toFixed(4)}
-              </span>
-            )}
+            {isDevMode && msg.aiTags && <DevTagInfo aiTags={msg.aiTags} />}
           </div>
         )}
 
@@ -868,17 +849,7 @@ export default function MessageItem({
             )}
             {msg.senderId === 'ai' ? msg.sender?.replace('🤖 ', '').replace('🤖', '') : msg.sender}
             <MessageTimestamp timestamp={msg.timestamp} />
-            {isDevMode && msg.aiTags?._cost && (
-              <span style={{ 
-                marginLeft: '6px', 
-                fontSize: '9px', 
-                color: '#6b7280', 
-                opacity: 0.6,
-                fontFamily: 'monospace'
-              }}>
-                ${msg.aiTags._cost.toFixed(4)}
-              </span>
-            )}
+            {isDevMode && msg.aiTags && <DevTagInfo aiTags={msg.aiTags} />}
           </div>
         )}
         {/* Video replies - render OUTSIDE the message bubble for proper positioning */}
@@ -1109,17 +1080,7 @@ export default function MessageItem({
         {isSent && (
           <div className='message-timestamp-sent'>
             <MessageTimestamp timestamp={msg.timestamp} />
-            {isDevMode && msg.aiTags?._cost && (
-              <span style={{ 
-                marginLeft: '6px', 
-                fontSize: '9px', 
-                color: '#6b7280', 
-                opacity: 0.6,
-                fontFamily: 'monospace'
-              }}>
-                ${msg.aiTags._cost.toFixed(4)}
-              </span>
-            )}
+            {isDevMode && msg.aiTags && <DevTagInfo aiTags={msg.aiTags} />}
           </div>
         )}
 
