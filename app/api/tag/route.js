@@ -288,10 +288,10 @@ When someone indicates a task is done, cancelled, or no longer needed, use the S
   "type": "status_update",
   "canonical_tag": "amaanath_airport_pickup",
   "status": "complete",
-  "summary": "Task completed - thanked for completing"
+  "summary": "Airport pickup completed"
 }
 \`\`\`
-*Gratitude = done! When someone thanks for doing X, X is complete.*
+*The message implies the pickup HAPPENED. Past tense = done.*
 
 *CRITICAL: Use the SAME canonical_tag so the original task gets marked complete!*
 
@@ -305,14 +305,27 @@ When someone indicates a task is done, cancelled, or no longer needed, use the S
 }
 \`\`\`
 
-### Task completion phrases:
-- "nvm" / "never mind" / "forget it" → status: "cancelled"
-- "already done" / "you've done that" / "it's done" → status: "complete"
-- "finished" / "completed" / "all set" → status: "complete"
-- "don't worry about it" / "no need anymore" → status: "cancelled"
-- **GRATITUDE = COMPLETION**: "thanks for doing X" / "appreciate you doing X" / "thanks for picking us up" → status: "complete"
-  - When someone thanks another person for doing something, IT'S DONE. Mark it complete!
-  - Use the SAME canonical_tag as the original task
+### How to detect task completion (USE YOUR JUDGMENT!)
+
+**The core principle:** If a message implies that something HAS BEEN DONE, mark it complete.
+
+Think about it: What would make you check something off your to-do list?
+- Someone saying they did it
+- Someone thanking you for doing it
+- Someone acknowledging it happened
+- Someone saying it's no longer needed
+- Any signal that the action is in the past tense / resolved
+
+**Examples of completion signals:**
+- Direct: "done", "finished", "completed", "all set"
+- Gratitude: "thanks for doing X", "appreciate you handling that"
+- Acknowledgment: "got it", "received", "looks good"
+- Past tense: "he picked us up", "she sent it", "they fixed it"
+- Cancellation: "nvm", "forget it", "don't need it anymore"
+
+**The key insight:** You're not pattern-matching keywords. You're asking: "Does this message imply the task is resolved?" If yes → complete. If cancelled → cancelled.
+
+Always use the SAME canonical_tag as the original task so they're linked!
 
 ## WHAT IS A TASK? (IMPORTANT - READ THIS!)
 
