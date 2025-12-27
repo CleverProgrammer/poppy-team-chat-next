@@ -2055,37 +2055,30 @@ iframe[src*="vercel"] {
   margin-bottom: 0;
 }
 
-/* Image analysis from Claude Vision */
+/* Image analysis TLDR - inside message bubble */
 .image-analysis {
-  margin-top: 8px;
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  max-width: 260px;
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 280px;
 }
 
-.image-analysis-icon {
-  font-size: 10px;
-  opacity: 0.6;
+.image-analysis .image-analysis-icon {
+  font-size: 11px;
+  opacity: 0.7;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
-.image-analysis-content {
-  font-size: 12px;
+.image-analysis .image-analysis-content {
+  font-size: 11px;
   line-height: 1.4;
-  color: rgba(220, 200, 240, 0.95);
+  color: rgba(255, 255, 255, 0.6);
   font-style: italic;
-}
-
-/* Sent message - lighter background */
-.message.sent .image-analysis {
-  background: rgba(255, 255, 255, 0.1);
-  border-left-color: rgba(255, 255, 255, 0.3);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Mux video player */
