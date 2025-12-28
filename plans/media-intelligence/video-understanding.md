@@ -3,7 +3,7 @@
 > **Status**: 📋 Ready to Build  
 > **Priority**: 🔥 HIGH  
 > **Prerequisite**: Audio ✅ | Images ✅ | Now it's VIDEO time baby  
-> **Core Tech**: Google Gemini 2.5 Pro (State-of-the-Art Video Intelligence)
+> **Core Tech**: Google Gemini 3 Pro (State-of-the-Art Video Intelligence)
 
 ---
 
@@ -50,7 +50,7 @@ We already have AssemblyAI working great for audio/voice messages. But for VIDEO
 |------------|--------|-----|
 | 🖼️ **Images** | ✅ DONE | Claude Vision (Sonnet 4.5) - sees EVERYTHING |
 | 🎙️ **Audio** | ✅ DONE | AssemblyAI (93.3% accuracy) - hears EVERYTHING |
-| 🎬 **Video** | ❌ TODO | **Gemini 2.5 Pro** (sees + hears EVERYTHING - SOTA) |
+| 🎬 **Video** | ❌ TODO | **Gemini 3 Pro** (sees + hears EVERYTHING - SOTA) |
 
 ---
 
@@ -312,18 +312,20 @@ app/
 
 ### Model Selection
 
-| Model | Best For | Limits | Why |
+| Model | Released | Status | Why |
 |-------|----------|--------|-----|
-| **Gemini 2.5 Pro** | ALL video analysis | 2M tokens (~2 hours video) | State-of-the-art. Best multimodal reasoning. Outperforms everything else on video benchmarks. |
+| Gemini 2.5 Pro | May 2025 | Outdated | Superseded by 3 Pro |
+| **Gemini 3 Pro** | **Nov 18, 2025** | **Current best** | State-of-the-art. Google's most advanced model. Outperforms everything on video benchmarks. |
 
-**Recommendation:** Use **Gemini 2.5 Pro** for everything. It's Google's flagship model with the best video understanding capabilities. Don't cheap out - this is the best model available for video comprehension.
+**Recommendation:** Use **Gemini 3 Pro** for everything. It's Google's latest flagship model (released November 2025) with the best video understanding capabilities. Already powering NotebookLM and Google Search.
 
-### Why Gemini 2.5 Pro?
+### Why Gemini 3 Pro?
 
-- **2 million token context window** - can analyze ~2 hours of video in one shot
-- **State-of-the-art performance** - leads on all video understanding benchmarks
+- **1 million token context window** - can analyze ~2 hours of video in one shot
+- **State-of-the-art performance** - Google's most advanced AI model as of Dec 2025
 - **Superior multimodal reasoning** - understands visual + audio + context together
-- **High-precision analysis** - catches details other models miss
+- **High-precision analysis** - outperforms 2.5 Pro across all benchmarks
+- **Battle-tested** - already powering production Google services
 
 ### Video Limits
 
@@ -436,11 +438,11 @@ No full transcription shown - just the TLDR. Keep it clean.
 
 ## Cost Analysis
 
-### Per Video (Gemini 2.5 Pro)
+### Per Video (Gemini 3 Pro)
 
 | Component | Cost | Example (5 min video) |
 |-----------|------|----------------------|
-| Gemini 2.5 Pro | Market rate | ~$0.15-0.30 |
+| Gemini 3 Pro | Market rate | ~$0.15-0.30 |
 | Ragie Indexing | ~$0.001 | $0.001 |
 | **Total** | | **~$0.15-0.30/video** |
 
@@ -448,7 +450,7 @@ No full transcription shown - just the TLDR. Keep it clean.
 
 | Component | Cost | Example (15 min video) |
 |-----------|------|----------------------|
-| Gemini 2.5 Pro | Market rate | ~$0.40-0.60 |
+| Gemini 3 Pro | Market rate | ~$0.40-0.60 |
 | Ragie Indexing | ~$0.001 | $0.001 |
 | **Total** | | **~$0.40-0.60/video** |
 
@@ -571,11 +573,11 @@ ASSEMBLYAI_API_KEY=...  # Still used for voice messages
 
 ## tldr
 
-**We're giving Poppy the ability to WATCH and understand videos with Gemini 2.5 Pro - the best video AI model available.**
+**We're giving Poppy the ability to WATCH and understand videos with Gemini 3 Pro - Google's most advanced AI model (released Nov 2025).**
 
 Upload a video? She'll see what's on screen, hear what's being said, extract action items, and make it all searchable. Drop a YouTube link? Same thing. Silent screen recording? No problem - she can SEE it. Interview submission? She'll assess the candidate's professionalism, setup, and content.
 
-Audio understanding (AssemblyAI) is still used for voice messages. But for VIDEO, we need the BEST video intelligence - and that's Gemini 2.5 Pro.
+Audio understanding (AssemblyAI) is still used for voice messages. But for VIDEO, we need the BEST video intelligence - and that's Gemini 3 Pro.
 
 **Poppy is about to become the teammate who actually watches all the meeting recordings AND notices when someone's camera is off.** 
 
