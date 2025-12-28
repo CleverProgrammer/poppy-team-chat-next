@@ -1,37 +1,86 @@
 # 🚀 Poppy Team Chat Roadmap
 
 > **Last Updated:** December 28, 2025  
-> **Building With:** AI-assisted development (Cursor + Claude)  
-> **Pace:** Fast as fuck
+> **Pace:** Fast as fuck (AI-assisted)
 
 ---
 
-## The Vision
+## 🗺️ THE MAP
 
-Poppy isn't just a chat app. It's an **AI-native team communication platform** that:
-- Understands every message, image, video, and call
-- Remembers everything and surfaces it when you need it
-- Extracts action items and tracks completion automatically
-- Makes your team's conversations searchable and intelligent
+```
+                                                    🏁 DESTINATION
+                                                    ┌─────────────────┐
+                                                    │ AI-Native Team  │
+                                                    │ Communication   │
+                                                    │ Platform        │
+                                                    └────────┬────────┘
+                                                             │
+    ┌────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              🚧 WHAT'S AHEAD                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   ☐ Group Chats ←──── YOU ARE HERE (3-5 hrs)                                    │
+│   │                                                                              │
+│   ├──→ ☐ Video Intelligence (4-6 hrs)                                           │
+│   │    └──→ ☐ YouTube/Loom Links (2-3 hrs)                                      │
+│   │                                                                              │
+│   ├──→ ☐ Audio Rooms + AI (6-8 hrs)                                             │
+│   │    └──→ ☐ Video Calls (4-6 hrs)                                             │
+│   │                                                                              │
+│   ├──→ ☐ Smart Task Tracking (3-4 hrs)                                          │
+│   │                                                                              │
+│   ├──→ ☐ Interview Analysis Mode (2-3 hrs)                                      │
+│   │                                                                              │
+│   └──→ 💡 Leaderboards (exploring)                                              │
+│        💡 Goals Progress Bar (exploring)                                         │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+    │
+    │ ~30 hours total
+    ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ ✅ DONE: DMs • Channels • Images • Voice • Video • AI Chat • Push • iOS        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### ⚡ Quick Checklist
+
+| # | Feature | Time | Status |
+|---|---------|------|--------|
+| 1 | **Group Chats** 👥 | 3-5 hrs | 🔴 **NOW** |
+| 2 | Video Intelligence 🎬 | 4-6 hrs | ⬜ Next |
+| 2b | YouTube/Loom Links | 2-3 hrs | ⬜ |
+| 3 | Audio Rooms 🎙️ | 6-8 hrs | ⬜ |
+| 4 | Smart Tasks 📋 | 3-4 hrs | ⬜ |
+| 5 | Video Calls 📹 | 4-6 hrs | ⬜ |
+| 6 | Interview Analysis 🎯 | 2-3 hrs | ⬜ |
+| 7 | Leaderboards 🏆 | 3-4 hrs | 💡 idea |
+| 8 | Goals Widget 🎯 | 2-3 hrs | 💡 idea |
 
 ---
 
-## Current Status ✅
+<details>
+<summary>📦 What's Already Done (click to expand)</summary>
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| 1:1 DMs | ✅ Done | Full functionality |
-| Channels | ✅ Done | Public channels working |
-| Image Sharing | ✅ Done | Claude Vision analysis + Ragie indexing |
-| Voice Messages | ✅ Done | AssemblyAI transcription + TLDR |
-| Video Uploads | ✅ Done | Mux streaming |
-| AI Chat (@poppy) | ✅ Done | Claude Sonnet + Ragie memory |
-| Push Notifications | ✅ Done | Firebase Cloud Messaging |
-| iOS App | ✅ Done | Capacitor native |
+| Feature | Status |
+|---------|--------|
+| 1:1 DMs | ✅ Done |
+| Channels | ✅ Done |
+| Image Sharing + AI | ✅ Done |
+| Voice Messages + TLDR | ✅ Done |
+| Video Uploads (Mux) | ✅ Done |
+| AI Chat (@poppy) | ✅ Done |
+| Push Notifications | ✅ Done |
+| iOS App | ✅ Done |
+
+</details>
 
 ---
 
-## 🎯 Roadmap
+## 🎯 Roadmap Details
 
 ### Phase 1: Group Chats 👥
 **Priority:** 🔴 CRITICAL (users blocked without this)  
@@ -196,18 +245,21 @@ Special analysis mode for candidate video submissions.
 
 ## 📅 Timeline Overview
 
-| Phase | Feature | Time | Target |
-|-------|---------|------|--------|
-| **1** | Group Chats | 3-5 hrs | Week 1 |
-| **2** | Video Intelligence | 4-6 hrs | Week 1 |
-| **2b** | YouTube/Loom Links | 2-3 hrs | Week 1 |
-| **3** | Audio Rooms (100ms) | 6-8 hrs | Week 2 |
-| **4** | Smart Task Tracking | 3-4 hrs | Week 2 |
-| **5** | Video Calls | 4-6 hrs | Week 3 |
-| **6** | Interview Analysis | 2-3 hrs | Week 3 |
+| Phase | Feature | Time | Target | Status |
+|-------|---------|------|--------|--------|
+| **1** | Group Chats | 3-5 hrs | Week 1 | ✅ Confirmed |
+| **2** | Video Intelligence | 4-6 hrs | Week 1 | ✅ Confirmed |
+| **2b** | YouTube/Loom Links | 2-3 hrs | Week 1 | ✅ Confirmed |
+| **3** | Audio Rooms (100ms) | 6-8 hrs | Week 2 | ✅ Confirmed |
+| **4** | Smart Task Tracking | 3-4 hrs | Week 2 | ✅ Confirmed |
+| **5** | Video Calls | 4-6 hrs | Week 3 | 🟡 Likely |
+| **6** | Interview Analysis | 2-3 hrs | Week 3 | 🟡 Likely |
+| **7** | Leaderboards | 3-4 hrs | TBD | 💡 Exploring |
+| **8** | Goals Progress Bar | 2-3 hrs | TBD | 💡 Exploring |
 
-**Total estimated time:** ~25-35 hours  
-**With AI-assisted dev:** ~2-3 weeks of focused work
+**Total estimated time (confirmed):** ~25-35 hours  
+**Total with exploring features:** ~30-40 hours  
+**With AI-assisted dev:** ~3-4 weeks of focused work
 
 ---
 
@@ -239,6 +291,96 @@ KEYWORDS_AI_API_KEY=...
 
 ---
 
+### Phase 7: Team Leaderboards 🏆
+**Priority:** 🟡 MEDIUM  
+**Timeline:** 3-4 hours  
+**Branch:** `feature/leaderboards`  
+**Status:** 💡 IDEA (exploring)
+
+Gamification that drives engagement and healthy competition.
+
+#### What We're Building:
+- [ ] **Activity Leaderboard**
+  - Most messages sent (daily/weekly/monthly)
+  - Most active users
+  - Streak tracking (consecutive days active)
+- [ ] **Sales Leaderboard** 
+  - Track sales numbers per team member
+  - Visual ranking with avatars
+  - Competition mode: who's #1, who's lagging
+- [ ] **Affiliate Partners Leaderboard**
+  - Separate leaderboard for affiliate team
+  - Track referrals, conversions, revenue
+- [ ] **Team-Specific Leaderboards**
+  - Each channel/group can have its own leaderboard
+  - Customizable metrics per team
+
+#### UI Ideas:
+```
+🏆 Weekly Leaderboard
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 🥇 David      → 247 messages
+2. 🥈 Olivia     → 189 messages  
+3. 🥉 Amaanath   → 156 messages
+4.    Sarah      → 98 messages
+5.    Mike       → 72 messages
+```
+
+---
+
+### Phase 8: Team Goals Progress Bar 🎯
+**Priority:** 🟡 MEDIUM  
+**Timeline:** 2-3 hours  
+**Branch:** `feature/goals-widget`  
+**Status:** 💡 IDEA (exploring)
+
+Show the team's north star metric at all times.
+
+#### What We're Building:
+- [ ] **Header Goal Widget**
+  - Persistent progress bar in header (maybe in General channel)
+  - Shows current value vs target
+  - Animates when goal updates
+- [ ] **Goal Configuration**
+  - Admin can set goal type (revenue, sales, signups, etc.)
+  - Set target value and deadline
+  - Optional: multiple goals per channel
+- [ ] **Real-time Updates**
+  - Syncs with external data source (API integration later)
+  - Or manually updated via command
+
+#### UI Mockup:
+```
+╭──────────────────────────────────────────────╮
+│ 💰 Monthly Revenue: $427,500 / $500,000      │
+│ ████████████████████░░░░░░ 85.5%             │
+╰──────────────────────────────────────────────╯
+```
+
+#### Advanced Ideas (Later):
+- Celebration animations when goal hit
+- Milestone notifications (50%, 75%, 90%)
+- Historical goal tracking
+- Poppy congratulates the team
+
+---
+
+## ✅ Certainty Levels
+
+| Phase | Feature | Certainty | Notes |
+|-------|---------|-----------|-------|
+| **1** | Group Chats | ✅ **CONFIRMED** | Users literally waiting for this |
+| **2** | Video Intelligence | ✅ **CONFIRMED** | Gemini 3 Pro for visual understanding |
+| **2b** | YouTube/Loom Links | ✅ **CONFIRMED** | Natural extension of video |
+| **3** | Audio Rooms | ✅ **CONFIRMED** | 100ms SDK - includes live transcription |
+| **4** | Smart Task Tracking | ✅ **CONFIRMED** | AI auto-detection of completion |
+| **5** | Video Calls | 🟡 **LIKELY** | Builds on audio rooms |
+| **6** | Interview Analysis | 🟡 **LIKELY** | Specialized video analysis |
+| **7** | Leaderboards | 💡 **EXPLORING** | Gamification idea |
+| **8** | Goals Progress Bar | 💡 **EXPLORING** | Team motivation widget |
+
+---
+
 ## 🔮 Future Ideas (Not Scheduled)
 
 - [ ] Threaded replies in groups/channels
@@ -251,6 +393,10 @@ KEYWORDS_AI_API_KEY=...
 - [ ] Integration with external tools (Notion, Linear, etc.)
 - [ ] Custom AI personas per channel
 - [ ] Video clipping ("clip the part where...") via Twelve Labs
+- [ ] Polls in channels/groups
+- [ ] Team standup bot (daily prompts)
+- [ ] OKR tracking integration
+- [ ] Mood/sentiment tracking over time
 
 ---
 
@@ -268,9 +414,11 @@ KEYWORDS_AI_API_KEY=...
 
 ## 🎬 Let's Fucking Go
 
-**Next up:** Phase 1 - Group Chats
+**Next up:** Phase 1 - Group Chats  
+**Branch:** `feature/group-chats`  
+**Plan:** `plans/group-chats.md`
 
-The boring but necessary feature that unblocks everything else. Let's knock it out in a few hours and move on to the fun stuff.
+The boring but necessary feature that unblocks everything else. Users are literally waiting. Let's knock it out in a few hours and move on to the fun stuff.
 
 ---
 
