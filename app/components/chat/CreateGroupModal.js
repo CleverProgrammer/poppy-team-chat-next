@@ -123,7 +123,6 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
                 </div>
                 <div className="member-info">
                   <span className="member-name">{u.displayName || u.email}</span>
-                  {u.displayName && <span className="member-email">{u.email}</span>}
                 </div>
               </div>
             )
@@ -148,33 +147,34 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
 
       <style jsx>{`
         .create-group-modal {
-          max-width: 420px;
-          max-height: 80vh;
+          max-width: 320px;
+          max-height: 70vh;
           display: flex;
           flex-direction: column;
+          padding: 16px;
         }
 
         .modal-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
 
         .modal-header h3 {
           margin: 0;
-          font-size: 18px;
+          font-size: 15px;
           font-weight: 600;
         }
 
         .modal-close-btn {
           background: none;
           border: none;
-          font-size: 20px;
+          font-size: 16px;
           cursor: pointer;
           color: var(--color-text-secondary);
-          padding: 4px 8px;
-          border-radius: 6px;
+          padding: 2px 6px;
+          border-radius: 4px;
           transition: background 0.2s;
         }
 
@@ -184,22 +184,22 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
 
         .modal-description {
           color: var(--color-text-secondary);
-          font-size: 14px;
-          margin-bottom: 16px;
+          font-size: 12px;
+          margin-bottom: 10px;
         }
 
         .group-search-wrapper {
-          margin-bottom: 12px;
+          margin-bottom: 8px;
         }
 
         .group-search-input {
           width: 100%;
-          padding: 10px 14px;
-          border-radius: 10px;
+          padding: 8px 10px;
+          border-radius: 8px;
           border: 1px solid var(--color-border);
           background: var(--color-input-bg);
           color: var(--color-text);
-          font-size: 15px;
+          font-size: 13px;
           outline: none;
           transition: border-color 0.2s;
         }
@@ -211,30 +211,30 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
         .selected-members-chips {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 6px;
           align-items: center;
-          margin-bottom: 12px;
-          padding: 10px;
+          margin-bottom: 8px;
+          padding: 8px;
           background: var(--color-hover);
-          border-radius: 10px;
+          border-radius: 8px;
         }
 
         .selected-label {
-          font-size: 12px;
+          font-size: 11px;
           color: var(--color-text-secondary);
-          margin-right: 4px;
+          margin-right: 2px;
         }
 
         .member-chip {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 5px 12px;
+          gap: 4px;
+          padding: 3px 8px;
           background: #1a1a2e;
           color: #e0e0e0;
           border: 1px solid #3a3a4a;
-          border-radius: 16px;
-          font-size: 13px;
+          border-radius: 12px;
+          font-size: 11px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
@@ -246,7 +246,7 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
         }
 
         .chip-remove {
-          font-size: 11px;
+          font-size: 9px;
           color: #ff6b6b;
           opacity: 0.9;
         }
@@ -254,17 +254,17 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
         .member-list {
           flex: 1;
           overflow-y: auto;
-          max-height: 300px;
-          margin-bottom: 16px;
-          border-radius: 10px;
+          max-height: 200px;
+          margin-bottom: 10px;
+          border-radius: 8px;
           border: 1px solid var(--color-border);
         }
 
         .member-item {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 10px 14px;
+          gap: 8px;
+          padding: 6px 10px;
           cursor: pointer;
           transition: background 0.15s;
           border-bottom: 1px solid var(--color-border);
@@ -283,9 +283,9 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
         }
 
         .member-checkbox {
-          font-size: 18px;
+          font-size: 14px;
           color: var(--color-primary);
-          width: 24px;
+          width: 18px;
         }
 
         .member-avatar-wrapper {
@@ -293,21 +293,21 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
         }
 
         .member-avatar {
-          width: 36px;
-          height: 36px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           object-fit: cover;
         }
 
         .member-avatar-fallback {
-          width: 36px;
-          height: 36px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           background: linear-gradient(135deg, #8e8e93 0%, #636366 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 14px;
+          font-size: 11px;
           font-weight: 600;
           color: white;
         }
@@ -321,34 +321,27 @@ export default function CreateGroupModal({ user, allUsers, onClose, onGroupCreat
 
         .member-name {
           font-weight: 500;
-          font-size: 15px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .member-email {
-          font-size: 12px;
-          color: var(--color-text-secondary);
+          font-size: 13px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
         .no-members-found {
-          padding: 24px;
+          padding: 16px;
           text-align: center;
           color: var(--color-text-secondary);
+          font-size: 12px;
         }
 
         .create-group-btn {
           width: 100%;
-          padding: 14px;
-          border-radius: 12px;
+          padding: 10px;
+          border-radius: 8px;
           border: none;
-          background: linear-gradient(135deg, #34C759 0%, #30B350 100%);
+          background: linear-gradient(135deg, #34C759 0%, #248A3D 100%);
           color: white;
-          font-size: 16px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           transition: opacity 0.2s, transform 0.2s;

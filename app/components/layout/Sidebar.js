@@ -239,6 +239,46 @@ export default function Sidebar({
     return timeB - timeA // Most recent first
   })
 
+  // Combine groups and DMs into one list, sorted by recency
+  const combinedConversations = useMemo(() => {
+    const conversations = []
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    
+    // Add DMs
+    activeDMs.forEach(dmUserId => {
+      const dmUser = allUsers.find(u => u.uid === dmUserId)
+      if (!dmUser) return
+      const lastMsg = lastMessages[dmUserId]
+      // If message exists but has no timestamp yet (being sent), treat as "now"
+      // This prevents the chat from jumping to bottom then back to top
+      const timestamp = lastMsg?.timestamp?.seconds ?? (lastMsg ? nowSeconds : 0)
+      conversations.push({
+        type: 'dm',
+        id: dmUserId,
+        user: dmUser,
+        lastMessage: lastMsg,
+        timestamp,
+      })
+    })
+    
+    // Add groups
+    groups.forEach(group => {
+      const lastMsg = groupLastMessages[group.id]
+      // Same logic: if message exists but no timestamp yet, use "now"
+      const timestamp = lastMsg?.timestamp?.seconds ?? (lastMsg ? nowSeconds : (group.createdAt?.seconds || 0))
+      conversations.push({
+        type: 'group',
+        id: group.id,
+        group,
+        lastMessage: lastMsg,
+        timestamp,
+      })
+    })
+    
+    // Sort by most recent first
+    return conversations.sort((a, b) => b.timestamp - a.timestamp)
+  }, [activeDMs, allUsers, lastMessages, groups, groupLastMessages])
+
   // Compute active DM IDs for MyStoriesRing (sorted user ID pairs)
   const activeDMIds = useMemo(() => {
     if (!user?.uid) return []
@@ -535,78 +575,7 @@ export default function Sidebar({
           )
         })()}
 
-        {/* Groups Section */}
-        {groups.length > 0 && (
-          <>
-            {groups.map(group => {
-              const isActive = currentChat?.type === 'group' && currentChat?.id === group.id
-              const isUnread = unreadChats.includes(`group:${group.id}`)
-              const lastMsg = groupLastMessages[group.id]
-              
-              // Generate stacked avatars (up to 3)
-              const memberAvatars = (group.memberAvatars || []).slice(0, 3)
-              const memberNames = (group.memberNames || []).slice(0, 3)
-              
-              return (
-                <div
-                  key={`group-${group.id}`}
-                  className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
-                  onClick={() => handleGroupClick(group)}
-                >
-                  <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
-                  
-                  <div className='dm-avatar-container group-avatar-stack'>
-                    {memberAvatars.length > 0 ? (
-                      <div className='group-avatars'>
-                        {memberAvatars.map((avatar, idx) => (
-                          avatar ? (
-                            <img 
-                              key={idx}
-                              src={avatar} 
-                              alt={memberNames[idx] || 'Member'} 
-                              className='group-avatar-mini'
-                              style={{ 
-                                zIndex: 3 - idx,
-                                marginLeft: idx > 0 ? '-8px' : '0'
-                              }}
-                            />
-                          ) : (
-                            <div 
-                              key={idx}
-                              className='group-avatar-mini-fallback'
-                              style={{ 
-                                zIndex: 3 - idx,
-                                marginLeft: idx > 0 ? '-8px' : '0'
-                              }}
-                            >
-                              {(memberNames[idx] || '?')[0].toUpperCase()}
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    ) : (
-                      <div className='dm-avatar-fallback group-avatar'>
-                        👥
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className='dm-content'>
-                    <div className='dm-header-row'>
-                      <span className='dm-name'>{group.displayName || group.name || 'Group Chat'}</span>
-                      <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
-                    </div>
-                    <div className='dm-preview'>
-                      {getPreviewText(lastMsg)}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </>
-        )}
-        
-        {/* Create Group Button */}
+        {/* Create Group Button - Right after Poppy AI */}
         {onCreateGroup && (
           <div
             className='dm-item-imessage create-group-item'
@@ -628,53 +597,119 @@ export default function Sidebar({
           </div>
         )}
         
-        {/* Direct Messages */}
-        {sortedDMs.map(dmUserId => {
-          const dmUser = allUsers.find(u => u.uid === dmUserId)
-          if (!dmUser) return null
-
-          const isActive = currentChat?.type === 'dm' && currentChat?.id === dmUserId
-          const isUnread = unreadChats.includes(`dm:${dmUserId}`)
-          const lastMsg = lastMessages[dmUserId]
-          
-          const avatarContent = dmUser.photoURL ? (
-            <img src={dmUser.photoURL} alt={dmUser.displayName} className='dm-avatar' />
-          ) : (
-            <div className='dm-avatar-fallback'>
-              {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
-            </div>
-          )
-          
-          return (
-            <div
-              key={dmUserId}
-              className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
-              onClick={() => handleDMClick(dmUser)}
-            >
-              <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
-              
-              <div className='dm-avatar-container'>
-                <DMStoryRing
-                  currentUserId={user?.uid}
-                  otherUserId={dmUserId}
-                  currentUser={user}
-                  size="small"
-                >
-                  {avatarContent}
-                </DMStoryRing>
+        {/* Combined Groups & DMs - sorted by recency */}
+        {combinedConversations.map(conv => {
+          if (conv.type === 'dm') {
+            const dmUser = conv.user
+            const isActive = currentChat?.type === 'dm' && currentChat?.id === conv.id
+            const isUnread = unreadChats.includes(`dm:${conv.id}`)
+            const lastMsg = conv.lastMessage
+            
+            const avatarContent = dmUser.photoURL ? (
+              <img src={dmUser.photoURL} alt={dmUser.displayName} className='dm-avatar' />
+            ) : (
+              <div className='dm-avatar-fallback'>
+                {(dmUser.displayName || dmUser.email || '?')[0].toUpperCase()}
               </div>
-              
-              <div className='dm-content'>
-                <div className='dm-header-row'>
-                  <span className='dm-name'>{dmUser.displayName || dmUser.email}</span>
-                  <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
+            )
+            
+            return (
+              <div
+                key={`dm-${conv.id}`}
+                className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
+                onClick={() => handleDMClick(dmUser)}
+              >
+                <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
+                
+                <div className='dm-avatar-container'>
+                  <DMStoryRing
+                    currentUserId={user?.uid}
+                    otherUserId={conv.id}
+                    currentUser={user}
+                    size="small"
+                  >
+                    {avatarContent}
+                  </DMStoryRing>
                 </div>
-                <div className='dm-preview'>
-                  {getPreviewText(lastMsg, dmUserId)}
+                
+                <div className='dm-content'>
+                  <div className='dm-header-row'>
+                    <span className='dm-name'>{dmUser.displayName || dmUser.email}</span>
+                    <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
+                  </div>
+                  <div className='dm-preview'>
+                    {getPreviewText(lastMsg, conv.id)}
+                  </div>
                 </div>
               </div>
-            </div>
-          )
+            )
+          } else {
+            // Group
+            const group = conv.group
+            const isActive = currentChat?.type === 'group' && currentChat?.id === group.id
+            const isUnread = unreadChats.includes(`group:${group.id}`)
+            const lastMsg = conv.lastMessage
+            
+            // Generate stacked avatars (up to 3)
+            const memberAvatars = (group.memberAvatars || []).slice(0, 3)
+            const memberNames = (group.memberNames || []).slice(0, 3)
+            
+            return (
+              <div
+                key={`group-${group.id}`}
+                className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
+                onClick={() => handleGroupClick(group)}
+              >
+                <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
+                
+                <div className='dm-avatar-container group-avatar-stack'>
+                  {memberAvatars.length > 0 ? (
+                    <div className='group-avatars'>
+                      {memberAvatars.map((avatar, idx) => (
+                        avatar ? (
+                          <img 
+                            key={idx}
+                            src={avatar} 
+                            alt={memberNames[idx] || 'Member'} 
+                            className='group-avatar-mini'
+                            style={{ 
+                              zIndex: 3 - idx,
+                              marginLeft: idx > 0 ? '-8px' : '0'
+                            }}
+                          />
+                        ) : (
+                          <div 
+                            key={idx}
+                            className='group-avatar-mini-fallback'
+                            style={{ 
+                              zIndex: 3 - idx,
+                              marginLeft: idx > 0 ? '-8px' : '0'
+                            }}
+                          >
+                            {(memberNames[idx] || '?')[0].toUpperCase()}
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  ) : (
+                    <div className='dm-avatar-fallback group-avatar'>
+                      👥
+                    </div>
+                  )}
+                </div>
+                
+                <div className='dm-content'>
+                  <div className='dm-header-row'>
+                    <span className='dm-name'>{group.displayName || group.name || 'Group Chat'}</span>
+                    <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
+                  </div>
+                  <div className='dm-preview'>
+                    {getPreviewText(lastMsg)}
+                  </div>
+                </div>
+              </div>
+            )
+          }
         })}
       </div>
 

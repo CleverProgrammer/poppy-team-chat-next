@@ -384,7 +384,7 @@ export function useSubscriptions({
           return
         }
 
-        // Update currentChat.group with latest data (for header to show updated members)
+        // Update currentChat.group with latest data (for header to show updated members/name)
         // Use functional update to avoid dependency on currentChat in this callback
         setCurrentChat(prev => {
           // Only update if this is still the same group
@@ -392,20 +392,22 @@ export function useSubscriptions({
             return prev // Different chat now, don't update
           }
           
-          // Check if member IDs changed to avoid unnecessary re-renders
+          // Check if anything meaningful changed to avoid unnecessary re-renders
           const prevMemberIds = Object.keys(prev.group?.members || {}).sort().join(',')
           const newMemberIds = Object.keys(groupData.members || {}).sort().join(',')
+          const prevName = prev.group?.name || prev.group?.displayName || ''
+          const newName = groupData.name || groupData.displayName || ''
           
-          if (prevMemberIds === newMemberIds) {
-            return prev // Same members, no need to update
+          if (prevMemberIds === newMemberIds && prevName === newName) {
+            return prev // Nothing changed, no need to update
           }
           
-          // Members changed, update the group data
-          console.log('👥 Group members changed, updating header:', newMemberIds)
+          // Something changed, update the group data
+          console.log('👥 Group updated:', { members: newMemberIds, name: newName })
           return {
             ...prev,
             group: groupData,
-            name: groupData.displayName || groupData.name || prev.name,
+            name: groupData.name || groupData.displayName || prev.name,
           }
         })
       })

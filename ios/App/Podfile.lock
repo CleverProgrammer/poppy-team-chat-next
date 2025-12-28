@@ -22,7 +22,7 @@ PODS:
     - Capacitor
   - CapgoCameraPreview (8.0.5):
     - Capacitor
-  - CapgoCapacitorUploader (8.0.4):
+  - CapgoCapacitorUploader (8.0.5):
     - Capacitor
   - FirebaseCore (12.7.0):
     - FirebaseCoreInternal (~> 12.7.0)
@@ -143,7 +143,7 @@ SPEC CHECKSUMS:
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
   CapacitorLocalNotifications: 177cfbf8228d9bd82a147e094cb7984d7afb9e29
   CapgoCameraPreview: 60bbb21d6078300582aa4bf4c06250689d4ddb94
-  CapgoCapacitorUploader: 6d1e485e058f43266b98afbe098fe35267898e0e
+  CapgoCapacitorUploader: cb9e2dc73f336d28c12cef2238887e93a69153a9
   FirebaseCore: c7b57863ce0859281a66d16ca36d665c45d332b5
   FirebaseCoreInternal: 571a2dd8c975410966199623351db3a3265c874d
   FirebaseInstallations: 6d05424a046b68ca146b4de4376f05b4e9262fc3

@@ -3484,40 +3484,76 @@ export function subscribeToUserGroups(userId, callback) {
     return () => {}
   }
 
-  // First, subscribe to user's activeGroups array
-  return onSnapshot(
+  let groupUnsubscribes = []
+  let currentGroupIds = []
+  let groupsData = {}
+
+  // Helper to update callback with current groups data
+  const emitGroups = () => {
+    const groups = Object.values(groupsData).filter(Boolean)
+    callback(groups)
+  }
+
+  // Subscribe to each group document
+  const subscribeToGroups = (groupIds) => {
+    // Unsubscribe from groups we're no longer in
+    groupUnsubscribes.forEach(unsub => unsub())
+    groupUnsubscribes = []
+    
+    // Clear data for removed groups
+    const newGroupsData = {}
+    groupIds.forEach(id => {
+      if (groupsData[id]) {
+        newGroupsData[id] = groupsData[id]
+      }
+    })
+    groupsData = newGroupsData
+
+    if (groupIds.length === 0) {
+      callback([])
+      return
+    }
+
+    // Subscribe to each group for real-time updates
+    groupIds.forEach(groupId => {
+      const unsub = onSnapshot(
+        doc(db, 'groups', groupId),
+        groupSnap => {
+          if (groupSnap.exists()) {
+            const data = groupSnap.data()
+            groupsData[groupId] = {
+              id: groupSnap.id,
+              ...data,
+              displayName: data.name || generateGroupName(data.memberNames),
+            }
+          } else {
+            delete groupsData[groupId]
+          }
+          emitGroups()
+        },
+        error => {
+          console.error('Error subscribing to group:', groupId, error)
+        }
+      )
+      groupUnsubscribes.push(unsub)
+    })
+  }
+
+  // Subscribe to user's activeGroups array
+  const userUnsub = onSnapshot(
     doc(db, 'users', userId),
-    async userSnap => {
+    userSnap => {
       if (!userSnap.exists()) {
-        callback([])
+        subscribeToGroups([])
         return
       }
 
       const activeGroupIds = userSnap.data()?.activeGroups || []
       
-      if (activeGroupIds.length === 0) {
-        callback([])
-        return
-      }
-
-      // Fetch all group documents
-      try {
-        const groups = []
-        for (const groupId of activeGroupIds) {
-          const groupSnap = await getDoc(doc(db, 'groups', groupId))
-          if (groupSnap.exists()) {
-            const data = groupSnap.data()
-            groups.push({
-              id: groupSnap.id,
-              ...data,
-              displayName: data.name || generateGroupName(data.memberNames),
-            })
-          }
-        }
-        callback(groups)
-      } catch (error) {
-        console.error('Error fetching groups:', error)
-        callback([])
+      // Only re-subscribe if group IDs changed
+      if (activeGroupIds.sort().join(',') !== currentGroupIds.sort().join(',')) {
+        currentGroupIds = [...activeGroupIds]
+        subscribeToGroups(activeGroupIds)
       }
     },
     error => {
@@ -3525,6 +3561,12 @@ export function subscribeToUserGroups(userId, callback) {
       callback([])
     }
   )
+
+  // Return cleanup function
+  return () => {
+    userUnsub()
+    groupUnsubscribes.forEach(unsub => unsub())
+  }
 }
 
 /**

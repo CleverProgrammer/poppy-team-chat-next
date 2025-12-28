@@ -120,7 +120,7 @@ export default function ChatHeader({
               className='group-header-avatar-mini'
               style={{
                 zIndex: 3 - idx,
-                marginLeft: idx > 0 ? '-10px' : '0',
+                marginLeft: idx > 0 ? '-12px' : '0',
               }}
             />
           ) : (
@@ -129,7 +129,7 @@ export default function ChatHeader({
               className='group-header-avatar-mini-fallback'
               style={{
                 zIndex: 3 - idx,
-                marginLeft: idx > 0 ? '-10px' : '0',
+                marginLeft: idx > 0 ? '-12px' : '0',
               }}
             >
               {(member.displayName || '?')[0].toUpperCase()}
@@ -249,54 +249,17 @@ export default function ChatHeader({
 
   return (
     <>
-      {/* Desktop Header - iMessage style with avatar and name pill */}
+      {/* Desktop Header - thin bar with floating avatar below */}
       <div className='chat-header'>
-        <button
-          className='mobile-menu-button'
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          aria-label='Toggle menu'
-        >
-          <svg
-            width='24'
-            height='24'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeWidth='2'
-          >
-            <line x1='3' y1='12' x2='21' y2='12'></line>
-            <line x1='3' y1='6' x2='21' y2='6'></line>
-            <line x1='3' y1='18' x2='21' y2='18'></line>
-          </svg>
-        </button>
-
-        {/* iMessage-style header content */}
-        <div className='chat-header-imessage'>
-          {getDesktopAvatar()}
-          <div className='chat-header-name-pill'>
-            <span className='chat-header-name-text'>
-              {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
-            </span>
-            {currentChat.type === 'group' ? (
-              <button
-                className='chat-header-group-pill'
-                onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
-              >
-                {getSubtitle()} <span className='group-pill-chevron'>›</span>
-              </button>
-            ) : (
-              <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
-            )}
-          </div>
+        {/* Left side - dev cost */}
+        <div className='chat-header-left'>
           {isDevMode && todayCost > 0 && (
-            <span className='ml-2 text-[9px] text-gray-500 font-mono whitespace-nowrap'>
-              ${todayCost.toFixed(3)}
-            </span>
+            <span className='text-[9px] text-gray-500 font-mono'>${todayCost.toFixed(3)}</span>
           )}
         </div>
 
         {/* Right side buttons - Posts & Tasks */}
-        <div className='flex items-center gap-2'>
+        <div className='chat-header-right-buttons'>
           {viewMode && onViewModeChange && (
             <button
               onClick={() => onViewModeChange(viewMode === 'posts' ? 'messages' : 'posts')}
@@ -314,6 +277,24 @@ export default function ChatHeader({
             <TasksButton className='px-3 py-1 text-[11px] font-medium rounded-md text-gray-500 hover:text-gray-300 transition-colors' />
           )}
         </div>
+      </div>
+
+      {/* Floating avatar + name (overlaps chat content like mobile) */}
+      <div className='chat-header-floating'>
+        {getMobileAvatar()}
+        <div className='chat-header-name-bubble'>
+          {currentChat.name?.replace('🤖 ', '').replace('🤖', '').split(' ')[0]}
+        </div>
+        {currentChat.type === 'group' ? (
+          <button
+            className='chat-header-group-pill-mobile'
+            onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
+          >
+            {getSubtitle()} <span className='group-pill-chevron'>›</span>
+          </button>
+        ) : (
+          <div className='chat-header-status'>{getSubtitle()}</div>
+        )}
       </div>
 
       {/* Mobile iMessage-style Header */}
