@@ -940,13 +940,13 @@ export default function MessageItem({
                     (_, i) => updatedDimensions[imageCount + i]
                   )
                   if (allVideosCollected) {
-                    const chatId = currentChat.type === 'dm' 
+                    const chatType = currentChat.type // 'channel', 'dm', or 'group'
+                    const chatId = chatType === 'dm' 
                       ? getDMId(user.uid, currentChat.id) 
                       : currentChat.id
-                    const isDM = currentChat.type === 'dm'
                     
                     // Fire and forget - don't block UI
-                    updateMessageMediaDimensions(chatId, msg.id, isDM, updatedDimensions)
+                    updateMessageMediaDimensions(chatId, msg.id, chatType, updatedDimensions)
                   }
                 }
                 
@@ -1002,13 +1002,13 @@ export default function MessageItem({
                   // Only update if we have dimensions for all images
                   const allCollected = allImages.every((_, i) => updatedDimensions[i])
                   if (allCollected) {
-                    const chatId = currentChat.type === 'dm' 
+                    const chatType = currentChat.type // 'channel', 'dm', or 'group'
+                    const chatId = chatType === 'dm' 
                       ? getDMId(user.uid, currentChat.id) 
                       : currentChat.id
-                    const isDM = currentChat.type === 'dm'
                     
                     // Fire and forget - don't block UI
-                    updateMessageMediaDimensions(chatId, msg.id, isDM, updatedDimensions)
+                    updateMessageMediaDimensions(chatId, msg.id, chatType, updatedDimensions)
                   }
                 }
                 
@@ -1082,11 +1082,11 @@ export default function MessageItem({
               storedPreview={msg.linkPreview || null}
               onPreviewMigrate={!msg.linkPreview ? (previewData) => {
                 // On-demand migration for old messages without stored link preview
-                const chatId = currentChat.type === 'dm' 
+                const chatType = currentChat.type // 'channel', 'dm', or 'group'
+                const chatId = chatType === 'dm' 
                   ? getDMId(user.uid, currentChat.id) 
                   : currentChat.id
-                const isDM = currentChat.type === 'dm'
-                updateMessageLinkPreview(chatId, msg.id, isDM, previewData)
+                updateMessageLinkPreview(chatId, msg.id, chatType, previewData)
               } : undefined}
             />
           )}

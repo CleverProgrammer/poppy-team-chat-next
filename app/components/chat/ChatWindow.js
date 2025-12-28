@@ -775,11 +775,11 @@ export default function ChatWindow() {
 
   // Delete handler
   const handleDeleteMessage = async messageId => {
-    const isDM = currentChat.type === 'dm'
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
+    const chatType = currentChat.type // 'channel', 'dm', or 'group'
+    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
-      await deleteMessage(chatId, messageId, isDM)
+      await deleteMessage(chatId, messageId, chatType)
     } catch (error) {
       console.error('Error deleting message:', error)
       alert('Failed to delete message. Please try again.')
@@ -788,11 +788,11 @@ export default function ChatWindow() {
 
   // Make private message public handler
   const handleMakePublic = async messageId => {
-    const isDM = currentChat.type === 'dm'
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
+    const chatType = currentChat.type // 'channel', 'dm', or 'group'
+    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
-      await toggleMessageVisibility(chatId, messageId, true, isDM)
+      await toggleMessageVisibility(chatId, messageId, true, chatType)
       // Update local state immediately for responsiveness
       setMessages(prev =>
         prev.map(msg =>

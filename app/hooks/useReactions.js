@@ -76,11 +76,11 @@ export function useReactions(user, currentChat) {
   const handleAddReaction = useCallback(async (messageId, emoji) => {
     if (!user) return;
 
-    const isDM = currentChat.type === 'dm';
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
+    const chatType = currentChat.type; // 'channel', 'dm', or 'group'
+    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id;
 
     try {
-      await addReaction(chatId, messageId, user.uid, emoji, isDM);
+      await addReaction(chatId, messageId, user.uid, emoji, chatType);
       setOpenEmojiPanel(null);
 
       // Update emoji usage count

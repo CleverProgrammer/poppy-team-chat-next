@@ -94,11 +94,11 @@ export function useMessageSending({
     const messageText = inputRef.current?.value || '';
     if (!editingMessage || !messageText.trim()) return;
 
-    const isDM = currentChat.type === 'dm';
-    const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
+    const chatType = currentChat.type; // 'channel', 'dm', or 'group'
+    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id;
 
     try {
-      await editMessage(chatId, editingMessage.id, messageText, isDM);
+      await editMessage(chatId, editingMessage.id, messageText, chatType);
       setEditingMessage(null);
       if (inputRef.current) {
         inputRef.current.value = '';

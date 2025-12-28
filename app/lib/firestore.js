@@ -1602,11 +1602,17 @@ export async function sendMessageDMWithAudio(
 }
 
 // Add reaction to a message
-export async function addReaction(channelId, messageId, userId, emoji, isDM = false) {
+// chatType can be 'channel', 'dm', or 'group'
+export async function addReaction(chatId, messageId, userId, emoji, chatType = 'channel') {
   try {
-    const messagesRef = isDM
-      ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId)
+    let messagesRef
+    if (chatType === 'dm') {
+      messagesRef = doc(db, 'dms', chatId, 'messages', messageId)
+    } else if (chatType === 'group') {
+      messagesRef = doc(db, 'groups', chatId, 'messages', messageId)
+    } else {
+      messagesRef = doc(db, 'channels', chatId, 'messages', messageId)
+    }
 
     const msgSnap = await getDoc(messagesRef)
     const reactions = msgSnap.data()?.reactions || {}
@@ -1626,11 +1632,17 @@ export async function addReaction(channelId, messageId, userId, emoji, isDM = fa
 }
 
 // Edit message
-export async function editMessage(channelId, messageId, newText, isDM = false) {
+// chatType can be 'channel', 'dm', or 'group'
+export async function editMessage(chatId, messageId, newText, chatType = 'channel') {
   try {
-    const messagesRef = isDM
-      ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId)
+    let messagesRef
+    if (chatType === 'dm') {
+      messagesRef = doc(db, 'dms', chatId, 'messages', messageId)
+    } else if (chatType === 'group') {
+      messagesRef = doc(db, 'groups', chatId, 'messages', messageId)
+    } else {
+      messagesRef = doc(db, 'channels', chatId, 'messages', messageId)
+    }
 
     await updateDoc(messagesRef, {
       text: newText,
@@ -1648,21 +1660,26 @@ export async function editMessage(channelId, messageId, newText, isDM = false) {
  * This is called when an image/video loads without stored dimensions.
  * Fire-and-forget - doesn't block UI.
  *
- * @param {string} chatId - Channel ID or DM ID
+ * @param {string} chatId - Channel ID, DM ID, or Group ID
  * @param {string} messageId - Message document ID
- * @param {boolean} isDM - Whether this is a DM message
+ * @param {string} chatType - 'channel', 'dm', or 'group'
  * @param {Array<{width: number, height: number}>} mediaDimensions - Array of dimensions
  */
 export async function updateMessageMediaDimensions(
   chatId,
   messageId,
-  isDM = false,
+  chatType = 'channel',
   mediaDimensions
 ) {
   try {
-    const messageRef = isDM
-      ? doc(db, 'dms', chatId, 'messages', messageId)
-      : doc(db, 'channels', chatId, 'messages', messageId)
+    let messageRef
+    if (chatType === 'dm') {
+      messageRef = doc(db, 'dms', chatId, 'messages', messageId)
+    } else if (chatType === 'group') {
+      messageRef = doc(db, 'groups', chatId, 'messages', messageId)
+    } else {
+      messageRef = doc(db, 'channels', chatId, 'messages', messageId)
+    }
 
     await updateDoc(messageRef, {
       mediaDimensions,
@@ -1717,16 +1734,21 @@ export async function fetchLinkPreview(url) {
  * This is called when a message has a URL but no stored link preview.
  * Fire-and-forget - doesn't block UI.
  *
- * @param {string} chatId - Channel ID or DM ID
+ * @param {string} chatId - Channel ID, DM ID, or Group ID
  * @param {string} messageId - Message document ID
- * @param {boolean} isDM - Whether this is a DM message
+ * @param {string} chatType - 'channel', 'dm', or 'group'
  * @param {object} linkPreview - Link preview data
  */
-export async function updateMessageLinkPreview(chatId, messageId, isDM = false, linkPreview) {
+export async function updateMessageLinkPreview(chatId, messageId, chatType = 'channel', linkPreview) {
   try {
-    const messageRef = isDM
-      ? doc(db, 'dms', chatId, 'messages', messageId)
-      : doc(db, 'channels', chatId, 'messages', messageId)
+    let messageRef
+    if (chatType === 'dm') {
+      messageRef = doc(db, 'dms', chatId, 'messages', messageId)
+    } else if (chatType === 'group') {
+      messageRef = doc(db, 'groups', chatId, 'messages', messageId)
+    } else {
+      messageRef = doc(db, 'channels', chatId, 'messages', messageId)
+    }
 
     await updateDoc(messageRef, {
       linkPreview,
@@ -1739,11 +1761,17 @@ export async function updateMessageLinkPreview(chatId, messageId, isDM = false, 
   }
 }
 // Toggle message visibility (private <-> public)
-export async function toggleMessageVisibility(channelId, messageId, makePublic, isDM = false) {
+// chatType can be 'channel', 'dm', or 'group'
+export async function toggleMessageVisibility(chatId, messageId, makePublic, chatType = 'channel') {
   try {
-    const messageRef = isDM
-      ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId)
+    let messageRef
+    if (chatType === 'dm') {
+      messageRef = doc(db, 'dms', chatId, 'messages', messageId)
+    } else if (chatType === 'group') {
+      messageRef = doc(db, 'groups', chatId, 'messages', messageId)
+    } else {
+      messageRef = doc(db, 'channels', chatId, 'messages', messageId)
+    }
 
     if (makePublic) {
       // Make public - remove private flags
@@ -1762,11 +1790,17 @@ export async function toggleMessageVisibility(channelId, messageId, makePublic, 
 }
 
 // Delete message
-export async function deleteMessage(channelId, messageId, isDM = false) {
+// chatType can be 'channel', 'dm', or 'group'
+export async function deleteMessage(chatId, messageId, chatType = 'channel') {
   try {
-    const messagesRef = isDM
-      ? doc(db, 'dms', channelId, 'messages', messageId)
-      : doc(db, 'channels', channelId, 'messages', messageId)
+    let messagesRef
+    if (chatType === 'dm') {
+      messagesRef = doc(db, 'dms', chatId, 'messages', messageId)
+    } else if (chatType === 'group') {
+      messagesRef = doc(db, 'groups', chatId, 'messages', messageId)
+    } else {
+      messagesRef = doc(db, 'channels', chatId, 'messages', messageId)
+    }
 
     await deleteDoc(messagesRef)
   } catch (error) {
