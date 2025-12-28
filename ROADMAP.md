@@ -5,6 +5,54 @@
 
 ---
 
+## 🔥🔥🔥 CRITICAL: PERFORMANCE CRISIS 🔥🔥🔥
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  ⚠️  40 MILLION FIRESTORE READS IN 2 WEEKS WITH 10 USERS  ⚠️                   │
+│                                                                                  │
+│  This is BROKEN. Something is horribly wrong. Fix this FIRST.                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🚨 The Problems:
+- [ ] **Every keystroke creates a Firestore request** - typing "hello" = 5 reads minimum
+- [ ] **Listeners are opening and never closing** - memory leak central  
+- [ ] **No virtualization** - rendering ALL messages instead of visible ones
+- [ ] **Scroll performance is garbage** - users complaining constantly
+- [ ] **Subscription hell** - multiple listeners for the same data
+
+### 💡 Possible Solutions:
+1. **Implement Virtuoso message list** (already purchased, never implemented)
+   - Only render visible messages + buffer
+   - Massive memory and performance win
+2. **Audit ALL Firestore subscriptions**
+   - Find where listeners open but never unsubscribe
+   - Check for duplicate subscriptions
+   - Add proper cleanup in useEffect returns
+3. **Debounce/throttle input handling**
+   - Don't hit Firestore on every keystroke
+   - Batch updates where possible
+4. **Firebase profiling**
+   - Use Firebase console to identify hot paths
+   - Check which queries are running most often
+5. **Review subscription architecture**
+   - Are we subscribing to entire collections when we need 1 doc?
+   - Are subscriptions surviving component unmounts?
+
+### 📊 Evidence of the Problem:
+| Metric | Expected | Actual | WTF Factor |
+|--------|----------|--------|------------|
+| Reads/week (10 users) | ~100K | 20M+ | 200x over |
+| Writes/week | ~10K | ~2M | 200x over |
+| Listeners active | 5-10 | 40+ (?) | Memory bomb |
+
+**Priority:** 🔴🔴🔴 **HIGHEST** - This is bankrupting us and ruining UX  
+**Timeline:** ASAP - Before any new features  
+**Assigned:** Outsourced developer (give them Virtuoso access)
+
+---
+
 ## 🗺️ THE MAP
 
 ```
@@ -19,6 +67,8 @@
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
+│  🔥 CRITICAL: Virtualization & Firebase Performance (BLOCKING)                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
 │                              🚧 WHAT'S AHEAD                                     │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
@@ -50,11 +100,12 @@
 
 | # | Feature | Time | Status |
 |---|---------|------|--------|
-| 1 | **Group Chats** 👥 | 3-5 hrs | 🔴 **NOW** |
-| 2 | Video Intelligence 🎬 | 4-6 hrs | ⬜ Next |
+| 🔥 | **Virtualization & Firebase Perf** 🚨 | ASAP | 🔴🔴🔴 **CRITICAL** |
+| 1 | [**Group Chats**](plans/group-chats.md) 👥 | 3-5 hrs | 🟡 In Progress |
+| 2 | [Video Intelligence](plans/media-intelligence/video-understanding.md) 🎬 | 4-6 hrs | ⬜ Next |
 | 2b | YouTube/Loom Links | 2-3 hrs | ⬜ |
 | 3 | Audio Rooms 🎙️ | 6-8 hrs | ⬜ |
-| 4 | Smart Tasks 📋 | 3-4 hrs | ⬜ |
+| 4 | [Smart Tasks](plans/ai-improvements/dm-tasks-system.md) 📋 | 3-4 hrs | ⬜ |
 | 5 | Video Calls 📹 | 4-6 hrs | ⬜ |
 | 6 | Interview Analysis 🎯 | 2-3 hrs | ⬜ |
 | 7 | Leaderboards 🏆 | 3-4 hrs | 💡 idea |
@@ -82,7 +133,7 @@
 
 ## 🎯 Roadmap Details
 
-### Phase 1: Group Chats 👥
+### Phase 1: [Group Chats](plans/group-chats.md) 👥
 **Priority:** 🔴 CRITICAL (users blocked without this)  
 **Timeline:** 3-5 hours  
 **Branch:** `feature/group-chats`
@@ -106,11 +157,10 @@ People are literally not using the app because they can't create group conversat
 
 ---
 
-### Phase 2: Video Intelligence 🎬
+### Phase 2: [Video Intelligence](plans/media-intelligence/video-understanding.md) 🎬
 **Priority:** 🟠 HIGH  
 **Timeline:** 4-6 hours  
 **Branch:** `feature/video-understanding`
-**Plan:** `plans/media-intelligence/video-understanding.md`
 
 When someone drops a video, Poppy should understand it - visually AND audibly.
 
@@ -247,7 +297,8 @@ Special analysis mode for candidate video submissions.
 
 | Phase | Feature | Time | Target | Status |
 |-------|---------|------|--------|--------|
-| **1** | Group Chats | 3-5 hrs | Week 1 | ✅ Confirmed |
+| **🔥** | **Virtualization & Firebase** | ASAP | **BLOCKING** | 🔴 CRITICAL |
+| **1** | Group Chats | 3-5 hrs | Week 1 | 🟡 In Progress |
 | **2** | Video Intelligence | 4-6 hrs | Week 1 | ✅ Confirmed |
 | **2b** | YouTube/Loom Links | 2-3 hrs | Week 1 | ✅ Confirmed |
 | **3** | Audio Rooms (100ms) | 6-8 hrs | Week 2 | ✅ Confirmed |
@@ -369,6 +420,7 @@ Show the team's north star metric at all times.
 
 | Phase | Feature | Certainty | Notes |
 |-------|---------|-----------|-------|
+| **🔥** | Virtualization & Firebase | 🔴 **CRITICAL** | 40M reads/2 weeks is insane. BLOCKING. |
 | **1** | Group Chats | ✅ **CONFIRMED** | Users literally waiting for this |
 | **2** | Video Intelligence | ✅ **CONFIRMED** | Gemini 3 Pro for visual understanding |
 | **2b** | YouTube/Loom Links | ✅ **CONFIRMED** | Natural extension of video |
@@ -414,9 +466,8 @@ Show the team's north star metric at all times.
 
 ## 🎬 Let's Fucking Go
 
-**Next up:** Phase 1 - Group Chats  
-**Branch:** `feature/group-chats`  
-**Plan:** `plans/group-chats.md`
+**Next up:** Phase 1 - [Group Chats](plans/group-chats.md)  
+**Branch:** `feature/group-chats`
 
 The boring but necessary feature that unblocks everything else. Users are literally waiting. Let's knock it out in a few hours and move on to the fun stuff.
 

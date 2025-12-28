@@ -3213,3 +3213,902 @@ export async function updateTask(taskId, updates) {
     throw error
   }
 }
+
+// ============================================
+// GROUP CHAT FUNCTIONS
+// ============================================
+
+/**
+ * Generate an auto group name from member display names
+ * Examples:
+ *   - 2 members: "Athena and Amaanath"
+ *   - 3 members: "Rafeh, Athena, and Amaanath"
+ *   - 4+ members: "Rafeh, Athena, and 2 others"
+ */
+function generateGroupName(memberNames) {
+  if (!memberNames || memberNames.length === 0) return 'Unnamed Group'
+  
+  if (memberNames.length === 1) {
+    return memberNames[0]
+  }
+  
+  if (memberNames.length === 2) {
+    return `${memberNames[0]} and ${memberNames[1]}`
+  }
+  
+  if (memberNames.length === 3) {
+    return `${memberNames[0]}, ${memberNames[1]}, and ${memberNames[2]}`
+  }
+  
+  const othersCount = memberNames.length - 2
+  return `${memberNames[0]}, ${memberNames[1]}, and ${othersCount} others`
+}
+
+/**
+ * Create a new group chat
+ * @param {object} creatorUser - The user creating the group (from auth)
+ * @param {Array<object>} members - Array of member objects { uid, displayName, email, photoURL }
+ * @returns {string} The new group ID
+ */
+export async function createGroup(creatorUser, members) {
+  if (!creatorUser || !members || members.length < 1) {
+    throw new Error('Need at least 1 other member to create a group')
+  }
+
+  try {
+    // Include creator in the members list
+    const allMembers = [
+      {
+        uid: creatorUser.uid,
+        displayName: creatorUser.displayName || creatorUser.email,
+        email: creatorUser.email,
+        photoURL: creatorUser.photoURL || '',
+      },
+      ...members,
+    ]
+
+    // Build the members map (future-proof structure)
+    const membersMap = {}
+    const memberNames = []
+    const memberAvatars = []
+
+    allMembers.forEach(member => {
+      membersMap[member.uid] = {
+        joinedAt: serverTimestamp(),
+        displayName: member.displayName || member.email,
+        email: member.email,
+        photoURL: member.photoURL || '',
+      }
+      memberNames.push(member.displayName || member.email?.split('@')[0] || 'Unknown')
+      memberAvatars.push(member.photoURL || '')
+    })
+
+    const groupData = {
+      name: null, // Auto-generated name used, custom name is null until user sets one
+      members: membersMap,
+      memberCount: allMembers.length,
+      memberNames: memberNames,
+      memberAvatars: memberAvatars,
+      createdBy: creatorUser.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+
+    const groupRef = await addDoc(collection(db, 'groups'), groupData)
+    
+    console.log('👥 Group created:', groupRef.id, '| Members:', memberNames.join(', '))
+
+    // Add group to each member's activeGroups
+    for (const member of allMembers) {
+      await setDoc(
+        doc(db, 'users', member.uid),
+        {
+          activeGroups: arrayUnion(groupRef.id),
+          lastSeen: serverTimestamp(),
+        },
+        { merge: true }
+      )
+    }
+
+    return groupRef.id
+  } catch (error) {
+    console.error('Error creating group:', error)
+    throw error
+  }
+}
+
+/**
+ * Add a member to an existing group
+ * @param {string} groupId - The group ID
+ * @param {object} newMember - The member to add { uid, displayName, email, photoURL }
+ */
+export async function addGroupMember(groupId, newMember) {
+  if (!groupId || !newMember?.uid) return
+
+  try {
+    const groupRef = doc(db, 'groups', groupId)
+    const groupSnap = await getDoc(groupRef)
+
+    if (!groupSnap.exists()) {
+      throw new Error('Group not found')
+    }
+
+    const groupData = groupSnap.data()
+    const members = groupData.members || {}
+
+    // Check if already a member
+    if (members[newMember.uid]) {
+      console.log('👤 User already in group:', newMember.displayName)
+      return
+    }
+
+    // Add to members map
+    members[newMember.uid] = {
+      joinedAt: serverTimestamp(),
+      displayName: newMember.displayName || newMember.email,
+      email: newMember.email,
+      photoURL: newMember.photoURL || '',
+    }
+
+    // Update denormalized fields
+    const memberNames = [...(groupData.memberNames || []), newMember.displayName || newMember.email?.split('@')[0]]
+    const memberAvatars = [...(groupData.memberAvatars || []), newMember.photoURL || '']
+
+    await updateDoc(groupRef, {
+      members,
+      memberCount: increment(1),
+      memberNames,
+      memberAvatars,
+      updatedAt: serverTimestamp(),
+    })
+
+    // Add to user's activeGroups
+    await setDoc(
+      doc(db, 'users', newMember.uid),
+      {
+        activeGroups: arrayUnion(groupId),
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    )
+
+    console.log('➕ Added to group:', newMember.displayName, '→', groupId)
+  } catch (error) {
+    console.error('Error adding group member:', error)
+    throw error
+  }
+}
+
+/**
+ * Remove a member from a group
+ * @param {string} groupId - The group ID
+ * @param {string} memberUid - The UID of the member to remove
+ */
+export async function removeGroupMember(groupId, memberUid) {
+  if (!groupId || !memberUid) return
+
+  try {
+    const groupRef = doc(db, 'groups', groupId)
+    const groupSnap = await getDoc(groupRef)
+
+    if (!groupSnap.exists()) {
+      throw new Error('Group not found')
+    }
+
+    const groupData = groupSnap.data()
+    const members = { ...groupData.members }
+
+    // Get member info before removing
+    const memberInfo = members[memberUid]
+    if (!memberInfo) {
+      console.log('👤 User not in group')
+      return
+    }
+
+    // Remove from members map
+    delete members[memberUid]
+
+    // Update denormalized fields
+    const memberNames = (groupData.memberNames || []).filter(
+      name => name !== memberInfo.displayName && name !== memberInfo.email?.split('@')[0]
+    )
+    const memberAvatars = (groupData.memberAvatars || []).filter(
+      avatar => avatar !== memberInfo.photoURL
+    )
+
+    await updateDoc(groupRef, {
+      members,
+      memberCount: increment(-1),
+      memberNames,
+      memberAvatars,
+      updatedAt: serverTimestamp(),
+    })
+
+    // Remove from user's activeGroups
+    // Note: arrayRemove isn't ideal here, we need to read and rewrite
+    const userRef = doc(db, 'users', memberUid)
+    const userSnap = await getDoc(userRef)
+    if (userSnap.exists()) {
+      const userData = userSnap.data()
+      const activeGroups = (userData.activeGroups || []).filter(id => id !== groupId)
+      await updateDoc(userRef, { activeGroups })
+    }
+
+    console.log('➖ Removed from group:', memberInfo.displayName, '←', groupId)
+  } catch (error) {
+    console.error('Error removing group member:', error)
+    throw error
+  }
+}
+
+/**
+ * Subscribe to a single group's data
+ * @param {string} groupId - The group ID
+ * @param {function} callback - Callback with group data
+ */
+export function subscribeToGroup(groupId, callback) {
+  if (!groupId) {
+    callback(null)
+    return () => {}
+  }
+
+  return onSnapshot(
+    doc(db, 'groups', groupId),
+    snapshot => {
+      if (snapshot.exists()) {
+        callback({
+          id: snapshot.id,
+          ...snapshot.data(),
+          // Compute display name
+          displayName: snapshot.data().name || generateGroupName(snapshot.data().memberNames),
+        })
+      } else {
+        callback(null)
+      }
+    },
+    error => {
+      console.error('Error subscribing to group:', error)
+      callback(null)
+    }
+  )
+}
+
+/**
+ * Subscribe to all groups a user is a member of
+ * @param {string} userId - The user ID
+ * @param {function} callback - Callback with array of groups
+ */
+export function subscribeToUserGroups(userId, callback) {
+  if (!userId) {
+    callback([])
+    return () => {}
+  }
+
+  // First, subscribe to user's activeGroups array
+  return onSnapshot(
+    doc(db, 'users', userId),
+    async userSnap => {
+      if (!userSnap.exists()) {
+        callback([])
+        return
+      }
+
+      const activeGroupIds = userSnap.data()?.activeGroups || []
+      
+      if (activeGroupIds.length === 0) {
+        callback([])
+        return
+      }
+
+      // Fetch all group documents
+      try {
+        const groups = []
+        for (const groupId of activeGroupIds) {
+          const groupSnap = await getDoc(doc(db, 'groups', groupId))
+          if (groupSnap.exists()) {
+            const data = groupSnap.data()
+            groups.push({
+              id: groupSnap.id,
+              ...data,
+              displayName: data.name || generateGroupName(data.memberNames),
+            })
+          }
+        }
+        callback(groups)
+      } catch (error) {
+        console.error('Error fetching groups:', error)
+        callback([])
+      }
+    },
+    error => {
+      console.error('Error subscribing to user groups:', error)
+      callback([])
+    }
+  )
+}
+
+/**
+ * Subscribe to group messages
+ * @param {string} groupId - The group ID
+ * @param {function} callback - Callback with array of messages
+ * @param {number} messageLimit - Number of messages to load
+ */
+export function subscribeToGroupMessages(groupId, callback, messageLimit = 50) {
+  if (!groupId) {
+    callback([])
+    return () => {}
+  }
+
+  const messagesRef = collection(db, 'groups', groupId, 'messages')
+  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(messageLimit))
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const messages = []
+      snapshot.forEach(doc => {
+        messages.push({
+          id: doc.id,
+          ...doc.data(),
+        })
+      })
+      callback(messages.reverse()) // Reverse to show oldest->newest
+    },
+    error => {
+      console.error('Error loading group messages:', error)
+      callback([])
+    }
+  )
+}
+
+/**
+ * Load older group messages for infinite scroll
+ */
+export async function loadOlderGroupMessages(groupId, oldestTimestamp, messageLimit = 50) {
+  const messagesRef = collection(db, 'groups', groupId, 'messages')
+  const q = query(
+    messagesRef,
+    orderBy('timestamp', 'desc'),
+    startAfter(oldestTimestamp),
+    limit(messageLimit)
+  )
+
+  const snapshot = await getDocs(q)
+  const messages = []
+  snapshot.forEach(doc => {
+    messages.push({
+      id: doc.id,
+      ...doc.data(),
+    })
+  })
+  return messages.reverse()
+}
+
+/**
+ * Send a text message to a group
+ * @param {string} groupId - The group ID
+ * @param {object} user - The sending user
+ * @param {string} text - The message text
+ * @param {object} linkPreview - Optional link preview data
+ * @param {object} options - Optional { isPrivate, privateFor }
+ */
+export async function sendGroupMessage(groupId, user, text, linkPreview = null, options = {}) {
+  if (!user || !text.trim() || !groupId) return
+
+  const { isPrivate = false, privateFor = null } = options
+
+  try {
+    const messagesRef = collection(db, 'groups', groupId, 'messages')
+    const messageData = {
+      text: text,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      senderEmail: user.email,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    }
+
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
+
+    // Get group info for participants
+    const groupSnap = await getDoc(doc(db, 'groups', groupId))
+    const groupData = groupSnap.data()
+    const participants = Object.keys(groupData?.members || {})
+
+    // Tag and index to Ragie
+    fetch('/api/tag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: groupId,
+        chatType: 'group',
+        text,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+        participants,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+            aiTags: data.aiTags,
+          }).catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
+
+    // Update group's updatedAt for sorting
+    await updateDoc(doc(db, 'groups', groupId), {
+      updatedAt: serverTimestamp(),
+    })
+
+    return docRef.id
+  } catch (error) {
+    console.error('Error sending group message:', error)
+    throw error
+  }
+}
+
+/**
+ * Send a message with reply to a group
+ */
+export async function sendGroupMessageWithReply(
+  groupId,
+  user,
+  text,
+  replyTo,
+  linkPreview = null,
+  options = {}
+) {
+  if (!user || !text.trim() || !groupId) return
+
+  const { isPrivate = false, privateFor = null } = options
+
+  try {
+    const messagesRef = collection(db, 'groups', groupId, 'messages')
+    const replyData = {
+      msgId: replyTo.msgId,
+      sender: replyTo.sender,
+      text: replyTo.text || '',
+    }
+    if (replyTo.imageUrl) replyData.imageUrl = replyTo.imageUrl
+    if (replyTo.imageUrls?.length) replyData.imageUrls = replyTo.imageUrls
+    if (replyTo.audioUrl) replyData.audioUrl = replyTo.audioUrl
+    if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
+
+    const messageData = {
+      text: text,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      senderEmail: user.email,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+      replyTo: replyData,
+    }
+
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
+
+    // Get group info for participants
+    const groupSnap = await getDoc(doc(db, 'groups', groupId))
+    const groupData = groupSnap.data()
+    const participants = Object.keys(groupData?.members || {})
+
+    // Tag and index to Ragie
+    fetch('/api/tag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId: docRef.id,
+        chatId: groupId,
+        chatType: 'group',
+        text: `[replying to ${replyTo.sender}] ${text}`,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: new Date().toISOString(),
+        participants,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.aiTags) {
+          updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+            aiTags: data.aiTags,
+          }).catch(err => console.warn('Failed to save tags to Firestore:', err))
+          saveCanonicalTag(data.aiTags)
+        }
+      })
+      .catch(err => console.error('Tagging failed:', err))
+
+    await updateDoc(doc(db, 'groups', groupId), {
+      updatedAt: serverTimestamp(),
+    })
+
+    return docRef.id
+  } catch (error) {
+    console.error('Error sending group message with reply:', error)
+    throw error
+  }
+}
+
+/**
+ * Send a group message with media (images and/or videos)
+ */
+export async function sendGroupMessageWithMedia(
+  groupId,
+  user,
+  text = '',
+  imageUrls = [],
+  muxPlaybackIds = [],
+  replyTo = null,
+  mediaDimensions = [],
+  linkPreview = null,
+  options = {},
+  recentMessages = []
+) {
+  if (!user || !groupId || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+
+  const { isPrivate = false, privateFor = null } = options
+
+  try {
+    const messagesRef = collection(db, 'groups', groupId, 'messages')
+    const messageData = {
+      text: text,
+      imageUrl: imageUrls[0] || null,
+      imageUrls: imageUrls.length > 0 ? imageUrls : null,
+      muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      mediaDimensions: mediaDimensions.length > 0 ? mediaDimensions : null,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      senderEmail: user.email,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    }
+
+    if (linkPreview) {
+      messageData.linkPreview = linkPreview
+    }
+
+    if (isPrivate) {
+      messageData.isPrivate = true
+      messageData.privateFor = privateFor || user.uid
+    }
+
+    if (replyTo) {
+      const replyData = {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text || '',
+      }
+      if (replyTo.imageUrl) replyData.imageUrl = replyTo.imageUrl
+      if (replyTo.imageUrls?.length) replyData.imageUrls = replyTo.imageUrls
+      if (replyTo.audioUrl) replyData.audioUrl = replyTo.audioUrl
+      if (replyTo.muxPlaybackIds?.length) replyData.muxPlaybackIds = replyTo.muxPlaybackIds
+      messageData.replyTo = replyData
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
+
+    // Get group info for participants
+    const groupSnap = await getDoc(doc(db, 'groups', groupId))
+    const groupData = groupSnap.data()
+    const participants = Object.keys(groupData?.members || {})
+
+    // Tag text if present
+    if (text) {
+      fetch('/api/tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: groupId,
+          chatType: 'group',
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+          participants,
+        }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.aiTags) {
+            updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+              aiTags: data.aiTags,
+            }).catch(err => console.warn('Failed to save tags to Firestore:', err))
+            saveCanonicalTag(data.aiTags)
+          }
+        })
+        .catch(err => console.error('Tagging failed:', err))
+    }
+
+    // Sync images to Ragie
+    if (imageUrls.length > 0) {
+      const contextMessages = (recentMessages || [])
+        .slice(-15)
+        .map(m => ({ sender: m.sender, text: m.text }))
+        .filter(m => m.text)
+
+      fetch('/api/ragie/sync-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: docRef.id,
+          chatId: groupId,
+          chatType: 'group',
+          imageUrls,
+          text,
+          sender: user.displayName || user.email,
+          senderEmail: user.email,
+          senderId: user.uid,
+          timestamp: new Date().toISOString(),
+          participants,
+          recentMessages: contextMessages,
+        }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.analysis) {
+            updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+              imageAnalysis: data.analysis,
+            }).catch(err => console.warn('Failed to save image analysis:', err))
+          }
+        })
+        .catch(err => console.error('Image analysis failed:', err))
+    }
+
+    await updateDoc(doc(db, 'groups', groupId), {
+      updatedAt: serverTimestamp(),
+    })
+
+    return docRef.id
+  } catch (error) {
+    console.error('Error sending group message with media:', error)
+    throw error
+  }
+}
+
+/**
+ * Send a group message with audio
+ */
+export async function sendGroupMessageWithAudio(
+  groupId,
+  user,
+  audioUrl,
+  audioDuration,
+  replyTo = null
+) {
+  if (!user || !audioUrl || !groupId) return
+
+  try {
+    const messagesRef = collection(db, 'groups', groupId, 'messages')
+    const messageData = {
+      text: '',
+      audioUrl: audioUrl,
+      audioDuration: audioDuration || 0,
+      sender: user.displayName || user.email,
+      senderId: user.uid,
+      senderEmail: user.email,
+      photoURL: user.photoURL || '',
+      timestamp: serverTimestamp(),
+    }
+
+    if (replyTo) {
+      messageData.replyTo = {
+        msgId: replyTo.msgId,
+        sender: replyTo.sender,
+        text: replyTo.text,
+      }
+    }
+
+    const docRef = await addDoc(messagesRef, messageData)
+
+    // Get group info for participants
+    const groupSnap = await getDoc(doc(db, 'groups', groupId))
+    const groupData = groupSnap.data()
+    const participants = Object.keys(groupData?.members || {})
+
+    // Transcribe audio
+    fetch('/api/media/transcribe-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audioUrl: audioUrl,
+        messageId: docRef.id,
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        enableSpeakerDiarization: true,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.transcription?.text) {
+          // Save transcription
+          updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+            transcription: {
+              text: data.transcription.text,
+              formatted: data.transcription.formatted,
+              tldr: data.transcription.tldr || null,
+              speakerCount: data.transcription.speakerCount,
+              confidence: data.transcription.confidence,
+            },
+          }).catch(err => console.warn('Failed to save transcription:', err))
+
+          // Tag for Ragie
+          fetch('/api/tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageId: docRef.id,
+              chatId: groupId,
+              chatType: 'group',
+              text: `[Voice Message] ${data.transcription.text}`,
+              sender: user.displayName || user.email,
+              senderEmail: user.email,
+              senderId: user.uid,
+              timestamp: new Date().toISOString(),
+              participants,
+              isVoiceMessage: true,
+            }),
+          })
+            .then(res => res.json())
+            .then(tagData => {
+              if (tagData.aiTags) {
+                updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+                  aiTags: tagData.aiTags,
+                }).catch(err => console.warn('Failed to save voice tags:', err))
+                saveCanonicalTag(tagData.aiTags)
+              }
+            })
+            .catch(err => console.error('Voice message tagging failed:', err))
+        }
+      })
+      .catch(err => console.error('Audio transcription failed:', err))
+
+    await updateDoc(doc(db, 'groups', groupId), {
+      updatedAt: serverTimestamp(),
+    })
+
+    return docRef.id
+  } catch (error) {
+    console.error('Error sending group message with audio:', error)
+    throw error
+  }
+}
+
+/**
+ * Subscribe to last message in groups (for sidebar previews)
+ */
+export function subscribeToGroupLastMessages(groupIds, callback, userId = null) {
+  if (!groupIds || groupIds.length === 0) {
+    callback({})
+    return () => {}
+  }
+
+  const unsubscribes = []
+  const lastMessages = {}
+  const lastMessageIds = {}
+
+  groupIds.forEach(groupId => {
+    const messagesRef = collection(db, 'groups', groupId, 'messages')
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(10))
+
+    const unsubscribe = onSnapshot(
+      q,
+      snapshot => {
+        let newMessageId = null
+        let newMessage = null
+
+        if (!snapshot.empty) {
+          // Find first non-private message (or private but visible to this user)
+          const visibleMessage = snapshot.docs.find(doc => {
+            const data = doc.data()
+            return !data.isPrivate || (userId && (data.privateFor === userId || data.senderId === userId))
+          })
+
+          if (visibleMessage) {
+            newMessageId = visibleMessage.id
+            newMessage = {
+              id: visibleMessage.id,
+              ...visibleMessage.data(),
+            }
+          }
+        }
+
+        if (lastMessageIds[groupId] !== newMessageId) {
+          lastMessageIds[groupId] = newMessageId
+          lastMessages[groupId] = newMessage
+          callback({ ...lastMessages })
+        }
+      },
+      error => {
+        console.error(`Error loading last message for group ${groupId}:`, error)
+      }
+    )
+    unsubscribes.push(unsubscribe)
+  })
+
+  return () => {
+    unsubscribes.forEach(unsub => unsub())
+  }
+}
+
+/**
+ * Update group name
+ */
+export async function updateGroupName(groupId, newName) {
+  if (!groupId) return
+
+  try {
+    await updateDoc(doc(db, 'groups', groupId), {
+      name: newName || null, // null means use auto-generated name
+      updatedAt: serverTimestamp(),
+    })
+    console.log('📝 Group name updated:', groupId, '→', newName || '(auto)')
+  } catch (error) {
+    console.error('Error updating group name:', error)
+    throw error
+  }
+}
+
+/**
+ * Leave a group (remove self)
+ */
+export async function leaveGroup(groupId, userId) {
+  if (!groupId || !userId) return
+
+  try {
+    await removeGroupMember(groupId, userId)
+    console.log('👋 Left group:', groupId)
+  } catch (error) {
+    console.error('Error leaving group:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete a group (only if you're the creator or last member)
+ */
+export async function deleteGroup(groupId) {
+  if (!groupId) return
+
+  try {
+    // Delete all messages in the group first
+    const messagesRef = collection(db, 'groups', groupId, 'messages')
+    const messagesSnap = await getDocs(messagesRef)
+    const deletePromises = messagesSnap.docs.map(doc => deleteDoc(doc.ref))
+    await Promise.all(deletePromises)
+
+    // Delete the group document
+    await deleteDoc(doc(db, 'groups', groupId))
+    console.log('🗑️ Group deleted:', groupId)
+  } catch (error) {
+    console.error('Error deleting group:', error)
+    throw error
+  }
+}

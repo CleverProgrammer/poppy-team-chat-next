@@ -17,9 +17,12 @@ export default function Sidebar({
   unreadChats = [],
   lastMessages = {},
   channelLastMessages = {},
+  groupLastMessages = {},
+  groups = [],
   aiLastMessage = null,
   isOpen = false,
   onOpenSearch,
+  onCreateGroup,
 }) {
   const { user, setPasswordForAccount } = useAuth()
   const { isDevMode, toggleDevMode, canAccessDevMode } = useDevMode()
@@ -142,6 +145,15 @@ export default function Sidebar({
       id: dmUser.uid,
       name: dmUser.displayName || dmUser.email,
       user: dmUser,
+    })
+  }
+
+  const handleGroupClick = group => {
+    onSelectChat({
+      type: 'group',
+      id: group.id,
+      name: group.displayName || group.name || 'Group Chat',
+      group: group,
     })
   }
 
@@ -522,6 +534,99 @@ export default function Sidebar({
             </div>
           )
         })()}
+
+        {/* Groups Section */}
+        {groups.length > 0 && (
+          <>
+            {groups.map(group => {
+              const isActive = currentChat?.type === 'group' && currentChat?.id === group.id
+              const isUnread = unreadChats.includes(`group:${group.id}`)
+              const lastMsg = groupLastMessages[group.id]
+              
+              // Generate stacked avatars (up to 3)
+              const memberAvatars = (group.memberAvatars || []).slice(0, 3)
+              const memberNames = (group.memberNames || []).slice(0, 3)
+              
+              return (
+                <div
+                  key={`group-${group.id}`}
+                  className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
+                  onClick={() => handleGroupClick(group)}
+                >
+                  <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
+                  
+                  <div className='dm-avatar-container group-avatar-stack'>
+                    {memberAvatars.length > 0 ? (
+                      <div className='group-avatars'>
+                        {memberAvatars.map((avatar, idx) => (
+                          avatar ? (
+                            <img 
+                              key={idx}
+                              src={avatar} 
+                              alt={memberNames[idx] || 'Member'} 
+                              className='group-avatar-mini'
+                              style={{ 
+                                zIndex: 3 - idx,
+                                marginLeft: idx > 0 ? '-8px' : '0'
+                              }}
+                            />
+                          ) : (
+                            <div 
+                              key={idx}
+                              className='group-avatar-mini-fallback'
+                              style={{ 
+                                zIndex: 3 - idx,
+                                marginLeft: idx > 0 ? '-8px' : '0'
+                              }}
+                            >
+                              {(memberNames[idx] || '?')[0].toUpperCase()}
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='dm-avatar-fallback group-avatar'>
+                        👥
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className='dm-content'>
+                    <div className='dm-header-row'>
+                      <span className='dm-name'>{group.displayName || group.name || 'Group Chat'}</span>
+                      <span className='dm-timestamp'>{formatTimestamp(lastMsg?.timestamp)}</span>
+                    </div>
+                    <div className='dm-preview'>
+                      {getPreviewText(lastMsg)}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+        
+        {/* Create Group Button */}
+        {onCreateGroup && (
+          <div
+            className='dm-item-imessage create-group-item'
+            onClick={onCreateGroup}
+          >
+            <div className='dm-avatar-container'>
+              <div className='dm-avatar-fallback create-group-icon'>
+                ＋
+              </div>
+            </div>
+            <div className='dm-content'>
+              <div className='dm-header-row'>
+                <span className='dm-name'>New Group</span>
+              </div>
+              <div className='dm-preview'>
+                Start a group conversation
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Direct Messages */}
         {sortedDMs.map(dmUserId => {

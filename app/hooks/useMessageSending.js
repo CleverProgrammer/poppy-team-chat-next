@@ -4,15 +4,19 @@ import { useState, useCallback, useRef } from 'react';
 import {
   sendMessage,
   sendMessageDM,
+  sendGroupMessage,
   getDMId,
   uploadImage,
   uploadAudio,
   sendMessageWithMedia,
   sendMessageDMWithMedia,
+  sendGroupMessageWithMedia,
   sendMessageWithAudio,
   sendMessageDMWithAudio,
+  sendGroupMessageWithAudio,
   sendMessageWithReply,
   sendMessageDMWithReply,
+  sendGroupMessageWithReply,
   editMessage,
   sendAIMessage,
   setUserTyping,
@@ -307,7 +311,7 @@ export function useMessageSending({
             });
           }, 0);
         }
-      } else {
+      } else if (currentChat.type === 'dm') {
         const dmId = getDMId(user.uid, currentChat.id);
         // Find recipient from allUsers for Ragie metadata
         const recipient = allUsers.find(u => u.uid === currentChat.id) || null;
@@ -328,6 +332,30 @@ export function useMessageSending({
             markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
               console.error('Failed to mark DM as unread:', err)
             );
+          }, 0);
+        }
+      } else if (currentChat.type === 'group') {
+        // Send group message with optional media, reply, and link preview
+        if (hasMedia) {
+          await sendGroupMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions, messages);
+        } else if (currentReplyingTo) {
+          await sendGroupMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview, privateOptions);
+        } else {
+          await sendGroupMessage(currentChat.id, user, messageText, linkPreview, privateOptions);
+        }
+
+        // Mark as unread for all group members (async, non-blocking)
+        // Skip for private messages
+        if (!isPrivate) {
+          setTimeout(() => {
+            const groupMembers = currentChat.group?.members || {};
+            Object.keys(groupMembers).forEach(memberId => {
+              if (memberId !== user.uid) {
+                markChatAsUnread(memberId, 'group', currentChat.id).catch(err =>
+                  console.error('Failed to mark group as unread:', err)
+                );
+              }
+            });
           }, 0);
         }
       }
@@ -403,6 +431,20 @@ export function useMessageSending({
             console.error('Failed to mark DM as unread:', err)
           );
         }, 0);
+      } else if (currentChat.type === 'group') {
+        await sendGroupMessageWithMedia(currentChat.id, user, '', [], [muxPlaybackId], replyTo);
+        
+        // Mark as unread for all group members
+        setTimeout(() => {
+          const groupMembers = currentChat.group?.members || {};
+          Object.keys(groupMembers).forEach(memberId => {
+            if (memberId !== user.uid) {
+              markChatAsUnread(memberId, 'group', currentChat.id).catch(err =>
+                console.error('Failed to mark group as unread:', err)
+              );
+            }
+          });
+        }, 0);
       }
     } catch (error) {
       console.error('Error sending video reply:', error);
@@ -473,6 +515,20 @@ export function useMessageSending({
           markChatAsUnread(currentChat.id, 'dm', user.uid).catch(err =>
             console.error('Failed to mark DM as unread:', err)
           );
+        }, 0);
+      } else if (currentChat.type === 'group') {
+        await sendGroupMessageWithAudio(currentChat.id, user, audioUrl, duration);
+        
+        // Mark as unread for all group members
+        setTimeout(() => {
+          const groupMembers = currentChat.group?.members || {};
+          Object.keys(groupMembers).forEach(memberId => {
+            if (memberId !== user.uid) {
+              markChatAsUnread(memberId, 'group', currentChat.id).catch(err =>
+                console.error('Failed to mark group as unread:', err)
+              );
+            }
+          });
         }, 0);
       }
 

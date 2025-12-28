@@ -6,6 +6,8 @@ import { Capacitor } from '@capacitor/core'
 import {
   subscribeToMessages,
   subscribeToMessagesDM,
+  subscribeToGroupMessages,
+  subscribeToGroup,
   subscribeToUsers,
   subscribeToActiveDMs,
   subscribeToAIMessages,
@@ -346,6 +348,73 @@ export function useSubscriptions({
         },
         100
       ) // Load 100 initial messages
+    } else if (currentChat.type === 'group') {
+      // Subscribe to group messages
+      const messagesUnsub = subscribeToGroupMessages(
+        currentChat.id,
+        newMessages => {
+          const filteredMessages = filterPrivateMessages(newMessages)
+          setMessages(filteredMessages)
+          messagesRef.current = filteredMessages
+          setCurrentMessages(filteredMessages)
+          cacheMessages(filteredMessages)
+          markChatAsRead(user.uid, currentChat.type, currentChat.id)
+        },
+        100
+      ) // Load 100 initial messages
+
+      // Also subscribe to the group document to detect if user is removed AND update group data
+      const groupUnsub = subscribeToGroup(currentChat.id, groupData => {
+        if (!groupData) {
+          // Group was deleted, redirect to general
+          console.log('🚪 Group was deleted, redirecting to general')
+          const defaultChat = { type: 'channel', id: 'general', name: 'general' }
+          setCurrentChat(defaultChat)
+          localStorage.setItem('poppy_current_chat', JSON.stringify(defaultChat))
+          return
+        }
+
+        // Check if user is still a member
+        const isMember = groupData.members && groupData.members[user.uid]
+        if (!isMember) {
+          console.log('🚪 User was removed from group, redirecting to general')
+          const defaultChat = { type: 'channel', id: 'general', name: 'general' }
+          setCurrentChat(defaultChat)
+          localStorage.setItem('poppy_current_chat', JSON.stringify(defaultChat))
+          return
+        }
+
+        // Update currentChat.group with latest data (for header to show updated members)
+        // Use functional update to avoid dependency on currentChat in this callback
+        setCurrentChat(prev => {
+          // Only update if this is still the same group
+          if (prev?.type !== 'group' || prev?.id !== currentChat.id) {
+            return prev // Different chat now, don't update
+          }
+          
+          // Check if member IDs changed to avoid unnecessary re-renders
+          const prevMemberIds = Object.keys(prev.group?.members || {}).sort().join(',')
+          const newMemberIds = Object.keys(groupData.members || {}).sort().join(',')
+          
+          if (prevMemberIds === newMemberIds) {
+            return prev // Same members, no need to update
+          }
+          
+          // Members changed, update the group data
+          console.log('👥 Group members changed, updating header:', newMemberIds)
+          return {
+            ...prev,
+            group: groupData,
+            name: groupData.displayName || groupData.name || prev.name,
+          }
+        })
+      })
+
+      // Combine both unsubscribes
+      unsubscribe = () => {
+        messagesUnsub()
+        groupUnsub()
+      }
     } else if (currentChat.type === 'ai') {
       unsubscribe = subscribeToAIMessages(user.uid, newMessages => {
         setMessages(newMessages)

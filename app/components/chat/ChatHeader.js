@@ -18,6 +18,7 @@ export default function ChatHeader({
   currentUserId, // Current logged-in user's ID for DM stories
   currentUser = null, // Current user object for story view tracking
   messages = [], // Messages for cost calculation
+  onOpenGroupInfo, // Callback to open GroupInfoModal
 }) {
   const { isDevMode } = useDevMode()
   const [showTasksModal, setShowTasksModal] = useState(false)
@@ -75,7 +76,68 @@ export default function ChatHeader({
   const getSubtitle = () => {
     if (currentChat.type === 'channel') return 'Team chat'
     if (currentChat.type === 'ai') return 'AI Assistant'
+    if (currentChat.type === 'group') {
+      // Use computed groupMembers length (more reliable than denormalized memberCount)
+      const memberCount =
+        groupMembers.length || Object.keys(currentChat.group?.members || {}).length || 0
+      return `${memberCount} People`
+    }
     return ''
+  }
+
+  // Compute group members from the members map (more reliable than denormalized arrays)
+  const groupMembers = useMemo(() => {
+    if (currentChat.type !== 'group' || !currentChat.group?.members) return []
+
+    return Object.entries(currentChat.group.members).map(([uid, memberData]) => {
+      // Try to find latest user data from allUsers
+      const fullUser = allUsers?.find(u => u.uid === uid)
+      return {
+        uid,
+        displayName:
+          fullUser?.displayName ||
+          memberData.displayName ||
+          memberData.email?.split('@')[0] ||
+          'Unknown',
+        photoURL: fullUser?.photoURL || memberData.photoURL || '',
+      }
+    })
+  }, [currentChat.type, currentChat.group?.members, allUsers])
+
+  // Get group member avatars for stacked display
+  const getGroupAvatars = () => {
+    if (currentChat.type !== 'group') return null
+    const displayMembers = groupMembers.slice(0, 3)
+
+    return (
+      <div className='group-header-avatars'>
+        {displayMembers.map((member, idx) =>
+          member.photoURL ? (
+            <img
+              key={member.uid}
+              src={member.photoURL}
+              alt={member.displayName}
+              className='group-header-avatar-mini'
+              style={{
+                zIndex: 3 - idx,
+                marginLeft: idx > 0 ? '-10px' : '0',
+              }}
+            />
+          ) : (
+            <div
+              key={member.uid}
+              className='group-header-avatar-mini-fallback'
+              style={{
+                zIndex: 3 - idx,
+                marginLeft: idx > 0 ? '-10px' : '0',
+              }}
+            >
+              {(member.displayName || '?')[0].toUpperCase()}
+            </div>
+          )
+        )}
+      </div>
+    )
   }
 
   // Get user photo for DMs
@@ -120,6 +182,9 @@ export default function ChatHeader({
         </DMStoryRing>
       )
     }
+    if (currentChat.type === 'group') {
+      return getGroupAvatars()
+    }
     // Channel - wrap with story ring for all channels
     const channelAvatar = <div className='chat-header-avatar chat-header-avatar-channel'>#</div>
     return (
@@ -154,6 +219,9 @@ export default function ChatHeader({
           {avatarContent}
         </DMStoryRing>
       )
+    }
+    if (currentChat.type === 'group') {
+      return getGroupAvatars()
     }
     // Channel - wrap with story ring for all channels
     const channelAvatar = (
@@ -209,7 +277,16 @@ export default function ChatHeader({
             <span className='chat-header-name-text'>
               {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
             </span>
-            <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
+            {currentChat.type === 'group' ? (
+              <button
+                className='chat-header-group-pill'
+                onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
+              >
+                {getSubtitle()} <span className='group-pill-chevron'>›</span>
+              </button>
+            ) : (
+              <span className='chat-header-subtitle-text'>{getSubtitle()}</span>
+            )}
           </div>
           {isDevMode && todayCost > 0 && (
             <span className='ml-2 text-[9px] text-gray-500 font-mono whitespace-nowrap'>
@@ -257,7 +334,16 @@ export default function ChatHeader({
         <div className='chat-header-name'>
           {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
         </div>
-        <div className='chat-header-status'>{getSubtitle()}</div>
+        {currentChat.type === 'group' ? (
+          <button
+            className='chat-header-group-pill-mobile'
+            onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
+          >
+            {getSubtitle()} <span className='group-pill-chevron'>›</span>
+          </button>
+        ) : (
+          <div className='chat-header-status'>{getSubtitle()}</div>
+        )}
 
         {/* Mobile buttons - right side */}
         <div className='absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2'>

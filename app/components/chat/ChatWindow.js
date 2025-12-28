@@ -18,6 +18,8 @@ import TasksSection from './TasksSection'
 import VideoRecorder from './VideoRecorder'
 import WebVideoRecorder from './WebVideoRecorder'
 import ThreadView from './ThreadView'
+import CreateGroupModal from './CreateGroupModal'
+import GroupInfoModal from './GroupInfoModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { useReactions } from '../../hooks/useReactions'
@@ -39,9 +41,14 @@ import {
   demotePostToMessage,
   loadOlderMessages,
   loadOlderMessagesDM,
+  loadOlderGroupMessages,
   sendMessageWithReply,
   sendMessageDMWithReply,
+  sendGroupMessageWithReply,
   toggleMessageVisibility,
+  subscribeToUserGroups,
+  subscribeToGroupMessages,
+  subscribeToGroupLastMessages,
 } from '../../lib/firestore'
 
 export default function ChatWindow() {
@@ -70,6 +77,10 @@ export default function ChatWindow() {
   const [threadView, setThreadView] = useState({ open: false, originalMessage: null }) // Thread view state
   const [aiMode, setAiMode] = useState(false) // AI mode toggle for input
   const [privateMode, setPrivateMode] = useState(false) // Private messages (only visible to sender)
+  const [groups, setGroups] = useState([]) // User's groups
+  const [groupLastMessages, setGroupLastMessages] = useState({}) // Last message for each group (sidebar preview)
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false) // Create group modal
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false) // Group info modal
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -815,11 +826,14 @@ export default function ChatWindow() {
       if (!text.trim() || !user || !currentChat) return
 
       const isDM = currentChat.type === 'dm'
+      const isGroup = currentChat.type === 'group'
       const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
 
       try {
         if (isDM) {
           await sendMessageDMWithReply(chatId, user, text, currentChat.id, replyTo)
+        } else if (isGroup) {
+          await sendGroupMessageWithReply(chatId, user, text, replyTo)
         } else {
           await sendMessageWithReply(chatId, user, text, replyTo)
         }
@@ -930,6 +944,30 @@ export default function ChatWindow() {
     }
   }, [user])
 
+  // Subscribe to user's groups
+  useEffect(() => {
+    if (!user) return
+
+    const unsubscribe = subscribeToUserGroups(user.uid, loadedGroups => {
+      setGroups(loadedGroups)
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
+  // Subscribe to group last messages (for sidebar previews)
+  useEffect(() => {
+    if (!user || groups.length === 0) {
+      setGroupLastMessages({})
+      return () => {}
+    }
+
+    const groupIds = groups.map(g => g.id)
+    const unsubscribe = subscribeToGroupLastMessages(groupIds, setGroupLastMessages, user.uid)
+
+    return () => unsubscribe()
+  }, [user, groups])
+
   // Subscribe to posts
   useEffect(() => {
     if (!currentChat) return
@@ -998,6 +1036,8 @@ export default function ChatWindow() {
       } else if (currentChat.type === 'dm') {
         const dmId = getDMId(user.uid, currentChat.id)
         olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp)
+      } else if (currentChat.type === 'group') {
+        olderMessages = await loadOlderGroupMessages(currentChat.id, oldestItem.timestamp)
       }
 
       console.log(`📜 Loaded ${olderMessages.length} older messages`)
@@ -1104,6 +1144,35 @@ export default function ChatWindow() {
         }}
         onVideoRecorded={handleWebVideoRecorded}
       />
+
+      {/* Create Group Modal */}
+      {showCreateGroupModal && (
+        <CreateGroupModal
+          user={user}
+          allUsers={allUsers}
+          onClose={() => setShowCreateGroupModal(false)}
+          onGroupCreated={(groupData) => {
+            // Select the newly created group
+            handleSelectChat({
+              type: 'group',
+              id: groupData.id,
+              name: groupData.memberNames?.join(', ') || 'Group Chat',
+              group: groupData,
+            })
+          }}
+        />
+      )}
+
+      {/* Group Info Modal */}
+      {showGroupInfoModal && currentChat?.type === 'group' && (
+        <GroupInfoModal
+          groupId={currentChat.id}
+          group={currentChat.group}
+          user={user}
+          allUsers={allUsers}
+          onClose={() => setShowGroupInfoModal(false)}
+        />
+      )}
 
       {/* Thread View - iMessage style overlay */}
       <ThreadView
@@ -1256,12 +1325,15 @@ export default function ChatWindow() {
           unreadChats={unreadChats}
           lastMessages={lastMessages}
           channelLastMessages={channelLastMessages}
+          groupLastMessages={groupLastMessages}
+          groups={groups}
           aiLastMessage={aiLastMessage}
           isOpen={isSidebarOpen}
           onOpenSearch={() => {
             setIsSidebarOpen(false)
             setIsPaletteOpen(true)
           }}
+          onCreateGroup={() => setShowCreateGroupModal(true)}
         />
 
         {/* Chat Container */}
@@ -1277,6 +1349,7 @@ export default function ChatWindow() {
             currentUserId={user?.uid}
             currentUser={user}
             messages={messages}
+            onOpenGroupInfo={() => setShowGroupInfoModal(true)}
           />
 
           {viewMode === 'posts' ? (
