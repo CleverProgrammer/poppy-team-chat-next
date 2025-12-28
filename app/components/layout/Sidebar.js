@@ -8,6 +8,7 @@ import ChannelStoryRing from '../chat/ChannelStoryRing'
 import DMStoryRing from '../chat/DMStoryRing'
 import MyStoriesRing from '../chat/MyStoriesRing'
 import MyTasksModal from '../profile/MyTasksModal'
+import AnnouncementsModal from '../announcements/AnnouncementsModal'
 
 export default function Sidebar({
   currentChat,
@@ -29,6 +30,7 @@ export default function Sidebar({
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showMyTasks, setShowMyTasks] = useState(false)
+  const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -453,6 +455,15 @@ export default function Sidebar({
             <button
               className='user-menu-item'
               onClick={() => {
+                setShowAnnouncements(true)
+                setShowUserMenu(false)
+              }}
+            >
+              📢 Announcements
+            </button>
+            <button
+              className='user-menu-item'
+              onClick={() => {
                 setShowPasswordModal(true)
                 setShowUserMenu(false)
               }}
@@ -794,6 +805,13 @@ export default function Sidebar({
           onSelectChat={onSelectChat}
         />
       )}
+
+      {/* Announcements Modal */}
+      <AnnouncementsModal
+        isOpen={showAnnouncements}
+        onClose={() => setShowAnnouncements(false)}
+        user={user}
+      />
     </div>
   )
 }

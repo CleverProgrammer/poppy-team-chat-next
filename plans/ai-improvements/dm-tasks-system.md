@@ -1,10 +1,76 @@
-# DM Tasks System
+# Task System (DMs, Channels & Groups)
 
 ## The Goal
 
 **Turn conversations into actionable to-dos automatically.**
 
 When someone says "send me the report by Friday" or "can you review this PR", the system detects it's a task and creates a trackable to-do item. No manual task creation needed — just chat naturally.
+
+---
+
+## 🚨 Current Status & Known Gaps
+
+| Feature | DMs | Channels | Groups |
+|---------|-----|----------|--------|
+| Task detection (AI tagging) | ✅ Works | ✅ Works | ✅ Indexed, but... |
+| Task creation (`handleTasksFromMessage`) | ✅ Works | ⚠️ Untested | ❌ **NOT CALLED** |
+| Task completion from gratitude | ✅ Works | ⚠️ Untested | ❌ **NOT CALLED** |
+| Task assignee resolution | ✅ DM recipient | ⚠️ Uses chatId | ❌ **No group handling** |
+
+### What's Broken in Groups
+
+**1. `handleTasksFromMessage` is never called in group message functions**
+
+The group message functions (`sendGroupMessage`, `sendGroupMessageWithReply`, etc.) in `app/lib/firestore.js` do tag messages via `/api/tag`, but they **don't call `handleTasksFromMessage`** after receiving `aiTags`:
+
+```javascript
+// Current (broken) - around line 3742
+.then(data => {
+  if (data.aiTags) {
+    updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), { aiTags: data.aiTags })
+    saveCanonicalTag(data.aiTags)
+    // ❌ MISSING: handleTasksFromMessage call!
+  }
+})
+```
+
+**2. `createTaskFromMessage` doesn't handle `chatType === 'group'`**
+
+The function only handles DM and defaults to channel:
+
+```javascript
+// Current (incomplete) - around line 2807
+if (chatType === 'dm') {
+  chatName = recipient?.displayName || recipient?.email || 'Direct Message'
+} else {
+  chatName = chatId // ← Defaults to channel, but group IDs are ugly
+}
+// ❌ MISSING: else if (chatType === 'group') handling
+```
+
+### Fix Required (Not Yet Implemented)
+
+1. **Add `handleTasksFromMessage` calls** to all group message functions in `firestore.js`:
+   - `sendGroupMessage`
+   - `sendGroupMessageWithReply`
+   - `sendGroupMessageWithMedia`
+   - `sendGroupMessageWithAudio`
+
+2. **Update `createTaskFromMessage`** to handle groups:
+   ```javascript
+   if (chatType === 'dm') {
+     chatName = recipient?.displayName || 'Direct Message'
+   } else if (chatType === 'group') {
+     // Fetch group name from Firestore or pass it in
+     chatName = groupName || 'Group Chat'
+   } else {
+     chatName = chatId // Channel
+   }
+   ```
+
+3. **Pass group context** to `handleTasksFromMessage`:
+   - Group name (for display)
+   - Group members (for assignee resolution via @mentions)
 
 ---
 
@@ -448,6 +514,18 @@ The system works if:
 
 ## Future Improvements
 
+### Priority 1: Group Tasks (Blocking)
+- [ ] **Call `handleTasksFromMessage` in group message functions**
+- [ ] **Add `chatType === 'group'` handling in `createTaskFromMessage`**
+- [ ] Pass group name and members to task creation
+- [ ] Test assignee resolution with @mentions in groups
+
+### Priority 2: Channel Tasks (Verify)
+- [ ] Confirm `handleTasksFromMessage` is called in channel functions
+- [ ] Test assignee detection in channels
+- [ ] Add channel name display in task UI
+
+### Priority 3: Enhancements
 - [ ] Assignee ID mapping (currently just display name)
 - [ ] Push notifications for new tasks assigned to you
 - [ ] Calendar integration for due dates

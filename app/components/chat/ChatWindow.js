@@ -20,6 +20,7 @@ import WebVideoRecorder from './WebVideoRecorder'
 import ThreadView from './ThreadView'
 import CreateGroupModal from './CreateGroupModal'
 import GroupInfoModal from './GroupInfoModal'
+import AnnouncementPopup from '../announcements/AnnouncementPopup'
 import { useAuth } from '../../contexts/AuthContext'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { useReactions } from '../../hooks/useReactions'
@@ -49,6 +50,7 @@ import {
   subscribeToUserGroups,
   subscribeToGroupMessages,
   subscribeToGroupLastMessages,
+  subscribeToUnreadAnnouncements,
 } from '../../lib/firestore'
 
 export default function ChatWindow() {
@@ -81,6 +83,7 @@ export default function ChatWindow() {
   const [groupLastMessages, setGroupLastMessages] = useState({}) // Last message for each group (sidebar preview)
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false) // Create group modal
   const [showGroupInfoModal, setShowGroupInfoModal] = useState(false) // Group info modal
+  const [unreadAnnouncement, setUnreadAnnouncement] = useState(null) // Current unread announcement to show
   const messageListRef = useRef(null)
   const virtuosoRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -99,6 +102,25 @@ export default function ChatWindow() {
       if (savedPrivateMode !== null) setPrivateMode(savedPrivateMode === 'true')
     }
   }, [])
+
+  // Subscribe to unread announcements (real-time updates)
+  // This ensures:
+  // 1. Dismissed announcements don't show again on refresh
+  // 2. New announcements pop up immediately without refresh
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const unsubscribe = subscribeToUnreadAnnouncements(user.uid, (unread) => {
+      if (unread.length > 0) {
+        // Show the most recent unread announcement
+        setUnreadAnnouncement(unread[0])
+      } else {
+        setUnreadAnnouncement(null)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user?.uid])
 
   // Save AI mode settings to localStorage
   useEffect(() => {
@@ -1172,6 +1194,15 @@ export default function ChatWindow() {
           user={user}
           allUsers={allUsers}
           onClose={() => setShowGroupInfoModal(false)}
+        />
+      )}
+
+      {/* Announcement Popup - shows for unread announcements */}
+      {unreadAnnouncement && (
+        <AnnouncementPopup
+          announcement={unreadAnnouncement}
+          userId={user?.uid}
+          onDismiss={() => setUnreadAnnouncement(null)}
         />
       )}
 

@@ -21,6 +21,22 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from './firebase'
 
+/**
+ * Get current timestamp in Pacific Time as ISO string
+ * Used for Ragie indexing to make time-based queries more intuitive for PT-based users
+ */
+function getPacificTimestamp() {
+  return new Date().toLocaleString('sv-SE', { 
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).replace(' ', 'T') + '.000Z'
+}
+
 // Fun adjectives and animals for human-readable task IDs
 const TASK_ID_ADJECTIVES = [
   'swift',
@@ -168,6 +184,18 @@ export async function saveUser(user) {
   }
 }
 
+// Channel ID to display name mapping
+const CHANNEL_NAMES = {
+  'general': 'general',
+  'dev-gang': 'Dev Gang 💯',
+  'test': 'test',
+}
+
+// Get channel display name (falls back to ID if not mapped)
+function getChannelName(channelId) {
+  return CHANNEL_NAMES[channelId] || channelId
+}
+
 export async function sendMessage(channelId, user, text, linkPreview = null, options = {}) {
   if (!user || !text.trim()) return
 
@@ -206,11 +234,12 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
         messageId: docRef.id,
         chatId: channelId,
         chatType: 'channel',
+        chatName: getChannelName(channelId),
         text,
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
       }),
     })
       .then(res => res.json())
@@ -379,7 +408,7 @@ export async function sendMessageDM(
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
         participants: dmId.split('_').slice(1), // Extract user IDs from dmId
         // Recipient info for DMs
         recipientId: recipientId,
@@ -859,11 +888,12 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
           messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
+          chatName: getChannelName(channelId),
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
         }),
       })
         .then(res => res.json())
@@ -887,12 +917,13 @@ export async function sendMessageWithImage(channelId, user, imageUrl, text = '',
           messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
+          chatName: getChannelName(channelId),
           imageUrl: allImageUrls[0],
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
         }),
       })
         .then(res => res.json())
@@ -954,7 +985,7 @@ export async function sendMessageDMWithImage(
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
@@ -994,7 +1025,7 @@ export async function sendMessageDMWithImage(
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
@@ -1091,11 +1122,12 @@ export async function sendMessageWithMedia(
           messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
+          chatName: getChannelName(channelId),
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
         }),
       })
         .then(res => res.json())
@@ -1125,12 +1157,13 @@ export async function sendMessageWithMedia(
           messageId: docRef.id,
           chatId: channelId,
           chatType: 'channel',
+          chatName: getChannelName(channelId),
           imageUrls, // Send all images for batch analysis
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           recentMessages: contextMessages,
         }),
       })
@@ -1226,7 +1259,7 @@ export async function sendMessageDMWithMedia(
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
@@ -1279,7 +1312,7 @@ export async function sendMessageDMWithMedia(
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           participants: dmId.split('_').slice(1),
           recipientId: recipientId,
           recipientName: recipient?.displayName || recipient?.email || null,
@@ -1349,11 +1382,12 @@ export async function sendMessageWithAudio(
         messageId: docRef.id,
         chatId: channelId,
         chatType: 'channel',
+        chatName: getChannelName(channelId),
         text: '',
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
       }),
     })
       .then(res => res.json())
@@ -1409,11 +1443,12 @@ export async function sendMessageWithAudio(
               messageId: docRef.id,
               chatId: channelId,
               chatType: 'channel',
+              chatName: getChannelName(channelId),
               text: `[Voice Message] ${data.transcription.text}`,
               sender: user.displayName || user.email,
               senderEmail: user.email,
               senderId: user.uid,
-              timestamp: new Date().toISOString(),
+              timestamp: getPacificTimestamp(),
               isVoiceMessage: true,
             }),
           })
@@ -1484,7 +1519,7 @@ export async function sendMessageDMWithAudio(
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
         participants: dmId.split('_').slice(1),
         recipientId: recipientId,
         recipientName: recipient?.displayName || recipient?.email || null,
@@ -1562,7 +1597,7 @@ export async function sendMessageDMWithAudio(
               sender: user.displayName || user.email,
               senderEmail: user.email,
               senderId: user.uid,
-              timestamp: new Date().toISOString(),
+              timestamp: getPacificTimestamp(),
               participants: dmId.split('_').slice(1),
               recipientId: recipientId,
               recipientName: recipient?.displayName || recipient?.email || null,
@@ -1866,11 +1901,12 @@ export async function sendMessageWithReply(
         messageId: docRef.id,
         chatId: channelId,
         chatType: 'channel',
+        chatName: getChannelName(channelId),
         text: `[replying to ${replyTo.sender}] ${text}`,
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
       }),
     })
       .then(res => res.json())
@@ -1952,7 +1988,7 @@ export async function sendMessageDMWithReply(
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
         participants: dmId.split('_').slice(1),
         recipientId: recipientId,
         recipientName: recipient?.displayName || recipient?.email || null,
@@ -2080,7 +2116,7 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
         sender: isAI ? 'Poppy AI' : user?.displayName || user?.email || 'User',
         senderEmail: isAI ? 'ai@poppy.chat' : user?.email || null,
         senderId: isAI ? 'ai' : userId,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
       }),
     })
       .then(res => res.json())
@@ -3695,10 +3731,12 @@ export async function sendGroupMessage(groupId, user, text, linkPreview = null, 
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Get group info for participants
+    // Get group info for participants and name
     const groupSnap = await getDoc(doc(db, 'groups', groupId))
     const groupData = groupSnap.data()
     const participants = Object.keys(groupData?.members || {})
+    // Group name: use custom name if set, otherwise join member names
+    const groupName = groupData?.name || groupData?.memberNames?.join(', ') || 'Group Chat'
 
     // Tag and index to Ragie
     fetch('/api/tag', {
@@ -3708,11 +3746,12 @@ export async function sendGroupMessage(groupId, user, text, linkPreview = null, 
         messageId: docRef.id,
         chatId: groupId,
         chatType: 'group',
+        chatName: groupName, // Human-readable group name for queries like "what did they say in [group name]"
         text,
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
         participants,
       }),
     })
@@ -3787,10 +3826,11 @@ export async function sendGroupMessageWithReply(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Get group info for participants
+    // Get group info for participants and name
     const groupSnap = await getDoc(doc(db, 'groups', groupId))
     const groupData = groupSnap.data()
     const participants = Object.keys(groupData?.members || {})
+    const groupName = groupData?.name || groupData?.memberNames?.join(', ') || 'Group Chat'
 
     // Tag and index to Ragie
     fetch('/api/tag', {
@@ -3800,11 +3840,12 @@ export async function sendGroupMessageWithReply(
         messageId: docRef.id,
         chatId: groupId,
         chatType: 'group',
+        chatName: groupName,
         text: `[replying to ${replyTo.sender}] ${text}`,
         sender: user.displayName || user.email,
         senderEmail: user.email,
         senderId: user.uid,
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
         participants,
       }),
     })
@@ -3888,10 +3929,11 @@ export async function sendGroupMessageWithMedia(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Get group info for participants
+    // Get group info for participants and name
     const groupSnap = await getDoc(doc(db, 'groups', groupId))
     const groupData = groupSnap.data()
     const participants = Object.keys(groupData?.members || {})
+    const groupName = groupData?.name || groupData?.memberNames?.join(', ') || 'Group Chat'
 
     // Tag text if present
     if (text) {
@@ -3902,11 +3944,12 @@ export async function sendGroupMessageWithMedia(
           messageId: docRef.id,
           chatId: groupId,
           chatType: 'group',
+          chatName: groupName,
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           participants,
         }),
       })
@@ -3936,12 +3979,13 @@ export async function sendGroupMessageWithMedia(
           messageId: docRef.id,
           chatId: groupId,
           chatType: 'group',
+          chatName: groupName,
           imageUrls,
           text,
           sender: user.displayName || user.email,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: new Date().toISOString(),
+          timestamp: getPacificTimestamp(),
           participants,
           recentMessages: contextMessages,
         }),
@@ -4003,10 +4047,11 @@ export async function sendGroupMessageWithAudio(
 
     const docRef = await addDoc(messagesRef, messageData)
 
-    // Get group info for participants
+    // Get group info for participants and name
     const groupSnap = await getDoc(doc(db, 'groups', groupId))
     const groupData = groupSnap.data()
     const participants = Object.keys(groupData?.members || {})
+    const groupName = groupData?.name || groupData?.memberNames?.join(', ') || 'Group Chat'
 
     // Transcribe audio
     fetch('/api/media/transcribe-audio', {
@@ -4043,11 +4088,12 @@ export async function sendGroupMessageWithAudio(
               messageId: docRef.id,
               chatId: groupId,
               chatType: 'group',
+              chatName: groupName,
               text: `[Voice Message] ${data.transcription.text}`,
               sender: user.displayName || user.email,
               senderEmail: user.email,
               senderId: user.uid,
-              timestamp: new Date().toISOString(),
+              timestamp: getPacificTimestamp(),
               participants,
               isVoiceMessage: true,
             }),
@@ -4203,6 +4249,132 @@ export async function deleteGroup(groupId) {
     console.log('🗑️ Group deleted:', groupId)
   } catch (error) {
     console.error('Error deleting group:', error)
+    throw error
+  }
+}
+
+// ============================================
+// ANNOUNCEMENTS
+// ============================================
+
+/**
+ * Create a new announcement (admin only)
+ */
+export async function createAnnouncement(adminUser, title, emoji, message) {
+  if (!adminUser || !title || !message) {
+    throw new Error('Missing required fields for announcement')
+  }
+
+  try {
+    const announcementData = {
+      title,
+      emoji: emoji || '📢',
+      message,
+      createdBy: adminUser.uid,
+      createdByName: adminUser.displayName || adminUser.email,
+      createdByPhoto: adminUser.photoURL || null,
+      createdAt: serverTimestamp(),
+      dismissedBy: [], // Track who has dismissed this announcement
+    }
+
+    const docRef = await addDoc(collection(db, 'announcements'), announcementData)
+    console.log('📢 Announcement created:', docRef.id)
+    return { id: docRef.id, ...announcementData }
+  } catch (error) {
+    console.error('Error creating announcement:', error)
+    throw error
+  }
+}
+
+/**
+ * Subscribe to all announcements (ordered by newest first)
+ */
+export function subscribeToAnnouncements(callback) {
+  const announcementsRef = collection(db, 'announcements')
+  const q = query(announcementsRef, orderBy('createdAt', 'desc'))
+
+  return onSnapshot(q, snapshot => {
+    const announcements = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+    callback(announcements)
+  })
+}
+
+/**
+ * Subscribe to unread announcements for a user (real-time updates)
+ * This is the key function for showing announcement popups - uses real-time subscription
+ * so dismissed announcements immediately disappear and new ones appear without refresh
+ */
+export function subscribeToUnreadAnnouncements(userId, callback) {
+  if (!userId) {
+    callback([])
+    return () => {}
+  }
+
+  const announcementsRef = collection(db, 'announcements')
+  const q = query(announcementsRef, orderBy('createdAt', 'desc'))
+
+  return onSnapshot(q, snapshot => {
+    const unread = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(announcement => !announcement.dismissedBy?.includes(userId))
+    callback(unread)
+  })
+}
+
+/**
+ * Get unread announcements for a user (not yet dismissed)
+ */
+export async function getUnreadAnnouncements(userId) {
+  if (!userId) return []
+
+  try {
+    const announcementsRef = collection(db, 'announcements')
+    const q = query(announcementsRef, orderBy('createdAt', 'desc'))
+    const snapshot = await getDocs(q)
+
+    const unread = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(announcement => !announcement.dismissedBy?.includes(userId))
+
+    return unread
+  } catch (error) {
+    console.error('Error getting unread announcements:', error)
+    return []
+  }
+}
+
+/**
+ * Dismiss an announcement for a user
+ */
+export async function dismissAnnouncement(announcementId, userId) {
+  if (!announcementId || !userId) return
+
+  try {
+    const announcementRef = doc(db, 'announcements', announcementId)
+    await updateDoc(announcementRef, {
+      dismissedBy: arrayUnion(userId),
+    })
+    console.log('✓ Announcement dismissed:', announcementId, 'by user:', userId)
+  } catch (error) {
+    console.error('Error dismissing announcement:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete an announcement (admin only)
+ */
+export async function deleteAnnouncement(announcementId) {
+  if (!announcementId) return
+
+  try {
+    await deleteDoc(doc(db, 'announcements', announcementId))
+    console.log('🗑️ Announcement deleted:', announcementId)
+  } catch (error) {
+    console.error('Error deleting announcement:', error)
     throw error
   }
 }

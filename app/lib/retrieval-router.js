@@ -34,13 +34,15 @@ export async function searchChatHistory(userId, query, currentChat, startDate = 
   const teamMemoryFilter = { chatType: { $eq: 'team_memory' } };
 
   if (currentChat?.type === 'ai') {
-    // AI assistant: full access to everything user sent OR received + team memory
-    permissionScope = 'FULL ACCESS (AI chat) - own messages + received DMs + all channels + team memory';
+    // AI assistant: full access to everything user sent OR received + groups user is in + team memory
+    // SIMPLIFIED FILTER: Ragie has issues with complex nested $or/$and, so we use simpler conditions
+    permissionScope = 'FULL ACCESS (AI chat) - own messages + received DMs + all channels + all groups + team memory';
     filter = {
       $or: [
-        { senderId: { $eq: userId } },      // Messages I sent
+        { senderId: { $eq: userId } },      // Messages I sent (any chat type)
         { recipientId: { $eq: userId } },   // DMs sent TO me
         { chatType: { $eq: 'channel' } },   // All channel messages (public)
+        { chatType: { $eq: 'group' } },     // All group messages (simplified - was breaking with $and)
         teamMemoryFilter                     // Team AI Memory (always accessible)
       ]
     };

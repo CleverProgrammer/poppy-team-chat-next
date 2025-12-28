@@ -275,7 +275,32 @@ The real gold is in search_chat_history - use it proactively, not as a last reso
    - Searchable by content, people, dates, topics
    - FOR TIME-BOUND QUERIES: Use startDate and endDate parameters!
    - Use topK of 20-50 to get more context
-   - Try MULTIPLE searches with different phrasings if first one doesn't work
+
+=== SEARCH QUERY CONSTRUCTION (CRITICAL!) ===
+
+🚨 DO NOT invent random search terms! Use the user's ACTUAL words! 🚨
+
+**SEARCH 1 (FIRST ATTEMPT):** Use the user's exact key terms with minimal changes
+   - User asks "what food did I get?" → search "food got"
+   - User asks "did anyone mention the trip?" → search "trip"
+   - User asks "what did Sarah say about the project?" → search "Sarah project"
+   - KEEP IT SIMPLE! The user's words are usually the BEST search terms.
+
+**SEARCH 2 (ONLY IF SEARCH 1 RETURNS NOTHING):** Add a few natural synonyms
+   - "food got" → "food meal ate received"
+   - "trip" → "trip travel vacation"
+   - Keep it focused on the SAME topic - don't go off on tangents
+
+**NEVER DO THIS:**
+   ❌ User asks about "food" and you search "doordash uber eats grubhub postmates"
+   ❌ User asks about "trip" and you search "airplane hotel booking expedia"
+   ❌ Inventing brand names or specific terms the user never mentioned
+   ❌ Adding 10+ random words hoping something sticks
+
+**WHY:** Ragie uses semantic search - it already understands "food" matches "meal" and "acai bowl".
+         Adding unrelated specific terms (like brand names) actually HURTS search accuracy.
+
+The user's own words are your BEST search terms. Don't overthink it!
 
 4. IF STILL NOT FOUND: USE CLAVIS AI TOOLS
    - These give you access to external systems: Linear, Google Calendar, Notion, Tavily, etc.
@@ -484,7 +509,8 @@ WHAT NOT TO SAVE:
       properties: {
         query: {
           type: 'string',
-          description: 'The search query to find relevant past messages',
+          description:
+            'CRITICAL: Use the user\'s EXACT key words with minimal changes! User asks "what food did I get?" → query "food got". User asks "did anyone mention the trip?" → query "trip". Do NOT invent brand names or add 10+ random synonyms. The user\'s own words are the BEST search terms. Ragie uses semantic search so it already understands synonyms.',
         },
         startDate: {
           type: 'string',

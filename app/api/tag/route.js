@@ -5,6 +5,22 @@ import { adminDb } from '../../lib/firebase-admin.js'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+/**
+ * Get current timestamp in Pacific Time as ISO string
+ * Used for Ragie indexing to make time-based queries more intuitive for PT-based users
+ */
+function getPacificTimestamp() {
+  return new Date().toLocaleString('sv-SE', { 
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).replace(' ', 'T') + '.000Z'
+}
+
 // In-memory cache for canonical tags (persists across requests, resets on server restart)
 // Format: Map<canonical_tag, { type, count, lastSeen, summary }>
 const canonicalTagsCache = new Map()
@@ -44,7 +60,7 @@ async function trackAIUsage({
       .collection('ai_usage')
       .doc(docId)
       .set({
-        timestamp: new Date().toISOString(),
+        timestamp: getPacificTimestamp(),
         type,
         model,
         inputTokens,
@@ -77,7 +93,7 @@ async function persistCanonicalTag(aiTags, sender) {
 
   try {
     const doc = await tagRef.get()
-    const now = new Date().toISOString()
+    const now = getPacificTimestamp()
 
     // Get voter name - ONLY from explicit voter field, no fallbacks
     const voterName = aiTags.voter
@@ -752,6 +768,7 @@ export async function POST(request) {
       messageId,
       chatId,
       chatType,
+      chatName, // Human-readable name for groups/channels (e.g., "Fulfillment Gang" or "Dev Gang 💯")
       text,
       sender,
       senderId,
@@ -899,7 +916,7 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
       canonicalTagsCache.set(aiTags.canonical_tag, {
         type: aiTags.type || existing?.type || 'unknown',
         count: (existing?.count || 0) + 1,
-        lastSeen: new Date().toISOString(),
+        lastSeen: getPacificTimestamp(),
         summary: aiTags.summary || existing?.summary,
       })
       console.log(
@@ -979,6 +996,7 @@ async function syncToRagie(data, aiTags) {
     messageId,
     chatId,
     chatType,
+    chatName, // Human-readable name for groups/channels
     text,
     sender,
     senderEmail,
@@ -1001,13 +1019,19 @@ async function syncToRagie(data, aiTags) {
     sender: sender || 'Unknown',
     senderEmail: senderEmail || '',
     senderId: senderId || '',
-    timestamp: timestamp || new Date().toISOString(),
+    timestamp: timestamp || getPacificTimestamp(),
     chatType,
     chatId,
   }
 
-  // Add participants for DMs (for permission filtering)
-  if (chatType === 'dm' && participants) {
+  // Add human-readable chat name for natural language queries like "what did they say in [group name]"
+  if (chatName) {
+    metadata.chatName = chatName
+  }
+
+  // Add participants for DMs AND groups (for permission filtering)
+  // Groups need this for retrieval filter: { participants: { $contains: userId } }
+  if ((chatType === 'dm' || chatType === 'group') && participants) {
     metadata.participants = participants
   }
 
@@ -1046,6 +1070,11 @@ async function syncToRagie(data, aiTags) {
 
   // Build searchable content that includes tags/queries for better retrieval
   let searchableContent = `[${sender}]: ${text}`
+
+  // Add chat name for natural language queries like "what did they say in [group name]"
+  if (chatName) {
+    searchableContent += `\n[Chat: ${chatName}]`
+  }
 
   if (aiTags && aiTags.type !== 'noise') {
     // Add summary for semantic matching

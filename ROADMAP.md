@@ -119,16 +119,17 @@
 <details>
 <summary>📦 What's Already Done (click to expand)</summary>
 
-| Feature | Status |
-|---------|--------|
-| 1:1 DMs | ✅ Done |
-| Channels | ✅ Done |
-| Image Sharing + AI | ✅ Done |
-| Voice Messages + TLDR | ✅ Done |
-| Video Uploads (Mux) | ✅ Done |
-| AI Chat (@poppy) | ✅ Done |
-| Push Notifications | ✅ Done |
-| iOS App | ✅ Done |
+| Feature | Status | Docs |
+|---------|--------|------|
+| 1:1 DMs | ✅ Done | |
+| Channels | ✅ Done | |
+| Image Sharing + AI | ✅ Done | |
+| Voice Messages + TLDR | ✅ Done | |
+| Video Uploads (Mux) | ✅ Done | |
+| AI Chat (@poppy) | ✅ Done | [AI Memory System](plans/ai-memory-system.md) |
+| Push Notifications | ✅ Done | |
+| iOS App | ✅ Done | |
+| Group Chats | ✅ Done | [Plan](plans/group-chats.md) |
 
 </details>
 
@@ -479,6 +480,82 @@ Show the team's north star metric at all times.
 - [ ] Team standup bot (daily prompts)
 - [ ] OKR tracking integration
 - [ ] Mood/sentiment tracking over time
+
+---
+
+## 🚨 Known Gaps & Missing Features
+
+These are known issues that need to be addressed. Use this as a litmus test when verifying features work.
+
+### AI Retrieval Pollution (Critical!)
+
+**Symptom:** User asks "what food did I get today?" and Poppy says "nothing found" even though the acai bowl message exists in Ragie.
+
+**Root Cause:** AI chat messages (user questions + Poppy responses) are indexed to Ragie with `chatType: 'ai'`. When searching, these messages score HIGHER than actual content because:
+- User's own questions are semantically identical to new queries (score 1.0)
+- Poppy's "no food found" responses contain food keywords (score 0.65)
+- Actual answer (acai bowl in group chat) is buried at position 11 (score 0.559)
+
+**Evidence from Ragie:**
+| Rank | Content | Score | Issue |
+|------|---------|-------|-------|
+| 1 | "what food did i get today?" (user question to AI) | 1.0 | Same query! |
+| 6 | "No food mentions today!" (Poppy response) | 0.66 | AI response pollution |
+| 11 | "thanks i just got the acai bowl!!" (actual answer) | 0.559 | ✅ Buried too low |
+
+**Fix Options (Not Yet Implemented):**
+1. **Filter out AI chat from retrieval** - Add `{ chatType: { $ne: 'ai' } }` to retrieval filter
+2. **Don't index AI chat at all** - Skip `/api/tag` for AI chat messages
+3. **Lower AI chat relevance** - Add negative boost for `chatType: 'ai'` in Ragie
+
+**Files to fix:**
+- `app/lib/retrieval-router.js`: Add exclusion filter for `chatType: 'ai'`
+- OR `app/lib/firestore.js`: Don't call `/api/tag` for AI chat messages
+
+---
+
+### Tasks System
+
+| Feature | DMs | Channels | Groups |
+|---------|-----|----------|--------|
+| Task detection (AI tagging) | ✅ Works | ✅ Works | ❌ **BROKEN** |
+| Task creation (`handleTasksFromMessage`) | ✅ Works | ❓ Untested | ❌ **NOT CALLED** |
+| Task completion from gratitude | ✅ Works | ❓ Untested | ❌ **NOT CALLED** |
+| Task assignee resolution | ✅ DM recipient | ❓ Untested | ❌ **No logic** |
+
+**Root Cause:** 
+- Group message functions (`sendGroupMessage`, etc.) don't call `handleTasksFromMessage` after tagging
+- `createTaskFromMessage` only handles `chatType === 'dm'` and defaults to channel - no `group` handling
+
+**Files to fix:**
+- `app/lib/firestore.js`: Add `handleTasksFromMessage` calls in all `sendGroup*` functions
+- `app/lib/firestore.js`: Update `createTaskFromMessage` to handle `chatType === 'group'`
+
+**Detailed plan:** [DM Tasks System](plans/ai-improvements/dm-tasks-system.md) (needs update for groups)
+
+---
+
+## 📚 System Documentation
+
+These docs explain how core systems work. Use them as reference when building new features.
+
+| Document | Purpose |
+|----------|---------|
+| [AI Memory System](plans/ai-memory-system.md) | How Ragie indexing, permissions, and retrieval work |
+| [Task System](plans/ai-improvements/dm-tasks-system.md) | Auto-task detection & creation (DMs ✅, Groups ❌) |
+| [Announcement Center](plans/announcement-center.md) | Admin broadcast system architecture |
+| [Group Chats](plans/group-chats.md) | Group chat implementation details |
+| [Image System](plans/media-intelligence/image-system.md) | How image analysis & indexing works |
+| [Video Understanding](plans/media-intelligence/video-understanding.md) | Video processing pipeline |
+
+### Testing New Features
+
+Before shipping any feature that involves messages or AI, ensure it passes the **AI Memory Litmus Test**:
+
+1. ✅ **Indexed**: Messages are sent to `/api/tag` for Ragie indexing
+2. ✅ **Metadata**: All required fields included (`chatId`, `chatType`, `chatName`, `participants`)
+3. ✅ **Permissions**: Retrieval respects the permission matrix (see AI Memory docs)
+4. ✅ **Queryable**: Can ask Poppy "what did [person] say in [chat name]?" and get results
 
 ---
 
