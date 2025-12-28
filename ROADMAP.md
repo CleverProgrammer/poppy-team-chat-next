@@ -82,6 +82,8 @@
 │   │                                                                              │
 │   ├──→ ☐ Smart Task Tracking (3-4 hrs)                                          │
 │   │                                                                              │
+│   ├──→ ☐ Announcement Center (2-3 hrs)                                          │
+│   │                                                                              │
 │   ├──→ ☐ Interview Analysis Mode (2-3 hrs)                                      │
 │   │                                                                              │
 │   └──→ 💡 Leaderboards (exploring)                                              │
@@ -106,10 +108,11 @@
 | 2b | YouTube/Loom Links | 2-3 hrs | ⬜ |
 | 3 | Audio Rooms 🎙️ | 6-8 hrs | ⬜ |
 | 4 | [Smart Tasks](plans/ai-improvements/dm-tasks-system.md) 📋 | 3-4 hrs | ⬜ |
-| 5 | Video Calls 📹 | 4-6 hrs | ⬜ |
-| 6 | Interview Analysis 🎯 | 2-3 hrs | ⬜ |
-| 7 | Leaderboards 🏆 | 3-4 hrs | 💡 idea |
-| 8 | Goals Widget 🎯 | 2-3 hrs | 💡 idea |
+| 5 | [Announcement Center](plans/announcement-center.md) 📢 | 2-3 hrs | ⬜ |
+| 6 | Video Calls 📹 | 4-6 hrs | ⬜ |
+| 7 | Interview Analysis 🎯 | 2-3 hrs | ⬜ |
+| 8 | Leaderboards 🏆 | 3-4 hrs | 💡 idea |
+| 9 | Goals Widget 🎯 | 2-3 hrs | 💡 idea |
 
 ---
 
@@ -255,7 +258,32 @@ Later in chat: "Just pushed the API fix, tested and working"
 
 ---
 
-### Phase 5: Video Calls 📹
+### Phase 5: [Announcement Center](plans/announcement-center.md) 📢
+**Priority:** 🟡 MEDIUM  
+**Timeline:** 2-3 hours  
+**Branch:** `feature/announcement-center`
+
+Admin-only announcement system that pushes important updates to all team members with a beautiful modal experience.
+
+#### What We're Building:
+- [ ] Admin announcement creation (dev mode users only)
+- [ ] Beautiful blur-background modal for announcements
+- [ ] One-time display per announcement per user
+- [ ] "Announcements" section in user profile dropdown
+- [ ] Historical announcements list for all users
+- [ ] Read/dismiss tracking per user
+
+#### How It Works:
+```
+Admin creates announcement via profile dropdown → 
+All users see beautiful modal on next app open →
+User dismisses modal → Never see that announcement popup again →
+Can view all past announcements from "Announcements" in profile menu
+```
+
+---
+
+### Phase 6: Video Calls 📹
 **Priority:** 🟢 LOWER  
 **Timeline:** 4-6 hours  
 **Branch:** `feature/video-calls`
@@ -273,7 +301,7 @@ Full video calling with the same AI analysis pipeline.
 
 ---
 
-### Phase 6: Interview Analysis Mode 🎯
+### Phase 7: Interview Analysis Mode 🎯
 **Priority:** 🟢 LOWER  
 **Timeline:** 2-3 hours  
 **Branch:** `feature/interview-analysis`
@@ -303,10 +331,11 @@ Special analysis mode for candidate video submissions.
 | **2b** | YouTube/Loom Links | 2-3 hrs | Week 1 | ✅ Confirmed |
 | **3** | Audio Rooms (100ms) | 6-8 hrs | Week 2 | ✅ Confirmed |
 | **4** | Smart Task Tracking | 3-4 hrs | Week 2 | ✅ Confirmed |
-| **5** | Video Calls | 4-6 hrs | Week 3 | 🟡 Likely |
-| **6** | Interview Analysis | 2-3 hrs | Week 3 | 🟡 Likely |
-| **7** | Leaderboards | 3-4 hrs | TBD | 💡 Exploring |
-| **8** | Goals Progress Bar | 2-3 hrs | TBD | 💡 Exploring |
+| **5** | Announcement Center | 2-3 hrs | Week 2 | ✅ Confirmed |
+| **6** | Video Calls | 4-6 hrs | Week 3 | 🟡 Likely |
+| **7** | Interview Analysis | 2-3 hrs | Week 3 | 🟡 Likely |
+| **8** | Leaderboards | 3-4 hrs | TBD | 💡 Exploring |
+| **9** | Goals Progress Bar | 2-3 hrs | TBD | 💡 Exploring |
 
 **Total estimated time (confirmed):** ~25-35 hours  
 **Total with exploring features:** ~30-40 hours  
@@ -342,7 +371,7 @@ KEYWORDS_AI_API_KEY=...
 
 ---
 
-### Phase 7: Team Leaderboards 🏆
+### Phase 8: Team Leaderboards 🏆
 **Priority:** 🟡 MEDIUM  
 **Timeline:** 3-4 hours  
 **Branch:** `feature/leaderboards`  
@@ -379,7 +408,7 @@ Gamification that drives engagement and healthy competition.
 
 ---
 
-### Phase 8: Team Goals Progress Bar 🎯
+### Phase 9: Team Goals Progress Bar 🎯
 **Priority:** 🟡 MEDIUM  
 **Timeline:** 2-3 hours  
 **Branch:** `feature/goals-widget`  
@@ -426,10 +455,11 @@ Show the team's north star metric at all times.
 | **2b** | YouTube/Loom Links | ✅ **CONFIRMED** | Natural extension of video |
 | **3** | Audio Rooms | ✅ **CONFIRMED** | 100ms SDK - includes live transcription |
 | **4** | Smart Task Tracking | ✅ **CONFIRMED** | AI auto-detection of completion |
-| **5** | Video Calls | 🟡 **LIKELY** | Builds on audio rooms |
-| **6** | Interview Analysis | 🟡 **LIKELY** | Specialized video analysis |
-| **7** | Leaderboards | 💡 **EXPLORING** | Gamification idea |
-| **8** | Goals Progress Bar | 💡 **EXPLORING** | Team motivation widget |
+| **5** | Announcement Center | ✅ **CONFIRMED** | Admin broadcasts to all users |
+| **6** | Video Calls | 🟡 **LIKELY** | Builds on audio rooms |
+| **7** | Interview Analysis | 🟡 **LIKELY** | Specialized video analysis |
+| **8** | Leaderboards | 💡 **EXPLORING** | Gamification idea |
+| **9** | Goals Progress Bar | 💡 **EXPLORING** | Team motivation widget |
 
 ---
 
