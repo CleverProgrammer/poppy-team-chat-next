@@ -1114,6 +1114,7 @@ export default function ChatWindow() {
         isOpen={isPaletteOpen}
         onClose={() => setIsPaletteOpen(false)}
         allUsers={allUsers}
+        groups={groups}
         onSelectChat={handleSelectChat}
       />
 

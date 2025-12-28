@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat }) {
+export default function CommandPalette({ isOpen, onClose, allUsers, groups = [], onSelectChat }) {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -51,6 +51,20 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
     );
     items.push(...matchingChannels.map(c => ({ ...c, type: 'channel' })));
 
+    // Filter groups
+    const matchingGroups = (groups || []).filter(g => {
+      const groupName = (g.name || g.displayName || g.memberNames?.join(', ') || '').toLowerCase();
+      const memberNames = (g.memberNames || []).join(' ').toLowerCase();
+      return groupName.includes(searchQuery) || memberNames.includes(searchQuery) || 'group'.includes(searchQuery);
+    });
+    items.push(...matchingGroups.map(g => ({ 
+      type: 'group', 
+      id: g.id, 
+      name: g.name || g.displayName || g.memberNames?.join(', ') || 'Group Chat',
+      group: g,
+      hint: `${g.memberCount || g.memberNames?.length || 0} members`
+    })));
+
     // Filter all users (for DMs)
     const matchingUsers = allUsers.filter(u =>
       (u.displayName?.toLowerCase().includes(searchQuery) ||
@@ -61,7 +75,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
 
     setFilteredItems(items);
     setSelectedIndex(0);
-  }, [query, allUsers, user, isOpen]);
+  }, [query, allUsers, groups, user, isOpen]);
 
   const handleKeyDown = (e) => {
     e.stopPropagation();
@@ -86,6 +100,8 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
       onSelectChat({ type: 'channel', id: item.id, name: item.name });
     } else if (item.type === 'ai') {
       onSelectChat({ type: 'ai', id: item.id, name: item.name });
+    } else if (item.type === 'group') {
+      onSelectChat({ type: 'group', id: item.id, name: item.name, group: item.group });
     } else if (item.type === 'user') {
       onSelectChat({ type: 'dm', id: item.user.uid, name: item.user.displayName || item.user.email, user: item.user });
     }
@@ -96,6 +112,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
 
   const aiItems = filteredItems.filter(i => i.type === 'ai');
   const channels = filteredItems.filter(i => i.type === 'channel');
+  const groupItems = filteredItems.filter(i => i.type === 'group');
   const users = filteredItems.filter(i => i.type === 'user');
 
   return (
@@ -105,7 +122,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
           ref={inputRef}
           type="text"
           className="cmd-palette-input"
-          placeholder="Search channels and people..."
+          placeholder="Search channels, groups, and people..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -155,6 +172,36 @@ export default function CommandPalette({ isOpen, onClose, allUsers, onSelectChat
                         onClick={() => handleSelect(item)}
                       >
                         <div className="cmd-palette-item-icon">#</div>
+                        <div className="cmd-palette-item-info">
+                          <div className="cmd-palette-item-name">{item.name}</div>
+                          <div className="cmd-palette-item-hint">{item.hint}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {groupItems.length > 0 && (
+                <div className="cmd-palette-section">
+                  <div className="cmd-palette-section-title">Groups</div>
+                  {groupItems.map((item) => {
+                    const globalIdx = filteredItems.indexOf(item);
+                    const group = item.group;
+                    const hasPhoto = group?.photoURL && group.photoURL.length > 4; // URL, not emoji
+                    const hasEmoji = group?.photoURL && group.photoURL.length <= 4; // Emoji
+                    return (
+                      <div
+                        key={`group-${item.id}`}
+                        className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
+                        onClick={() => handleSelect(item)}
+                      >
+                        {hasPhoto ? (
+                          <img src={group.photoURL} alt={item.name} className="cmd-palette-item-avatar" />
+                        ) : hasEmoji ? (
+                          <div className="cmd-palette-item-icon cmd-palette-group-emoji">{group.photoURL}</div>
+                        ) : (
+                          <div className="cmd-palette-item-icon">👥</div>
+                        )}
                         <div className="cmd-palette-item-info">
                           <div className="cmd-palette-item-name">{item.name}</div>
                           <div className="cmd-palette-item-hint">{item.hint}</div>

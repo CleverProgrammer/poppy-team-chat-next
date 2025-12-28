@@ -2189,6 +2189,18 @@ html {
   font-size: 14px;
 }
 
+.cmd-palette-item-icon.cmd-palette-group-emoji {
+  background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+  font-size: 18px;
+}
+
+.cmd-palette-item-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .cmd-palette-item-info {
   flex: 1;
 }
