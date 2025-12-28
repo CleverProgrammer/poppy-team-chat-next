@@ -76,8 +76,12 @@ async function fetchImageAsBase64(imageUrl) {
 /**
  * Analyze one or more images with Claude Vision
  * Supports batch analysis for multiple images in one request
+ * @param {string|string[]} imageUrls - URL(s) of image(s) to analyze
+ * @param {string} accompanyingText - Text sent with the image
+ * @param {Array} recentMessages - Recent chat messages for context
+ * @param {string} uploaderName - Name of the person who uploaded the image (required for attribution)
  */
-async function analyzeImagesWithClaude(imageUrls, accompanyingText = '', recentMessages = []) {
+async function analyzeImagesWithClaude(imageUrls, accompanyingText = '', recentMessages = [], uploaderName = '') {
   const anthropic = new Anthropic({
     apiKey: process.env.KEYWORDS_AI_API_KEY,
     baseURL: 'https://api.keywordsai.co/api/anthropic/',
@@ -109,11 +113,18 @@ async function analyzeImagesWithClaude(imageUrls, accompanyingText = '', recentM
   // Adjust prompt based on number of images
   const imagePhrase = imageCount > 1 ? `these ${imageCount} images` : 'this image'
 
+  // CRITICAL: Explicitly state who uploaded the image to avoid misattribution
+  const uploaderStatement = uploaderName 
+    ? `**IMPORTANT: This image was uploaded by ${uploaderName}. When referring to who shared/uploaded this, ALWAYS use "${uploaderName}" - do NOT guess based on chat context or who was last typing.**
+
+`
+    : ''
+
   const basePrompt = `You are an image analyzer for an internal team chat app. Your job is to give context about what ${imagePhrase} ${
     imageCount > 1 ? 'are' : 'is'
   } about so it can help the team understand and reference ${imageCount > 1 ? 'them' : 'it'} later.
 
-${
+${uploaderStatement}${
   imageCount > 1
     ? `You're looking at ${imageCount} images shared together. Analyze them as a cohesive set - they might be related (before/after, sequence, comparison, etc).
 
@@ -141,14 +152,16 @@ Speak in plain, natural language. Keep it short and punchy - ${
     imageCount > 1 ? '4-6' : '3-5'
   } sentences max. Format as plain text, not markdown.
 
-At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. Use people's actual names when you can see them in the image OR from the chat context! Don't say "someone" when you know who's talking. Examples:
-- "tldr: Mohamed just hit his 1-year mark with Poppy, absolute legend 🔥"
-- "tldr: Rafeh cooking up a new landing page design, looks clean af"
-- "tldr: David and Naz going back and forth about the rebrand lol"
-- "tldr: Before/after of the homepage - night and day difference 🔥"
-- "tldr: Just a cute dog pic, nothing work-related here 🐕"
+At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. 
 
-Be personal. Use names. Talk like a team member, not a robot.${chatContext}`
+**CRITICAL FOR TLDR:** Always mention the uploader by name when describing who shared the image. ${uploaderName ? `The uploader is ${uploaderName} - use their name!` : ''} Examples:
+- "tldr: ${uploaderName || 'Mohamed'} just shared his 1-year anniversary with Poppy, absolute legend 🔥"
+- "tldr: ${uploaderName || 'Rafeh'} cooking up a new landing page design, looks clean af"
+- "tldr: ${uploaderName || 'David'} dropped some screenshots of the rebrand progress"
+- "tldr: ${uploaderName || 'Someone'} shared before/after of the homepage - night and day difference 🔥"
+- "tldr: Just a cute dog pic from ${uploaderName || 'the team'}, nothing work-related here 🐕"
+
+Be personal. Use the uploader's actual name. Talk like a team member, not a robot.${chatContext}`
 
   const analysisPrompt = accompanyingText
     ? `${basePrompt}
@@ -241,7 +254,7 @@ export async function POST(request) {
     let tokens = { input: 0, output: 0 }
 
     try {
-      const result = await analyzeImagesWithClaude(urls, text, recentMessages || [])
+      const result = await analyzeImagesWithClaude(urls, text, recentMessages || [], sender)
       imageAnalysis = result.analysis
       tokens = { input: result.inputTokens, output: result.outputTokens }
 

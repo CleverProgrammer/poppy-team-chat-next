@@ -135,10 +135,16 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Failed to fetch any images' }, { status: 400 })
     }
 
-    // Build the prompt
+    // Build the prompt with explicit uploader attribution
+    const uploaderStatement = sender 
+      ? `**IMPORTANT: This image was uploaded by ${sender}. When referring to who shared/uploaded this, ALWAYS use "${sender}" - do NOT guess based on other context.**
+
+`
+      : ''
+
     const basePrompt = `You are an image analyzer for an internal team chat app. Your job is to give context about what this image is about so it can help the team understand and reference it later.
 
-Key elements to focus on:
+${uploaderStatement}Key elements to focus on:
 1. What is this image showing? Describe it in plain language.
 2. Any text visible in the image - quote it exactly (OCR).
 3. People, objects, locations, brands, logos, or notable items.
@@ -148,20 +154,22 @@ Key elements to focus on:
 
 Speak in plain, natural language. Keep it short and punchy - 3-5 sentences max. Format as plain text, not markdown.
 
-At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. Use people's actual names when you can see them in the image! Don't say "someone" when the name is right there. Examples:
-- "tldr: Mohamed just hit his 1-year mark with Poppy, absolute legend 🔥"
-- "tldr: Rafeh cooking up a new landing page design, looks clean af"
-- "tldr: David and Naz going back and forth about the rebrand lol"
-- "tldr: Just a cute dog pic, nothing work-related here 🐕"
+At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. 
 
-Be personal. Use names. Talk like a team member, not a robot.`
+**CRITICAL FOR TLDR:** Always mention the uploader by name when describing who shared the image. ${sender ? `The uploader is ${sender} - use their name!` : ''} Examples:
+- "tldr: ${sender || 'Mohamed'} just shared his 1-year anniversary with Poppy, absolute legend 🔥"
+- "tldr: ${sender || 'Rafeh'} cooking up a new landing page design, looks clean af"
+- "tldr: ${sender || 'David'} dropped some screenshots of the rebrand progress"
+- "tldr: Just a cute dog pic from ${sender || 'the team'}, nothing work-related here 🐕"
+
+Be personal. Use the uploader's actual name. Talk like a team member, not a robot.`
 
     const analysisPrompt = accompanyingText
       ? `${basePrompt}
 
-The person sharing this image said: "${accompanyingText}"
+${sender || 'The person'} shared this image and said: "${accompanyingText}"
 
-Use that context to help explain what this image is about and why they might be sharing it.`
+Use that context to help explain what this image is about and why ${sender || 'they'} might be sharing it.`
       : basePrompt
 
     // Call Claude Vision
