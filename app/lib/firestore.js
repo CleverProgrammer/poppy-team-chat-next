@@ -2821,8 +2821,8 @@ export async function createTaskFromMessage(
         const isReassign = aiTags.task_action === 'reassign'
 
         const updateData = {
-          // Update with latest info
-          title: aiTags.summary || existingData.title,
+          // Update with latest info (prefer title over summary for multi-task support)
+          title: aiTags.title || aiTags.summary || existingData.title,
           originalMessageId: messageId, // Point to most recent message
           originalMessageText: text,
           priority: aiTags.priority || existingData.priority,
@@ -2876,8 +2876,8 @@ export async function createTaskFromMessage(
 
     // Create new task
     const taskData = {
-      // Task content
-      title: aiTags.summary || text.substring(0, 100),
+      // Task content (prefer title over summary for multi-task support)
+      title: aiTags.title || aiTags.summary || text.substring(0, 100),
       originalMessageId: messageId,
       originalMessageText: text,
 

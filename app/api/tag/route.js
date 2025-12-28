@@ -688,9 +688,39 @@ When a message contains MULTIPLE distinct tasks, use the \`tasks\` array instead
 }
 \`\`\`
 
+**Message:** "thanks for the peanut butter cookies! also book a haircut and order floss"
+\`\`\`json
+{
+  "type": "task",
+  "summary": "Completed cookie delivery, two new tasks assigned",
+  "tasks": [
+    {
+      "task_action": "complete",
+      "canonical_tag": "peanut_butter_cookies",
+      "title": "Bring peanut butter cookies"
+    },
+    {
+      "task_action": "create",
+      "canonical_tag": "book_haircut",
+      "title": "Book a haircut",
+      "priority": "medium"
+    },
+    {
+      "task_action": "create",
+      "canonical_tag": "order_floss",
+      "title": "Order floss",
+      "priority": "low"
+    }
+  ]
+}
+\`\`\`
+*Note: Each task has its OWN short, clear title - never put the whole message as the title!*
+
 **Rules for multi-task detection:**
 - Look for "and", "then", "also", comma-separated items
 - Each task needs its own \`canonical_tag\` and \`title\`
+- **IMPORTANT: Each task's \`title\` should be SHORT and SPECIFIC** (e.g., "Order floss" not "two new tasks: book haircut and order floss")
+- Can mix \`task_action\` types: complete one task while creating others
 - All tasks inherit the parent \`assignee\` if not specified per-task
 - For single tasks, use the flat \`task_action\` format (no array needed)
 
