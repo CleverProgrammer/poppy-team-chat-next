@@ -662,8 +662,23 @@ export default function Sidebar({
               >
                 <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
                 
-                <div className='dm-avatar-container group-avatar-stack'>
-                  {memberAvatars.length > 0 ? (
+                <div className='dm-avatar-container'>
+                  {/* Check for custom group photo first */}
+                  {group.photoURL ? (
+                    group.photoURL.length <= 4 ? (
+                      // Emoji
+                      <div className='dm-avatar-fallback group-emoji-avatar'>
+                        {group.photoURL}
+                      </div>
+                    ) : (
+                      // Image URL
+                      <img 
+                        src={group.photoURL} 
+                        alt={group.displayName || 'Group'} 
+                        className='dm-avatar'
+                      />
+                    )
+                  ) : memberAvatars.length > 0 ? (
                     <div className='group-avatars'>
                       {memberAvatars.map((avatar, idx) => (
                         avatar ? (

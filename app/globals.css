@@ -359,13 +359,18 @@ html {
   pointer-events: none; /* Allow clicks to pass through empty space */
 }
 
-/* Left side (dev cost) */
+/* Left side (dev cost) - matches Posts/Tasks style */
 .chat-header-left {
   display: flex;
   align-items: center;
   pointer-events: auto;
-  opacity: 0.5;
-  font-size: 9px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  color: rgb(156, 163, 175); /* text-gray-400 - same as Posts/Tasks */
 }
 
 /* Right side buttons */
@@ -590,6 +595,15 @@ html {
   color: white;
   font-size: 22px;
   font-weight: 700;
+}
+
+/* Emoji avatar for groups */
+.chat-header-avatar.chat-header-avatar-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+  font-size: 28px;
 }
 
 /* Hide mobile header on desktop */
@@ -1763,6 +1777,11 @@ html {
 
 .dm-avatar-fallback.channel-avatar {
   background: linear-gradient(135deg, #5865F2 0%, #4752C4 100%);
+}
+
+.dm-avatar-fallback.group-emoji-avatar {
+  background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+  font-size: 20px;
   font-size: 16px;
   font-weight: 700;
 }

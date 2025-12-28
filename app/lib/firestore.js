@@ -4119,6 +4119,24 @@ export async function updateGroupName(groupId, newName) {
 }
 
 /**
+ * Update group photo (can be a URL or emoji)
+ */
+export async function updateGroupPhoto(groupId, photoURL) {
+  if (!groupId) return
+
+  try {
+    await updateDoc(doc(db, 'groups', groupId), {
+      photoURL: photoURL || null, // null means use stacked avatars
+      updatedAt: serverTimestamp(),
+    })
+    console.log('📸 Group photo updated:', groupId, '→', photoURL || '(none)')
+  } catch (error) {
+    console.error('Error updating group photo:', error)
+    throw error
+  }
+}
+
+/**
  * Leave a group (remove self)
  */
 export async function leaveGroup(groupId, userId) {

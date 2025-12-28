@@ -1,8 +1,17 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
-import { addGroupMember, removeGroupMember, subscribeToGroup, updateGroupName } from '../../lib/firestore'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import { useDropzone } from 'react-dropzone'
+import { addGroupMember, removeGroupMember, subscribeToGroup, updateGroupName, updateGroupPhoto } from '../../lib/firestore'
 import { useEffect } from 'react'
+
+// Common emojis for group icons
+const GROUP_EMOJIS = [
+  '👥', '💼', '🚀', '💡', '🎯', '⭐', '🔥', '💪',
+  '🎨', '🎬', '📱', '💻', '🎮', '🎵', '📚', '✨',
+  '🌟', '💎', '🏆', '🎪', '🌈', '🦄', '🐱', '🐶',
+  '🍕', '☕', '🍺', '🎂', '❤️', '💜', '💙', '💚',
+]
 
 export default function GroupInfoModal({ 
   groupId, 
@@ -19,8 +28,11 @@ export default function GroupInfoModal({
   const [editingName, setEditingName] = useState(false)
   const [newName, setNewName] = useState('')
   const [savingName, setSavingName] = useState(false)
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false)
+  const [savingPhoto, setSavingPhoto] = useState(false)
   const searchInputRef = useRef(null)
   const nameInputRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   // Subscribe to group updates
   useEffect(() => {
@@ -163,40 +175,232 @@ export default function GroupInfoModal({
     }
   }
 
+  // Handle emoji selection for group photo
+  const handleEmojiSelect = async (emoji) => {
+    if (savingPhoto) return
+    setSavingPhoto(true)
+    
+    try {
+      await updateGroupPhoto(groupId, emoji)
+      setShowPhotoPicker(false)
+    } catch (error) {
+      console.error('Error setting group emoji:', error)
+      alert('Failed to update group photo. Please try again.')
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
+
+  // Handle file upload for group photo (used by both file input and drag-drop)
+  const uploadPhotoFile = useCallback(async (file) => {
+    if (!file || savingPhoto) return
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.')
+      return
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB.')
+      return
+    }
+    
+    setSavingPhoto(true)
+    
+    try {
+      // Upload to our API
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('groupId', groupId)
+      
+      const res = await fetch('/api/upload/group-photo', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (!res.ok) throw new Error('Upload failed')
+      
+      const { url } = await res.json()
+      await updateGroupPhoto(groupId, url)
+      setShowPhotoPicker(false)
+    } catch (error) {
+      console.error('Error uploading group photo:', error)
+      alert('Failed to upload photo. Please try again.')
+    } finally {
+      setSavingPhoto(false)
+    }
+  }, [savingPhoto, groupId])
+
+  // Handle file input change
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      await uploadPhotoFile(file)
+    }
+  }
+
+  // Drag and drop handler
+  const onDrop = useCallback((acceptedFiles) => {
+    const file = acceptedFiles[0]
+    if (file) {
+      uploadPhotoFile(file)
+    }
+  }, [uploadPhotoFile])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
+    },
+    multiple: false,
+    noClick: true, // We'll handle click separately on the avatar
+    noKeyboard: true
+  })
+
+  // Remove custom photo
+  const handleRemovePhoto = async () => {
+    if (savingPhoto) return
+    setSavingPhoto(true)
+    
+    try {
+      await updateGroupPhoto(groupId, null)
+      setShowPhotoPicker(false)
+    } catch (error) {
+      console.error('Error removing group photo:', error)
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
+
+  // Combine dropzone props with our own click handler to prevent modal close
+  const dropzoneRootProps = getRootProps({
+    onClick: e => e.stopPropagation()
+  })
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content group-info-modal" onClick={e => e.stopPropagation()}>
+      <div 
+        className="modal-content group-info-modal" 
+        {...dropzoneRootProps}
+      >
+        <input {...getInputProps()} />
+        
+        {/* Drag overlay */}
+        {isDragActive && (
+          <div className="drop-overlay">
+            <div className="drop-overlay-content">
+              📷 Drop photo here
+            </div>
+          </div>
+        )}
+        
         {/* Header with close button */}
         <button className="modal-close-btn-top" onClick={onClose}>✕</button>
 
-        {/* Stacked avatars */}
-        <div className="group-info-avatars">
-          {members.slice(0, 4).map((member, idx) => (
-            member.photoURL ? (
-              <img 
-                key={member.uid}
-                src={member.photoURL} 
-                alt={member.displayName} 
-                className='group-info-avatar'
-                style={{ 
-                  zIndex: 4 - idx,
-                  marginLeft: idx > 0 ? '-12px' : '0'
-                }}
-              />
-            ) : (
-              <div 
-                key={member.uid}
-                className='group-info-avatar-fallback'
-                style={{ 
-                  zIndex: 4 - idx,
-                  marginLeft: idx > 0 ? '-12px' : '0'
-                }}
-              >
-                {(member.displayName || '?')[0].toUpperCase()}
+        {/* Group avatar - clickable to change */}
+        <div 
+          className="group-info-avatars clickable"
+          onClick={() => setShowPhotoPicker(!showPhotoPicker)}
+          title="Click to change group photo"
+        >
+          {group?.photoURL ? (
+            // Custom photo (URL or emoji)
+            group.photoURL.length <= 4 ? (
+              // Emoji
+              <div className="group-info-avatar-emoji">
+                {group.photoURL}
               </div>
+            ) : (
+              // Image URL
+              <img 
+                src={group.photoURL} 
+                alt="Group" 
+                className='group-info-avatar-single'
+              />
             )
-          ))}
+          ) : (
+            // Stacked avatars (default)
+            members.slice(0, 4).map((member, idx) => (
+              member.photoURL ? (
+                <img 
+                  key={member.uid}
+                  src={member.photoURL} 
+                  alt={member.displayName} 
+                  className='group-info-avatar'
+                  style={{ 
+                    zIndex: 4 - idx,
+                    marginLeft: idx > 0 ? '-12px' : '0'
+                  }}
+                />
+              ) : (
+                <div 
+                  key={member.uid}
+                  className='group-info-avatar-fallback'
+                  style={{ 
+                    zIndex: 4 - idx,
+                    marginLeft: idx > 0 ? '-12px' : '0'
+                  }}
+                >
+                  {(member.displayName || '?')[0].toUpperCase()}
+                </div>
+              )
+            ))
+          )}
+          <div className="avatar-edit-hint">📷</div>
         </div>
+
+        {/* Photo picker */}
+        {showPhotoPicker && (
+          <div className="photo-picker">
+            <div className="photo-picker-header">
+              <span>Choose group icon</span>
+              <button className="photo-picker-close" onClick={() => setShowPhotoPicker(false)}>✕</button>
+            </div>
+            
+            {/* Emoji grid */}
+            <div className="emoji-grid">
+              {GROUP_EMOJIS.map(emoji => (
+                <button 
+                  key={emoji} 
+                  className="emoji-btn"
+                  onClick={() => handleEmojiSelect(emoji)}
+                  disabled={savingPhoto}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            
+            {/* Upload button */}
+            <div className="photo-picker-actions">
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                style={{ display: 'none' }}
+              />
+              <button 
+                className="upload-photo-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={savingPhoto}
+              >
+                📤 Upload Photo
+              </button>
+              {group?.photoURL && (
+                <button 
+                  className="remove-photo-btn"
+                  onClick={handleRemovePhoto}
+                  disabled={savingPhoto}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Group name - editable */}
         {editingName ? (
@@ -244,71 +448,70 @@ export default function GroupInfoModal({
         <div className="group-info-section">
           <div className="group-info-section-header">
             <span>Members ({members.length})</span>
-            {!showAddMember && (
-              <button 
-                className="group-info-add-member-btn"
-                onClick={() => setShowAddMember(true)}
-              >
-                ＋ Add
-              </button>
-            )}
           </div>
-
-          {/* Add member form - shows at top when active */}
-          {showAddMember && (
-            <div 
-              className="add-member-form"
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => e.stopPropagation()}
-            >
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search team members..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="add-member-search"
-                autoFocus
-                onMouseDown={e => e.stopPropagation()}
-                onFocus={e => e.stopPropagation()}
-              />
-              <div className="add-member-list">
-                {filteredAvailableUsers.map(u => (
-                  <div 
-                    key={u.uid} 
-                    className="add-member-item"
-                    onClick={() => handleAddMember(u)}
-                  >
-                    <div className="add-member-avatar">
-                      {u.photoURL ? (
-                        <img src={u.photoURL} alt={u.displayName} />
-                      ) : (
-                        <div className="avatar-fallback">
-                          {(u.displayName || u.email || '?')[0].toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <span>{u.displayName || u.email}</span>
-                    <span className="add-btn">{adding ? '...' : 'Add'}</span>
-                  </div>
-                ))}
-                {filteredAvailableUsers.length === 0 && (
-                  <div className="no-users-found">No team members to add</div>
-                )}
-              </div>
-              <button 
-                className="cancel-add-btn"
-                onClick={() => {
-                  setShowAddMember(false)
-                  setSearchQuery('')
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
           
           <div className="group-info-members">
+            {/* Add New Member button - green plus icon */}
+            {!showAddMember ? (
+              <button 
+                className="group-info-add-member"
+                onClick={() => setShowAddMember(true)}
+              >
+                <span className="add-icon">＋</span>
+                <span>Add New Member</span>
+              </button>
+            ) : (
+              <div 
+                className="add-member-form"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+              >
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search team members..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="add-member-search"
+                  autoFocus
+                  onMouseDown={e => e.stopPropagation()}
+                  onFocus={e => e.stopPropagation()}
+                />
+                <div className="add-member-list">
+                  {filteredAvailableUsers.map(u => (
+                    <div 
+                      key={u.uid} 
+                      className="add-member-item"
+                      onClick={() => handleAddMember(u)}
+                    >
+                      <div className="add-member-avatar">
+                        {u.photoURL ? (
+                          <img src={u.photoURL} alt={u.displayName} />
+                        ) : (
+                          <div className="avatar-fallback">
+                            {(u.displayName || u.email || '?')[0].toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span>{u.displayName || u.email}</span>
+                      <span className="add-btn">{adding ? '...' : 'Add'}</span>
+                    </div>
+                  ))}
+                  {filteredAvailableUsers.length === 0 && (
+                    <div className="no-users-found">No team members to add</div>
+                  )}
+                </div>
+                <button 
+                  className="cancel-add-btn"
+                  onClick={() => {
+                    setShowAddMember(false)
+                    setSearchQuery('')
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             {members.map(member => (
               <div key={member.uid} className="group-info-member">
                 <div className="group-info-member-avatar">
@@ -342,9 +545,30 @@ export default function GroupInfoModal({
 
         <style jsx>{`
           .group-info-modal {
-            max-width: 280px;
-            padding: 16px;
+            max-width: 340px;
+            padding: 20px;
             text-align: center;
+            position: relative;
+          }
+
+          .drop-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(52, 199, 89, 0.9);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: none;
+          }
+
+          .drop-overlay-content {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+            text-align: center;
+            padding: 20px;
           }
 
           .modal-close-btn-top {
@@ -391,6 +615,159 @@ export default function GroupInfoModal({
             font-weight: 600;
             color: white;
             border: 2px solid var(--color-background);
+          }
+
+          .group-info-avatars.clickable {
+            cursor: pointer;
+            position: relative;
+            transition: opacity 0.2s;
+          }
+
+          .group-info-avatars.clickable:hover {
+            opacity: 0.8;
+          }
+
+          .group-info-avatars.clickable:hover .avatar-edit-hint {
+            opacity: 1;
+          }
+
+          .avatar-edit-hint {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 22px;
+            height: 22px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          }
+
+          .group-info-avatar-single {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+          }
+
+          .group-info-avatar-emoji {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+          }
+
+          .photo-picker {
+            background: var(--color-hover);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+          }
+
+          .photo-picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+          }
+
+          .photo-picker-close {
+            background: none;
+            border: none;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
+
+          .photo-picker-close:hover {
+            background: var(--color-border);
+          }
+
+          .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            margin-bottom: 10px;
+          }
+
+          .emoji-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+          }
+
+          .emoji-btn:hover:not(:disabled) {
+            background: var(--color-border);
+          }
+
+          .emoji-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .photo-picker-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+          }
+
+          .upload-photo-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            background: var(--color-primary);
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+          }
+
+          .upload-photo-btn:hover:not(:disabled) {
+            opacity: 0.9;
+          }
+
+          .upload-photo-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .remove-photo-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            background: none;
+            color: var(--color-text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+          }
+
+          .remove-photo-btn:hover:not(:disabled) {
+            background: var(--color-hover);
           }
 
           .group-info-name {
@@ -539,17 +916,17 @@ export default function GroupInfoModal({
 
           .group-info-members {
             background: var(--color-hover);
-            border-radius: 8px;
+            border-radius: 10px;
             overflow: hidden;
-            max-height: 180px;
+            max-height: 280px;
             overflow-y: auto;
           }
 
           .group-info-member {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
+            gap: 12px;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--color-border);
             position: relative;
           }
@@ -564,8 +941,8 @@ export default function GroupInfoModal({
 
           .group-info-member-avatar img,
           .group-info-member-avatar .avatar-fallback {
-            width: 28px;
-            height: 28px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             object-fit: cover;
           }
@@ -575,7 +952,7 @@ export default function GroupInfoModal({
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 600;
             color: white;
           }
@@ -588,7 +965,7 @@ export default function GroupInfoModal({
           .group-info-member-name {
             display: block;
             font-weight: 500;
-            font-size: 13px;
+            font-size: 15px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;

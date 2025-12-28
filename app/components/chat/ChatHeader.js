@@ -104,9 +104,25 @@ export default function ChatHeader({
     })
   }, [currentChat.type, currentChat.group?.members, allUsers])
 
-  // Get group member avatars for stacked display
+  // Get group member avatars for stacked display (or single custom photo)
   const getGroupAvatars = () => {
     if (currentChat.type !== 'group') return null
+
+    // Check for custom group photo
+    const groupPhoto = currentChat.group?.photoURL
+
+    if (groupPhoto) {
+      // Custom photo set - check if emoji or URL
+      if (groupPhoto.length <= 4) {
+        // Emoji
+        return <div className='chat-header-avatar chat-header-avatar-emoji'>{groupPhoto}</div>
+      } else {
+        // Image URL
+        return <img src={groupPhoto} alt={currentChat.name} className='chat-header-avatar' />
+      }
+    }
+
+    // Default: stacked avatars
     const displayMembers = groupMembers.slice(0, 3)
 
     return (
@@ -251,12 +267,14 @@ export default function ChatHeader({
     <>
       {/* Desktop Header - thin bar with floating avatar below */}
       <div className='chat-header'>
-        {/* Left side - dev cost */}
-        <div className='chat-header-left'>
-          {isDevMode && todayCost > 0 && (
-            <span className='text-[9px] text-gray-500 font-mono'>${todayCost.toFixed(3)}</span>
-          )}
-        </div>
+        {/* Left side - dev cost (only show pill when there's content) */}
+        {isDevMode && todayCost > 0 ? (
+          <div className='chat-header-left'>
+            <span className='font-mono'>${todayCost.toFixed(3)}</span>
+          </div>
+        ) : (
+          <div /> /* Empty spacer for flex layout */
+        )}
 
         {/* Right side buttons - Posts & Tasks */}
         <div className='chat-header-right-buttons'>
@@ -281,20 +299,44 @@ export default function ChatHeader({
 
       {/* Floating avatar + name (overlaps chat content like mobile) */}
       <div className='chat-header-floating'>
-        {getMobileAvatar()}
-        <div className='chat-header-name-bubble'>
-          {currentChat.name?.replace('🤖 ', '').replace('🤖', '').split(' ')[0]}
-        </div>
         {currentChat.type === 'group' ? (
+          <div
+            onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
+            style={{ cursor: 'pointer' }}
+            title='Click to view group info'
+          >
+            {getMobileAvatar()}
+          </div>
+        ) : (
+          getMobileAvatar()
+        )}
+        <div
+          className='chat-header-name-bubble'
+          onClick={
+            currentChat.type === 'group' ? () => onOpenGroupInfo && onOpenGroupInfo() : undefined
+          }
+          style={currentChat.type === 'group' ? { cursor: 'pointer' } : undefined}
+        >
+          {currentChat.type === 'group' || currentChat.type === 'channel'
+            ? currentChat.name?.replace('🤖 ', '').replace('🤖', '')
+            : currentChat.name?.replace('🤖 ', '').replace('🤖', '').split(' ')[0]}
+          {currentChat.type === 'group' && (
+            <span className='group-pill-chevron' style={{ marginLeft: '4px' }}>
+              ›
+            </span>
+          )}
+        </div>
+        {/* Only show people count for groups WITHOUT a custom name */}
+        {currentChat.type === 'group' && !currentChat.group?.name ? (
           <button
             className='chat-header-group-pill-mobile'
             onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
           >
             {getSubtitle()} <span className='group-pill-chevron'>›</span>
           </button>
-        ) : (
+        ) : currentChat.type !== 'group' ? (
           <div className='chat-header-status'>{getSubtitle()}</div>
-        )}
+        ) : null}
       </div>
 
       {/* Mobile iMessage-style Header */}
@@ -311,20 +353,38 @@ export default function ChatHeader({
           </svg>
           <span>Back</span>
         </button>
-        {getMobileAvatar()}
-        <div className='chat-header-name'>
-          {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
-        </div>
         {currentChat.type === 'group' ? (
+          <div onClick={() => onOpenGroupInfo && onOpenGroupInfo()} style={{ cursor: 'pointer' }}>
+            {getMobileAvatar()}
+          </div>
+        ) : (
+          getMobileAvatar()
+        )}
+        <div
+          className='chat-header-name'
+          onClick={
+            currentChat.type === 'group' ? () => onOpenGroupInfo && onOpenGroupInfo() : undefined
+          }
+          style={currentChat.type === 'group' ? { cursor: 'pointer' } : undefined}
+        >
+          {currentChat.name?.replace('🤖 ', '').replace('🤖', '')}
+          {currentChat.type === 'group' && (
+            <span className='group-pill-chevron' style={{ marginLeft: '4px' }}>
+              ›
+            </span>
+          )}
+        </div>
+        {/* Only show people count for groups WITHOUT a custom name */}
+        {currentChat.type === 'group' && !currentChat.group?.name ? (
           <button
             className='chat-header-group-pill-mobile'
             onClick={() => onOpenGroupInfo && onOpenGroupInfo()}
           >
             {getSubtitle()} <span className='group-pill-chevron'>›</span>
           </button>
-        ) : (
+        ) : currentChat.type !== 'group' ? (
           <div className='chat-header-status'>{getSubtitle()}</div>
-        )}
+        ) : null}
 
         {/* Mobile buttons - right side */}
         <div className='absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2'>
