@@ -147,6 +147,8 @@ async function getRecentMessages(chatId, chatType, limit = 5) {
       messagesRef = adminDb.collection('channels').doc(chatId).collection('messages')
     } else if (chatType === 'dm') {
       messagesRef = adminDb.collection('dms').doc(chatId).collection('messages')
+    } else if (chatType === 'group') {
+      messagesRef = adminDb.collection('groups').doc(chatId).collection('messages')
     } else {
       return []
     }

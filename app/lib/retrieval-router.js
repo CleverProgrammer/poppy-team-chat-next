@@ -55,6 +55,18 @@ export async function searchChatHistory(userId, query, currentChat, startDate = 
         teamMemoryFilter                     // Team AI Memory (always accessible)
       ]
     };
+  } else if (currentChat?.type === 'group') {
+    // Group: this specific group + all channels + team memory
+    // Similar to DMs - only group members can access group messages
+    const groupId = currentChat.id;
+    permissionScope = `GROUP SCOPE - this group (${groupId}) + all channels + team memory`;
+    filter = {
+      $or: [
+        { chatId: { $eq: groupId } },       // This specific group's messages
+        { chatType: { $eq: 'channel' } },   // All channel messages (public)
+        teamMemoryFilter                     // Team AI Memory (always accessible)
+      ]
+    };
   } else if (currentChat?.type === 'channel') {
     // Channel: all channels + team memory (no DMs)
     permissionScope = 'CHANNEL SCOPE - all channels + team memory (no DMs accessible)';
