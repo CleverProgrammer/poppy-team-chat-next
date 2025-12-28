@@ -77,6 +77,7 @@ function ImageWithSkeleton({
       )}
       style={{ maxWidth, maxHeight }}
       onClick={onClick}
+      data-image-tap="true"
     >
       <SkeletonView
         width={displayDimensions?.width}
@@ -344,6 +345,19 @@ export default function MessageItem({
 
       // Skip if long press was triggered or if we were swiping
       if (isLongPressTriggered.current || isDragging.current) {
+        return
+      }
+
+      // Skip double-tap/triple-tap detection for images - let them open on single tap
+      const target = e.target
+      if (target.tagName === 'IMG' || target.closest('[data-image-tap]')) {
+        // Reset tap timers so next non-image tap works correctly
+        lastTapTime.current = 0
+        secondLastTapTime.current = 0
+        if (doubleTapTimer.current) {
+          clearTimeout(doubleTapTimer.current)
+          doubleTapTimer.current = null
+        }
         return
       }
 

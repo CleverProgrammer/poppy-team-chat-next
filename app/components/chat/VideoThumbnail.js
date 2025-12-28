@@ -75,7 +75,7 @@ export default function VideoThumbnail({
   // Reply-style videos have their own fixed layout
   if (isReply) {
     return (
-      <div className='video-reply-bubble' onClick={onClick}>
+      <div className='video-reply-bubble' onClick={onClick} data-image-tap="true">
         <img
           src={getAnimatedUrl()}
           alt='Video'
@@ -98,6 +98,7 @@ export default function VideoThumbnail({
       className={cn('rounded-xl overflow-hidden cursor-pointer relative')}
       style={{ maxWidth: MAX_VIDEO_WIDTH, maxHeight: MAX_VIDEO_HEIGHT }}
       onClick={onClick}
+      data-image-tap="true"
     >
       <SkeletonView
         width={dimensions?.width}
