@@ -87,10 +87,9 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
       _frecencyId: `group:${g.id}`
     })));
 
-    // Filter all users (for DMs) - add unique _frecencyId for tracking
+    // Filter all users (for DMs) - search by name only, not email
     const matchingUsers = allUsers.filter(u =>
-      (u.displayName?.toLowerCase().includes(searchQuery) ||
-       u.email?.toLowerCase().includes(searchQuery)) &&
+      u.displayName?.toLowerCase().includes(searchQuery) &&
       u.uid !== user?.uid
     );
     items.push(...matchingUsers.map(u => ({ 
@@ -152,10 +151,76 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
 
   if (!isOpen) return null;
 
-  const aiItems = filteredItems.filter(i => i.type === 'ai');
-  const channels = filteredItems.filter(i => i.type === 'channel');
-  const groupItems = filteredItems.filter(i => i.type === 'group');
-  const users = filteredItems.filter(i => i.type === 'user');
+  // Helper to render a single item regardless of type
+  const renderItem = (item, idx) => {
+    if (item.type === 'ai') {
+      return (
+        <div
+          key={`ai-${item.id}`}
+          className={`cmd-palette-item ${idx === selectedIndex ? 'selected' : ''}`}
+          onClick={() => handleSelect(item)}
+        >
+          <img src="/poppy-icon.png" alt="Poppy" className="cmd-palette-item-icon" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+          <div className="cmd-palette-item-info">
+            <div className="cmd-palette-item-name">{item.name}</div>
+            <div className="cmd-palette-item-hint">{item.hint}</div>
+          </div>
+        </div>
+      );
+    } else if (item.type === 'channel') {
+      return (
+        <div
+          key={`channel-${item.id}`}
+          className={`cmd-palette-item ${idx === selectedIndex ? 'selected' : ''}`}
+          onClick={() => handleSelect(item)}
+        >
+          <div className="cmd-palette-item-icon">#</div>
+          <div className="cmd-palette-item-info">
+            <div className="cmd-palette-item-name">{item.name}</div>
+            <div className="cmd-palette-item-hint">{item.hint}</div>
+          </div>
+        </div>
+      );
+    } else if (item.type === 'group') {
+      const group = item.group;
+      const hasPhoto = group?.photoURL && group.photoURL.length > 4;
+      const hasEmoji = group?.photoURL && group.photoURL.length <= 4;
+      return (
+        <div
+          key={`group-${item.id}`}
+          className={`cmd-palette-item ${idx === selectedIndex ? 'selected' : ''}`}
+          onClick={() => handleSelect(item)}
+        >
+          {hasPhoto ? (
+            <img src={group.photoURL} alt={item.name} className="cmd-palette-item-avatar" />
+          ) : hasEmoji ? (
+            <div className="cmd-palette-item-icon cmd-palette-group-emoji">{group.photoURL}</div>
+          ) : (
+            <div className="cmd-palette-item-icon">👥</div>
+          )}
+          <div className="cmd-palette-item-info">
+            <div className="cmd-palette-item-name">{item.name}</div>
+            <div className="cmd-palette-item-hint">{item.hint}</div>
+          </div>
+        </div>
+      );
+    } else if (item.type === 'user') {
+      return (
+        <div
+          key={`user-${item.user.uid}`}
+          className={`cmd-palette-item ${idx === selectedIndex ? 'selected' : ''}`}
+          onClick={() => handleSelect(item)}
+        >
+          {item.user.photoURL && <img src={item.user.photoURL} alt={item.user.displayName} />}
+          <div className="cmd-palette-item-info">
+            <div className="cmd-palette-item-name">{item.user.displayName || item.user.email}</div>
+            <div className="cmd-palette-item-hint">{item.user.email}</div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="cmd-palette-overlay" onClick={onClose}>
@@ -180,101 +245,9 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
               {query ? 'No results found' : 'Start typing to search...'}
             </div>
           ) : (
-            <>
-              {aiItems.length > 0 && (
-                <div className="cmd-palette-section">
-                  <div className="cmd-palette-section-title">AI Assistant</div>
-                  {aiItems.map((item) => {
-                    const globalIdx = filteredItems.indexOf(item);
-                    return (
-                      <div
-                        key={`ai-${item.id}`}
-                        className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
-                        onClick={() => handleSelect(item)}
-                      >
-                        <img src="/poppy-icon.png" alt="Poppy" className="cmd-palette-item-icon" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-                        <div className="cmd-palette-item-info">
-                          <div className="cmd-palette-item-name">{item.name}</div>
-                          <div className="cmd-palette-item-hint">{item.hint}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {channels.length > 0 && (
-                <div className="cmd-palette-section">
-                  <div className="cmd-palette-section-title">Channels</div>
-                  {channels.map((item, idx) => {
-                    const globalIdx = filteredItems.indexOf(item);
-                    return (
-                      <div
-                        key={`channel-${item.id}`}
-                        className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
-                        onClick={() => handleSelect(item)}
-                      >
-                        <div className="cmd-palette-item-icon">#</div>
-                        <div className="cmd-palette-item-info">
-                          <div className="cmd-palette-item-name">{item.name}</div>
-                          <div className="cmd-palette-item-hint">{item.hint}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {groupItems.length > 0 && (
-                <div className="cmd-palette-section">
-                  <div className="cmd-palette-section-title">Groups</div>
-                  {groupItems.map((item) => {
-                    const globalIdx = filteredItems.indexOf(item);
-                    const group = item.group;
-                    const hasPhoto = group?.photoURL && group.photoURL.length > 4; // URL, not emoji
-                    const hasEmoji = group?.photoURL && group.photoURL.length <= 4; // Emoji
-                    return (
-                      <div
-                        key={`group-${item.id}`}
-                        className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
-                        onClick={() => handleSelect(item)}
-                      >
-                        {hasPhoto ? (
-                          <img src={group.photoURL} alt={item.name} className="cmd-palette-item-avatar" />
-                        ) : hasEmoji ? (
-                          <div className="cmd-palette-item-icon cmd-palette-group-emoji">{group.photoURL}</div>
-                        ) : (
-                          <div className="cmd-palette-item-icon">👥</div>
-                        )}
-                        <div className="cmd-palette-item-info">
-                          <div className="cmd-palette-item-name">{item.name}</div>
-                          <div className="cmd-palette-item-hint">{item.hint}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {users.length > 0 && (
-                <div className="cmd-palette-section">
-                  <div className="cmd-palette-section-title">Direct Messages</div>
-                  {users.map((item) => {
-                    const globalIdx = filteredItems.indexOf(item);
-                    return (
-                      <div
-                        key={`user-${item.user.uid}`}
-                        className={`cmd-palette-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
-                        onClick={() => handleSelect(item)}
-                      >
-                        {item.user.photoURL && <img src={item.user.photoURL} alt={item.user.displayName} />}
-                        <div className="cmd-palette-item-info">
-                          <div className="cmd-palette-item-name">{item.user.displayName || item.user.email}</div>
-                          <div className="cmd-palette-item-hint">{item.user.email}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
+            <div className="cmd-palette-section">
+              {filteredItems.map((item, idx) => renderItem(item, idx))}
+            </div>
           )}
         </div>
       </div>

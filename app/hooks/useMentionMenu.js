@@ -142,12 +142,11 @@ export function useMentionMenu({
       })
     }
 
-    // Add users that match the query
+    // Add users that match the query - search by name only, not email
     const filteredUsers = allUsers.filter(
       u =>
         u.uid !== user?.uid &&
-        (u.displayName?.toLowerCase().includes(mentionMenu.query) ||
-          u.email?.toLowerCase().includes(mentionMenu.query))
+        u.displayName?.toLowerCase().includes(mentionMenu.query)
     )
 
     filteredUsers.forEach(u => {
