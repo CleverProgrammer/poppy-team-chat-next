@@ -23,7 +23,8 @@ import {
   markChatAsUnread,
   getImageDimensions,
   getVideoDimensions,
-  fetchLinkPreview
+  fetchLinkPreview,
+  updateMessageLinkPreview
 } from '../lib/firestore';
 import { extractFirstUrl, isLoomUrl } from '../utils/messageFormatting';
 
@@ -142,6 +143,14 @@ export function useMessageSending({
     // forcePrivate overrides privateMode for one-time sends
     const effectivePrivateMode = forcePrivate !== null ? forcePrivate : privateMode;
     const isPrivate = effectiveAiMode && effectivePrivateMode;
+
+    // Kick off link preview fetch, but don't block sending
+    const firstUrl = extractFirstUrl(messageText);
+    const previewPromise =
+      firstUrl && !isLoomUrl(messageText) ? fetchLinkPreview(firstUrl) : null;
+    let messageIdForPreview = null;
+    let chatIdForPreview = null;
+    let chatTypeForPreview = null;
 
     // Create optimistic message immediately
     const optimisticId = `temp-${Date.now()}`;
@@ -273,15 +282,6 @@ export function useMessageSending({
       const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0;
       const privateOptions = { isPrivate, privateFor: user.uid };
 
-      // Fetch link preview if message contains a URL (not Loom - those are embedded)
-      let linkPreview = null;
-      const firstUrl = extractFirstUrl(messageText);
-      if (firstUrl && !isLoomUrl(messageText)) {
-        console.log('🔗 Fetching link preview for:', firstUrl);
-        linkPreview = await fetchLinkPreview(firstUrl);
-        console.log('🔗 Link preview fetched:', linkPreview);
-      }
-
       if (currentChat.type === 'ai') {
         // Send user message to Firestore
         await sendAIMessage(user.uid, messageText, false, user);
@@ -291,12 +291,39 @@ export function useMessageSending({
       } else if (currentChat.type === 'channel') {
         // Send message with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions, messages);
+          messageIdForPreview = await sendMessageWithMedia(
+            currentChat.id,
+            user,
+            messageText,
+            imageUrls,
+            muxPlaybackIds,
+            currentReplyingTo,
+            mediaDimensions,
+            null,
+            privateOptions,
+            messages
+          );
         } else if (currentReplyingTo) {
-          await sendMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview, privateOptions);
+          messageIdForPreview = await sendMessageWithReply(
+            currentChat.id,
+            user,
+            messageText,
+            currentReplyingTo,
+            null,
+            privateOptions
+          );
         } else {
-          await sendMessage(currentChat.id, user, messageText, linkPreview, privateOptions);
+          messageIdForPreview = await sendMessage(
+            currentChat.id,
+            user,
+            messageText,
+            null,
+            privateOptions
+          );
         }
+
+        chatIdForPreview = currentChat.id;
+        chatTypeForPreview = 'channel';
 
         // Mark as unread for all other users (async, non-blocking)
         // Skip for private messages - they shouldn't notify others
@@ -318,12 +345,45 @@ export function useMessageSending({
 
         // Send DM with optional media, reply, and link preview
         if (hasMedia) {
-          await sendMessageDMWithMedia(dmId, user, currentChat.id, messageText, recipient, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions, messages);
+          messageIdForPreview = await sendMessageDMWithMedia(
+            dmId,
+            user,
+            currentChat.id,
+            messageText,
+            recipient,
+            imageUrls,
+            muxPlaybackIds,
+            currentReplyingTo,
+            mediaDimensions,
+            null,
+            privateOptions,
+            messages
+          );
         } else if (currentReplyingTo) {
-          await sendMessageDMWithReply(dmId, user, messageText, currentChat.id, currentReplyingTo, recipient, linkPreview, privateOptions);
+          messageIdForPreview = await sendMessageDMWithReply(
+            dmId,
+            user,
+            messageText,
+            currentChat.id,
+            currentReplyingTo,
+            recipient,
+            null,
+            privateOptions
+          );
         } else {
-          await sendMessageDM(dmId, user, messageText, currentChat.id, recipient, linkPreview, privateOptions);
+          messageIdForPreview = await sendMessageDM(
+            dmId,
+            user,
+            messageText,
+            currentChat.id,
+            recipient,
+            null,
+            privateOptions
+          );
         }
+
+        chatIdForPreview = dmId;
+        chatTypeForPreview = 'dm';
 
         // Mark as unread for the recipient (async, non-blocking)
         // Skip for private messages - they shouldn't notify the recipient
@@ -337,12 +397,39 @@ export function useMessageSending({
       } else if (currentChat.type === 'group') {
         // Send group message with optional media, reply, and link preview
         if (hasMedia) {
-          await sendGroupMessageWithMedia(currentChat.id, user, messageText, imageUrls, muxPlaybackIds, currentReplyingTo, mediaDimensions, linkPreview, privateOptions, messages);
+          messageIdForPreview = await sendGroupMessageWithMedia(
+            currentChat.id,
+            user,
+            messageText,
+            imageUrls,
+            muxPlaybackIds,
+            currentReplyingTo,
+            mediaDimensions,
+            null,
+            privateOptions,
+            messages
+          );
         } else if (currentReplyingTo) {
-          await sendGroupMessageWithReply(currentChat.id, user, messageText, currentReplyingTo, linkPreview, privateOptions);
+          messageIdForPreview = await sendGroupMessageWithReply(
+            currentChat.id,
+            user,
+            messageText,
+            currentReplyingTo,
+            null,
+            privateOptions
+          );
         } else {
-          await sendGroupMessage(currentChat.id, user, messageText, linkPreview, privateOptions);
+          messageIdForPreview = await sendGroupMessage(
+            currentChat.id,
+            user,
+            messageText,
+            null,
+            privateOptions
+          );
         }
+
+        chatIdForPreview = currentChat.id;
+        chatTypeForPreview = 'group';
 
         // Mark as unread for all group members (async, non-blocking)
         // Skip for private messages
@@ -358,6 +445,16 @@ export function useMessageSending({
             });
           }, 0);
         }
+      }
+
+      // Attach link preview asynchronously after the message is sent
+      if (previewPromise && messageIdForPreview && chatIdForPreview && chatTypeForPreview) {
+        previewPromise
+          .then(preview => {
+            if (!preview) return;
+            return updateMessageLinkPreview(chatIdForPreview, messageIdForPreview, chatTypeForPreview, preview);
+          })
+          .catch(err => console.warn('Failed to attach link preview:', err));
       }
 
       // Remove optimistic message once real one arrives (Firestore subscription will add it)

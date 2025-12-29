@@ -252,6 +252,8 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
         }
       })
       .catch(err => console.error('Tagging failed:', err))
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending message:', error)
     throw error
@@ -445,6 +447,8 @@ export async function sendMessageDM(
       await addActiveDM(user.uid, recipientId)
       await addActiveDM(recipientId, user.uid)
     }
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending message:', error)
     throw error
@@ -1047,6 +1051,8 @@ export async function sendMessageDMWithImage(
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)
     await addActiveDM(recipientId, user.uid)
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending DM with image:', error)
     throw error
@@ -1178,6 +1184,8 @@ export async function sendMessageWithMedia(
         })
         .catch(err => console.error('Image analysis failed:', err))
     }
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending message with media:', error)
     throw error
@@ -1335,6 +1343,8 @@ export async function sendMessageDMWithMedia(
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)
     await addActiveDM(recipientId, user.uid)
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending DM with media:', error)
     throw error
@@ -1919,6 +1929,8 @@ export async function sendMessageWithReply(
         }
       })
       .catch(err => console.error('Tagging failed:', err))
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending message with reply:', error)
     throw error
@@ -2022,6 +2034,8 @@ export async function sendMessageDMWithReply(
     // Add to active DMs
     await addActiveDM(user.uid, recipientId)
     await addActiveDM(recipientId, user.uid)
+
+    return docRef.id
   } catch (error) {
     console.error('Error sending DM with reply:', error)
     throw error
