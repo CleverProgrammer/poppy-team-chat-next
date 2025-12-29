@@ -1,7 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import Frecency from 'frecency/dist/browser/index.js';
+
+// Create frecency instance for command palette - persists to localStorage
+const createFrecency = () => {
+  if (typeof window === 'undefined') return null;
+  return new Frecency({
+    key: 'poppy_command_palette_frecency',
+    idAttribute: '_frecencyId',
+  });
+};
 
 export default function CommandPalette({ isOpen, onClose, allUsers, groups = [], onSelectChat }) {
   const { user } = useAuth();
@@ -9,6 +19,9 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [filteredItems, setFilteredItems] = useState([]);
   const inputRef = useRef(null);
+  
+  // Initialize frecency instance (memoized to avoid recreating)
+  const frecency = useMemo(() => createFrecency(), []);
 
   const CHANNELS = [
     { type: 'channel', id: 'general', name: 'general', hint: 'Team chat' },
@@ -36,20 +49,28 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
     const searchQuery = query.toLowerCase();
     let items = [];
 
-    // Filter AI Assistant
+    // Filter AI Assistant - add unique _frecencyId for tracking
     const matchingAI = AI_ASSISTANT.filter(a =>
       a.name.toLowerCase().includes(searchQuery) ||
       a.hint.toLowerCase().includes(searchQuery) ||
       'ai'.includes(searchQuery) ||
       'poppy'.includes(searchQuery)
     );
-    items.push(...matchingAI.map(a => ({ ...a, type: 'ai' })));
+    items.push(...matchingAI.map(a => ({ 
+      ...a, 
+      type: 'ai',
+      _frecencyId: `ai:${a.id}` 
+    })));
 
-    // Filter channels
+    // Filter channels - add unique _frecencyId for tracking
     const matchingChannels = CHANNELS.filter(c =>
       c.name.toLowerCase().includes(searchQuery)
     );
-    items.push(...matchingChannels.map(c => ({ ...c, type: 'channel' })));
+    items.push(...matchingChannels.map(c => ({ 
+      ...c, 
+      type: 'channel',
+      _frecencyId: `channel:${c.id}` 
+    })));
 
     // Filter groups - only by custom group name, not auto-generated member names
     const matchingGroups = (groups || []).filter(g => {
@@ -62,20 +83,33 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
       id: g.id, 
       name: g.name || g.displayName || g.memberNames?.join(', ') || 'Group Chat',
       group: g,
-      hint: `${g.memberCount || g.memberNames?.length || 0} members`
+      hint: `${g.memberCount || g.memberNames?.length || 0} members`,
+      _frecencyId: `group:${g.id}`
     })));
 
-    // Filter all users (for DMs)
+    // Filter all users (for DMs) - add unique _frecencyId for tracking
     const matchingUsers = allUsers.filter(u =>
       (u.displayName?.toLowerCase().includes(searchQuery) ||
        u.email?.toLowerCase().includes(searchQuery)) &&
       u.uid !== user?.uid
     );
-    items.push(...matchingUsers.map(u => ({ type: 'user', user: u })));
+    items.push(...matchingUsers.map(u => ({ 
+      type: 'user', 
+      user: u,
+      _frecencyId: `user:${u.uid}`
+    })));
+
+    // Sort items by frecency (most frequently/recently used first)
+    if (frecency && items.length > 0) {
+      items = frecency.sort({
+        searchQuery: searchQuery,
+        results: items
+      });
+    }
 
     setFilteredItems(items);
     setSelectedIndex(0);
-  }, [query, allUsers, groups, user, isOpen]);
+  }, [query, allUsers, groups, user, isOpen, frecency]);
 
   const handleKeyDown = (e) => {
     e.stopPropagation();
@@ -96,6 +130,14 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
   };
 
   const handleSelect = (item) => {
+    // Record selection for frecency ranking (learns from usage)
+    if (frecency && item._frecencyId) {
+      frecency.save({
+        searchQuery: query.toLowerCase(),
+        selectedId: item._frecencyId
+      });
+    }
+    
     if (item.type === 'channel') {
       onSelectChat({ type: 'channel', id: item.id, name: item.name });
     } else if (item.type === 'ai') {
