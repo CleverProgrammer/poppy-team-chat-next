@@ -51,11 +51,11 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
     );
     items.push(...matchingChannels.map(c => ({ ...c, type: 'channel' })));
 
-    // Filter groups
+    // Filter groups - only by custom group name, not auto-generated member names
     const matchingGroups = (groups || []).filter(g => {
-      const groupName = (g.name || g.displayName || g.memberNames?.join(', ') || '').toLowerCase();
-      const memberNames = (g.memberNames || []).join(' ').toLowerCase();
-      return groupName.includes(searchQuery) || memberNames.includes(searchQuery) || 'group'.includes(searchQuery);
+      // Only match if group has a custom name set (g.name), ignore auto-generated displayName
+      if (!g.name) return false;
+      return g.name.toLowerCase().includes(searchQuery);
     });
     items.push(...matchingGroups.map(g => ({ 
       type: 'group', 
