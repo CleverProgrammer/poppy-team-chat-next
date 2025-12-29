@@ -1,7 +1,8 @@
 # 🚀 Poppy Team Chat Roadmap
 
-> **Last Updated:** December 28, 2025  
-> **Pace:** Fast as fuck (AI-assisted)
+> **Last Updated:** December 29, 2025  
+> **Pace:** Fast as fuck (AI-assisted)  
+> **Pre-Commit Checklist:** [PRE_COMMIT_CHECKLIST.md](PRE_COMMIT_CHECKLIST.md)
 
 ---
 
@@ -72,7 +73,7 @@
 │                              🚧 WHAT'S AHEAD                                     │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
-│   ☐ Group Chats ←──── YOU ARE HERE (3-5 hrs)                                    │
+│   ☑ Group Chats ✅ DONE                                                          │
 │   │                                                                              │
 │   ├──→ ☐ Video Intelligence (4-6 hrs)                                           │
 │   │    └──→ ☐ YouTube/Loom Links (2-3 hrs)                                      │
@@ -102,7 +103,7 @@
 | # | Feature | Time | Status |
 |---|---------|------|--------|
 | 🔥 | **Virtualization & Firebase Perf** 🚨 | ASAP | 🔴🔴🔴 **CRITICAL** |
-| 1 | [**Group Chats**](plans/group-chats.md) 👥 | 3-5 hrs | 🟡 In Progress |
+| 1 | [**Group Chats**](plans/group-chats.md) 👥 | 3-5 hrs | ✅ Done |
 | 2 | [Video Intelligence](plans/media-intelligence/video-understanding.md) 🎬 | 4-6 hrs | ⬜ Next |
 | 2b | YouTube/Loom Links | 2-3 hrs | ⬜ |
 | 3 | Audio Rooms 🎙️ | 6-8 hrs | ⬜ |
@@ -139,27 +140,30 @@
 
 ## 🎯 Roadmap Details
 
-### Phase 1: [Group Chats](plans/group-chats.md) 👥
+### Phase 1: [Group Chats](plans/group-chats.md) 👥 ✅ DONE
 **Priority:** 🔴 CRITICAL (users blocked without this)  
 **Timeline:** 3-5 hours  
-**Branch:** `feature/group-chats`
+**Branch:** `feature/group-chats`  
+**Status:** ✅ **COMPLETE** (Dec 29, 2025)
 
-People are literally not using the app because they can't create group conversations. This is table-stakes functionality.
+Group chats are fully implemented with AI and task support!
 
-#### What We're Building:
-- [ ] Create group conversations (like iMessage groups)
-- [ ] Add/remove members from groups
-- [ ] Group naming and avatars
-- [ ] Group message notifications
-- [ ] Group appears in sidebar alongside DMs and channels
-- [ ] @mentions work in groups
-- [ ] Poppy AI works in groups (memory scoped to group)
+#### What's Done:
+- [x] Create group conversations (like iMessage groups)
+- [x] Add/remove members from groups
+- [x] Group naming and avatars
+- [x] Group message notifications
+- [x] Group appears in sidebar alongside DMs and channels
+- [x] @mentions work in groups
+- [x] **Poppy AI works in groups** (fixed Dec 29, 2025)
+- [x] **Tasks work in groups** (fixed Dec 29, 2025)
+- [x] Ragie indexing with `chatType: 'group'`
 
 #### Technical:
-- New Firestore collection: `groups`
+- Firestore collection: `groups`
 - Schema: `{ id, name, members[], avatar, createdBy, createdAt }`
 - Messages stored in `groups/{groupId}/messages`
-- Ragie indexing with `chatType: 'group'`
+- Ragie indexing with `chatType: 'group'` and `participants` array
 
 ---
 
@@ -329,7 +333,7 @@ Special analysis mode for candidate video submissions.
 | Phase | Feature | Time | Target | Status |
 |-------|---------|------|--------|--------|
 | **🔥** | **Virtualization & Firebase** | ASAP | **BLOCKING** | 🔴 CRITICAL |
-| **1** | Group Chats | 3-5 hrs | Week 1 | 🟡 In Progress |
+| **1** | Group Chats | 3-5 hrs | Week 1 | ✅ Done |
 | **2** | Video Intelligence | 4-6 hrs | Week 1 | ✅ Confirmed |
 | **2b** | YouTube/Loom Links | 2-3 hrs | Week 1 | ✅ Confirmed |
 | **3** | Audio Rooms (100ms) | 6-8 hrs | Week 2 | ✅ Confirmed |
@@ -520,20 +524,18 @@ These are known issues that need to be addressed. Use this as a litmus test when
 
 | Feature | DMs | Channels | Groups |
 |---------|-----|----------|--------|
-| Task detection (AI tagging) | ✅ Works | ✅ Works | ❌ **BROKEN** |
-| Task creation (`handleTasksFromMessage`) | ✅ Works | ❓ Untested | ❌ **NOT CALLED** |
-| Task completion from gratitude | ✅ Works | ❓ Untested | ❌ **NOT CALLED** |
-| Task assignee resolution | ✅ DM recipient | ❓ Untested | ❌ **No logic** |
+| Task detection (AI tagging) | ✅ Works | ✅ Works | ✅ Works |
+| Task creation (`handleTasksFromMessage`) | ✅ Works | ✅ Works | ✅ **FIXED** |
+| Task completion from gratitude | ✅ Works | ✅ Works | ✅ **FIXED** |
+| Task assignee resolution | ✅ DM recipient | ✅ Uses chatId | ✅ **FIXED** |
 
-**Root Cause:** 
-- Group message functions (`sendGroupMessage`, etc.) don't call `handleTasksFromMessage` after tagging
-- `createTaskFromMessage` only handles `chatType === 'dm'` and defaults to channel - no `group` handling
+**Status:** ✅ All fixed in `fix/group-chat-ai-response` branch (Dec 29, 2025)
 
-**Files to fix:**
-- `app/lib/firestore.js`: Add `handleTasksFromMessage` calls in all `sendGroup*` functions
-- `app/lib/firestore.js`: Update `createTaskFromMessage` to handle `chatType === 'group'`
+**What was fixed:**
+- Added `handleTasksFromMessage` calls to all `sendGroup*` functions
+- Added `chatType === 'group'` handling in `createTaskFromMessage` (fetches group name from Firestore)
 
-**Detailed plan:** [DM Tasks System](plans/ai-improvements/dm-tasks-system.md) (needs update for groups)
+**Detailed plan:** [Task System](plans/ai-improvements/dm-tasks-system.md)
 
 ---
 

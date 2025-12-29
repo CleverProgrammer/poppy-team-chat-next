@@ -414,7 +414,7 @@ No full transcription shown - just the TLDR. Keep it clean.
   metadata: {
     messageId: "msg_abc123",
     sender: "Rafeh Qazi",
-    timestamp: "2024-12-27T14:30:00Z",
+    timestamp: "2025-12-27T14:30:00Z",
     chatType: "channel",
     chatId: "general",
     contentType: "video",

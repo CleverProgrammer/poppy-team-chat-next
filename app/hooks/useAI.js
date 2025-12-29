@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import {
   sendMessage,
   sendMessageDM,
+  sendGroupMessage,
   getDMId,
   sendAIMessage,
   markChatAsUnread,
@@ -137,7 +138,11 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         if (currentChat.type === 'channel') {
           // sendMessage signature: (channelId, user, text, linkPreview, options)
           await sendMessage(currentChat.id, AI_USER, aiResponse, null, messageOptions)
+        } else if (currentChat.type === 'group') {
+          // sendGroupMessage signature: (groupId, user, text, linkPreview, options)
+          await sendGroupMessage(currentChat.id, AI_USER, aiResponse, null, messageOptions)
         } else {
+          // DM
           const dmId = getDMId(user.uid, currentChat.id)
           // sendMessageDM signature: (dmId, user, text, recipientId, recipient, linkPreview, options)
           await sendMessageDM(dmId, AI_USER, aiResponse, currentChat.id, null, null, messageOptions)
@@ -157,7 +162,11 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         if (currentChat.type === 'channel') {
           // sendMessage signature: (channelId, user, text, linkPreview, options)
           await sendMessage(currentChat.id, AI_USER, errorMsg, null, messageOptions)
+        } else if (currentChat.type === 'group') {
+          // sendGroupMessage signature: (groupId, user, text, linkPreview, options)
+          await sendGroupMessage(currentChat.id, AI_USER, errorMsg, null, messageOptions)
         } else {
+          // DM
           const dmId = getDMId(user.uid, currentChat.id)
           // sendMessageDM signature: (dmId, user, text, recipientId, recipient, linkPreview, options)
           await sendMessageDM(dmId, AI_USER, errorMsg, currentChat.id, null, null, messageOptions)

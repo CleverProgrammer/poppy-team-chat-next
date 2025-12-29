@@ -2824,6 +2824,16 @@ export async function createTaskFromMessage(
     let chatName = ''
     if (chatType === 'dm') {
       chatName = recipient?.displayName || recipient?.email || 'Direct Message'
+    } else if (chatType === 'group') {
+      // For groups, fetch the group name from Firestore
+      try {
+        const groupSnap = await getDoc(doc(db, 'groups', chatId))
+        const groupData = groupSnap.data()
+        chatName = groupData?.name || groupData?.memberNames?.join(', ') || 'Group Chat'
+      } catch (err) {
+        console.warn('Failed to get group name for task:', err)
+        chatName = 'Group Chat'
+      }
     } else {
       chatName = chatId // Channel name
     }
@@ -3762,6 +3772,12 @@ export async function sendGroupMessage(groupId, user, text, linkPreview = null, 
             aiTags: data.aiTags,
           }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
+
+          // Handle task creation for groups (same as DMs)
+          if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+            console.log('📋 AI task detected in group:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+            handleTasksFromMessage(groupId, 'group', docRef.id, text, user, null, data.aiTags)
+          }
         }
       })
       .catch(err => console.error('Tagging failed:', err))
@@ -3856,6 +3872,12 @@ export async function sendGroupMessageWithReply(
             aiTags: data.aiTags,
           }).catch(err => console.warn('Failed to save tags to Firestore:', err))
           saveCanonicalTag(data.aiTags)
+
+          // Handle task creation for groups (same as DMs)
+          if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+            console.log('📋 AI task detected in group reply:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+            handleTasksFromMessage(groupId, 'group', docRef.id, text, user, null, data.aiTags)
+          }
         }
       })
       .catch(err => console.error('Tagging failed:', err))
@@ -3960,6 +3982,12 @@ export async function sendGroupMessageWithMedia(
               aiTags: data.aiTags,
             }).catch(err => console.warn('Failed to save tags to Firestore:', err))
             saveCanonicalTag(data.aiTags)
+
+            // Handle task creation for groups (same as DMs)
+            if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+              console.log('📋 AI task detected in group media:', data.aiTags.tasks?.length > 1 ? `${data.aiTags.tasks.length} tasks` : data.aiTags.task_action)
+              handleTasksFromMessage(groupId, 'group', docRef.id, text, user, null, data.aiTags)
+            }
           }
         })
         .catch(err => console.error('Tagging failed:', err))
@@ -4105,6 +4133,12 @@ export async function sendGroupMessageWithAudio(
                   aiTags: tagData.aiTags,
                 }).catch(err => console.warn('Failed to save voice tags:', err))
                 saveCanonicalTag(tagData.aiTags)
+
+                // Handle task creation for groups (same as DMs)
+                if (tagData.aiTags.task_action || tagData.aiTags.tasks?.length > 0) {
+                  console.log('📋 AI task detected in group voice message:', tagData.aiTags.tasks?.length > 1 ? `${tagData.aiTags.tasks.length} tasks` : tagData.aiTags.task_action)
+                  handleTasksFromMessage(groupId, 'group', docRef.id, data.transcription.text, user, null, tagData.aiTags)
+                }
               }
             })
             .catch(err => console.error('Voice message tagging failed:', err))

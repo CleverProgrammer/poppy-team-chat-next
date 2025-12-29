@@ -46,6 +46,7 @@
     "date-fns": "^4.1.0",
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
+    "frecency": "^1.0.5",
     "howler": "^2.2.4",
     "klavis": "^2.15.0",
     "link-preview-js": "^4.0.0",

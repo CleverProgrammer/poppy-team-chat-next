@@ -1,6 +1,16 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
+import Frecency from 'frecency/dist/browser/index.js'
+
+// Create frecency instance for mention menu - persists to localStorage
+const createMentionFrecency = () => {
+  if (typeof window === 'undefined') return null
+  return new Frecency({
+    key: 'poppy_mention_frecency',
+    idAttribute: '_frecencyId',
+  })
+}
 
 export function useMentionMenu({
   inputRef,
@@ -12,6 +22,9 @@ export function useMentionMenu({
 }) {
   const [mentionMenu, setMentionMenu] = useState(null)
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0)
+  
+  // Initialize frecency instance (memoized to avoid recreating)
+  const frecency = useMemo(() => createMentionFrecency(), [])
 
   const handleTextareaChange = useCallback(
     e => {
@@ -107,6 +120,7 @@ export function useMentionMenu({
             type: 'ai-command',
             name: '/ai',
             description: 'Ask Poppy AI anything',
+            _frecencyId: 'command:ai',
           },
         ]
       }
@@ -114,7 +128,7 @@ export function useMentionMenu({
     }
 
     // For mentions, filter ALL items including Poppy based on query
-    const items = []
+    let items = []
 
     // Only show Poppy if query matches
     if (!mentionMenu.query || 'poppy'.includes(mentionMenu.query)) {
@@ -124,15 +138,15 @@ export function useMentionMenu({
         uid: 'poppy-ai',
         description: 'AI Assistant',
         icon: '/poppy-icon.png',
+        _frecencyId: 'ai:poppy',
       })
     }
 
-    // Add users that match the query
+    // Add users that match the query - search by name only, not email
     const filteredUsers = allUsers.filter(
       u =>
         u.uid !== user?.uid &&
-        (u.displayName?.toLowerCase().includes(mentionMenu.query) ||
-          u.email?.toLowerCase().includes(mentionMenu.query))
+        u.displayName?.toLowerCase().includes(mentionMenu.query)
     )
 
     filteredUsers.forEach(u => {
@@ -142,15 +156,32 @@ export function useMentionMenu({
         uid: u.uid,
         photoURL: u.photoURL,
         description: u.email,
+        _frecencyId: `user:${u.uid}`,
       })
     })
 
+    // Sort by frecency (most frequently/recently mentioned first)
+    if (frecency && items.length > 0) {
+      items = frecency.sort({
+        searchQuery: mentionMenu.query,
+        results: items
+      })
+    }
+
     return items
-  }, [mentionMenu, allUsers, user])
+  }, [mentionMenu, allUsers, user, frecency])
 
   const selectMentionItem = useCallback(
     item => {
       if (!mentionMenu || !inputRef.current) return
+
+      // Record selection for frecency ranking (learns from usage)
+      if (frecency && item._frecencyId) {
+        frecency.save({
+          searchQuery: mentionMenu.query,
+          selectedId: item._frecencyId
+        })
+      }
 
       const textarea = inputRef.current
       const value = textarea.value
@@ -188,7 +219,7 @@ export function useMentionMenu({
       const event = new Event('input', { bubbles: true })
       textarea.dispatchEvent(event)
     },
-    [mentionMenu, inputRef, setInsertPosition, openAiModal]
+    [mentionMenu, inputRef, setInsertPosition, openAiModal, frecency]
   )
 
   // Handle keyboard navigation for mention menu
@@ -238,3 +269,4 @@ export function useMentionMenu({
     handleMentionKeyDown,
   }
 }
+

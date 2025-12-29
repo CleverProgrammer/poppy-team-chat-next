@@ -1,9 +1,10 @@
 # 👥 Group Chats: The iMessage Way
 
-> **Status**: 📋 Ready to Build  
+> **Status**: ✅ COMPLETE  
 > **Priority**: 🔴 CRITICAL (users blocked without this)  
 > **Timeline**: ~3 hours  
-> **Branch**: `feature/group-chats`
+> **Branch**: `feature/group-chats`  
+> **AI/Tasks Fix:** `fix/group-chat-ai-response` (Dec 29, 2025)
 
 ---
 
@@ -506,13 +507,15 @@ function generateGroupName(memberNames) {
 
 ## Success Metrics
 
-- [ ] Users can create a group with 2+ people
-- [ ] Users can send messages in groups
-- [ ] Users can add members to existing groups
-- [ ] Users can remove members from groups
-- [ ] Groups appear in sidebar
-- [ ] AI (@poppy) works in groups with proper memory scoping
-- [ ] Images, videos, voice messages all work in groups
+- [x] Users can create a group with 2+ people
+- [x] Users can send messages in groups
+- [x] Users can add members to existing groups
+- [x] Users can remove members from groups
+- [x] Groups appear in sidebar
+- [x] **AI (@poppy) works in groups** ✅ Fixed Dec 29, 2025
+- [x] **Tasks work in groups** ✅ Fixed Dec 29, 2025
+- [x] Images, videos, voice messages all work in groups
+- [x] Ragie indexing with proper permissions
 
 ---
 
