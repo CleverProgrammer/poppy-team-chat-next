@@ -1,34 +1,34 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Virtuoso } from "react-virtuoso";
-import { Howl } from "howler";
-import { Capacitor } from "@capacitor/core";
-import Sidebar from "../layout/Sidebar";
-import CommandPalette from "./CommandPalette";
-import AIModal from "./AIModal";
-import ImageLightbox from "./ImageLightbox";
-import MessageItem from "./MessageItem";
-import ChatInput from "./ChatInput";
-import ChatHeader from "./ChatHeader";
-import ContextMenu from "./ContextMenu";
-import PostsView from "./PostsView";
-import PostPreview from "./PostPreview";
-import TasksSection from "./TasksSection";
-import VideoRecorder from "./VideoRecorder";
-import WebVideoRecorder from "./WebVideoRecorder";
-import ThreadView from "./ThreadView";
-import CreateGroupModal from "./CreateGroupModal";
-import GroupInfoModal from "./GroupInfoModal";
-import AnnouncementPopup from "../announcements/AnnouncementPopup";
-import { useAuth } from "../../contexts/AuthContext";
-import { useImageUpload } from "../../hooks/useImageUpload";
-import { useReactions } from "../../hooks/useReactions";
-import { useAI } from "../../hooks/useAI";
-import { useMessageSending } from "../../hooks/useMessageSending";
-import { useMentionMenu } from "../../hooks/useMentionMenu";
-import { useSubscriptions } from "../../hooks/useSubscriptions";
-import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { Virtuoso } from 'react-virtuoso'
+import { Howl } from 'howler'
+import { Capacitor } from '@capacitor/core'
+import Sidebar from '../layout/Sidebar'
+import CommandPalette from './CommandPalette'
+import AIModal from './AIModal'
+import ImageLightbox from './ImageLightbox'
+import MessageItem from './MessageItem'
+import ChatInput from './ChatInput'
+import ChatHeader from './ChatHeader'
+import ContextMenu from './ContextMenu'
+import PostsView from './PostsView'
+import PostPreview from './PostPreview'
+import TasksSection from './TasksSection'
+import VideoRecorder from './VideoRecorder'
+import WebVideoRecorder from './WebVideoRecorder'
+import ThreadView from './ThreadView'
+import CreateGroupModal from './CreateGroupModal'
+import GroupInfoModal from './GroupInfoModal'
+import AnnouncementPopup from '../announcements/AnnouncementPopup'
+import { useAuth } from '../../contexts/AuthContext'
+import { useImageUpload } from '../../hooks/useImageUpload'
+import { useReactions } from '../../hooks/useReactions'
+import { useAI } from '../../hooks/useAI'
+import { useMessageSending } from '../../hooks/useMessageSending'
+import { useMentionMenu } from '../../hooks/useMentionMenu'
+import { useSubscriptions } from '../../hooks/useSubscriptions'
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import {
   getDMId,
   saveCurrentChat,
@@ -50,171 +50,170 @@ import {
   subscribeToUserGroups,
   subscribeToGroupMessages,
   subscribeToGroupLastMessages,
-  subscribeToUnreadAnnouncements,
-} from "../../lib/firestore";
+  subscribeToUnreadAnnouncements
+} from '../../lib/firestore'
 import {
   VirtuosoMessageList,
-  VirtuosoMessageListLicense,
-} from "@virtuoso.dev/message-list";
+  VirtuosoMessageListLicense
+} from '@virtuoso.dev/message-list'
 
 const licenseKey =
-  process.env.NEXT_PUBLIC_VIRTUOSO_MESSAGE_LIST_LICENSE_KEY || "";
+  process.env.NEXT_PUBLIC_VIRTUOSO_MESSAGE_LIST_LICENSE_KEY || ''
 
 export default function ChatWindow() {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState([]);
-  const [currentChat, setCurrentChat] = useState(null);
-  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [unreadChats, setUnreadChats] = useState([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth()
+  const [messages, setMessages] = useState([])
+  const [currentChat, setCurrentChat] = useState(null)
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false)
+  const [unreadChats, setUnreadChats] = useState([])
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [lightboxData, setLightboxData] = useState({
     open: false,
     images: [],
-    startIndex: 0,
-  });
-  const [contextMenu, setContextMenu] = useState(null);
-  const [editingMessage, setEditingMessage] = useState(null);
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [insertPosition, setInsertPosition] = useState(null);
-  const [viewMode, setViewMode] = useState("messages");
-  const [posts, setPosts] = useState([]);
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [autoSendPending, setAutoSendPending] = useState(false); // Flag for auto-sending video replies
-  const [videoUploadProgress, setVideoUploadProgress] = useState(null); // { percent, status } for upload indicator
-  const [videoRecorderOpen, setVideoRecorderOpen] = useState(false); // Native video recorder (iOS)
-  const [webVideoRecorderOpen, setWebVideoRecorderOpen] = useState(false); // Web video recorder (desktop)
+    startIndex: 0
+  })
+  const [contextMenu, setContextMenu] = useState(null)
+  const [editingMessage, setEditingMessage] = useState(null)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [insertPosition, setInsertPosition] = useState(null)
+  const [viewMode, setViewMode] = useState('messages')
+  const [posts, setPosts] = useState([])
+  const [selectedPost, setSelectedPost] = useState(null)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [hasMoreMessages, setHasMoreMessages] = useState(true)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  const [autoSendPending, setAutoSendPending] = useState(false) // Flag for auto-sending video replies
+  const [videoUploadProgress, setVideoUploadProgress] = useState(null) // { percent, status } for upload indicator
+  const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder (iOS)
+  const [webVideoRecorderOpen, setWebVideoRecorderOpen] = useState(false) // Web video recorder (desktop)
   const [threadView, setThreadView] = useState({
     open: false,
-    originalMessage: null,
-  }); // Thread view state
-  const [aiMode, setAiMode] = useState(false); // AI mode toggle for input
-  const [privateMode, setPrivateMode] = useState(false); // Private messages (only visible to sender)
-  const [groups, setGroups] = useState([]); // User's groups
-  const [groupLastMessages, setGroupLastMessages] = useState({}); // Last message for each group (sidebar preview)
-  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false); // Create group modal
-  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false); // Group info modal
-  const [unreadAnnouncement, setUnreadAnnouncement] = useState(null); // Current unread announcement to show
-  const messageListRef = useRef(null);
-  const virtuosoRef = useRef(null);
-  const scrollerRef = useRef(null);
-  const lastScrollTopRef = useRef(0);
-  const isAutoScrollingRef = useRef(false); // Flag to prevent blur during programmatic scroll
-  const isTouchingRef = useRef(false); // Track if user is actively touching the screen
-  const shouldStayAtBottomRef = useRef(true); // Track if we should auto-scroll when content loads
-  const isOlderMessagesLoadingRef = useRef(false); // Prevent concurrent loads
-  const justPrependedRef = useRef(false); // Track when older messages are prepended to maintain scroll position
+    originalMessage: null
+  }) // Thread view state
+  const [aiMode, setAiMode] = useState(false) // AI mode toggle for input
+  const [privateMode, setPrivateMode] = useState(false) // Private messages (only visible to sender)
+  const [groups, setGroups] = useState([]) // User's groups
+  const [groupLastMessages, setGroupLastMessages] = useState({}) // Last message for each group (sidebar preview)
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false) // Create group modal
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false) // Group info modal
+  const [unreadAnnouncement, setUnreadAnnouncement] = useState(null) // Current unread announcement to show
+  const messageListRef = useRef(null)
+  const virtuosoRef = useRef(null)
+  const scrollerRef = useRef(null)
+  const lastScrollTopRef = useRef(0)
+  const isAutoScrollingRef = useRef(false) // Flag to prevent blur during programmatic scroll
+  const isTouchingRef = useRef(false) // Track if user is actively touching the screen
+  const shouldStayAtBottomRef = useRef(true) // Track if we should auto-scroll when content loads
+  const isOlderMessagesLoadingRef = useRef(false) // Prevent concurrent loads
+  const justPrependedRef = useRef(false) // Track when older messages are prepended to maintain scroll position
 
   // Load AI mode settings from localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedAiMode = localStorage.getItem("poppy-ai-mode");
-      const savedPrivateMode = localStorage.getItem("poppy-private-mode");
-      if (savedAiMode !== null) setAiMode(savedAiMode === "true");
-      if (savedPrivateMode !== null)
-        setPrivateMode(savedPrivateMode === "true");
+    if (typeof window !== 'undefined') {
+      const savedAiMode = localStorage.getItem('poppy-ai-mode')
+      const savedPrivateMode = localStorage.getItem('poppy-private-mode')
+      if (savedAiMode !== null) setAiMode(savedAiMode === 'true')
+      if (savedPrivateMode !== null) setPrivateMode(savedPrivateMode === 'true')
     }
-  }, []);
+  }, [])
 
   // Subscribe to unread announcements (real-time updates)
   // This ensures:
   // 1. Dismissed announcements don't show again on refresh
   // 2. New announcements pop up immediately without refresh
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) return
 
     const unsubscribe = subscribeToUnreadAnnouncements(user.uid, (unread) => {
       if (unread.length > 0) {
         // Show the most recent unread announcement
-        setUnreadAnnouncement(unread[0]);
+        setUnreadAnnouncement(unread[0])
       } else {
-        setUnreadAnnouncement(null);
+        setUnreadAnnouncement(null)
       }
-    });
+    })
 
-    return () => unsubscribe();
-  }, [user?.uid]);
+    return () => unsubscribe()
+  }, [user?.uid])
 
   // Save AI mode settings to localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("poppy-ai-mode", aiMode.toString());
-      localStorage.setItem("poppy-private-mode", privateMode.toString());
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('poppy-ai-mode', aiMode.toString())
+      localStorage.setItem('poppy-private-mode', privateMode.toString())
     }
-  }, [aiMode, privateMode]);
+  }, [aiMode, privateMode])
 
   // Swipe from left edge to open sidebar (mobile)
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const isSwiping = useRef(false);
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const isSwiping = useRef(false)
 
   useEffect(() => {
-    const EDGE_THRESHOLD = 30; // px from left edge to start swipe
-    const SWIPE_THRESHOLD = 80; // px to complete swipe
-    const VERTICAL_LIMIT = 50; // max vertical movement
+    const EDGE_THRESHOLD = 30 // px from left edge to start swipe
+    const SWIPE_THRESHOLD = 80 // px to complete swipe
+    const VERTICAL_LIMIT = 50 // max vertical movement
 
     const handleTouchStart = (e) => {
-      const touch = e.touches[0];
+      const touch = e.touches[0]
       // Swipe from left edge to open, or anywhere to close when open
       if ((touch.clientX < EDGE_THRESHOLD && !isSidebarOpen) || isSidebarOpen) {
-        touchStartX.current = touch.clientX;
-        touchStartY.current = touch.clientY;
-        isSwiping.current = true;
+        touchStartX.current = touch.clientX
+        touchStartY.current = touch.clientY
+        isSwiping.current = true
       }
-    };
+    }
 
     const handleTouchMove = (e) => {
-      if (!isSwiping.current) return;
+      if (!isSwiping.current) return
 
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - touchStartX.current;
-      const deltaY = Math.abs(touch.clientY - touchStartY.current);
+      const touch = e.touches[0]
+      const deltaX = touch.clientX - touchStartX.current
+      const deltaY = Math.abs(touch.clientY - touchStartY.current)
 
       // Cancel if vertical movement is too much (user is scrolling)
       if (deltaY > VERTICAL_LIMIT) {
-        isSwiping.current = false;
-        return;
+        isSwiping.current = false
+        return
       }
 
       // Prevent default to avoid scrolling while swiping
       if (Math.abs(deltaX) > 10) {
-        e.preventDefault();
+        e.preventDefault()
       }
-    };
+    }
 
     const handleTouchEnd = (e) => {
-      if (!isSwiping.current) return;
+      if (!isSwiping.current) return
 
-      const touch = e.changedTouches[0];
-      const deltaX = touch.clientX - touchStartX.current;
+      const touch = e.changedTouches[0]
+      const deltaX = touch.clientX - touchStartX.current
 
       // Swipe right to open
       if (!isSidebarOpen && deltaX > SWIPE_THRESHOLD) {
-        setIsSidebarOpen(true);
+        setIsSidebarOpen(true)
       }
       // Swipe left to close
       if (isSidebarOpen && deltaX < -SWIPE_THRESHOLD) {
-        setIsSidebarOpen(false);
+        setIsSidebarOpen(false)
       }
 
-      isSwiping.current = false;
-    };
+      isSwiping.current = false
+    }
 
-    document.addEventListener("touchstart", handleTouchStart, {
-      passive: true,
-    });
-    document.addEventListener("touchmove", handleTouchMove, { passive: false });
-    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    document.addEventListener('touchstart', handleTouchStart, {
+      passive: true
+    })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('touchend', handleTouchEnd, { passive: true })
 
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [isSidebarOpen]);
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isSidebarOpen])
 
   // Image upload hook (supports multiple images)
   const {
@@ -229,9 +228,9 @@ export default function ChatWindow() {
     handleRemoveImageAtIndex,
     clearImage,
     dropzoneProps,
-    openFilePicker,
-  } = useImageUpload();
-  const { getRootProps, getInputProps, isDragActive } = dropzoneProps;
+    openFilePicker
+  } = useImageUpload()
+  const { getRootProps, getInputProps, isDragActive } = dropzoneProps
 
   // Reactions hook
   const {
@@ -239,13 +238,13 @@ export default function ChatWindow() {
     openEmojiPanel,
     handleAddReaction,
     toggleEmojiPanel,
-    setOpenEmojiPanel,
-  } = useReactions(user, currentChat);
+    setOpenEmojiPanel
+  } = useReactions(user, currentChat)
 
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const videoReplyInputRef = useRef(null);
-  const pendingVideoReplyRef = useRef(null); // Store the message we're replying to
+  const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
+  const videoReplyInputRef = useRef(null)
+  const pendingVideoReplyRef = useRef(null) // Store the message we're replying to
 
   // Subscriptions hook (handles all Firebase subscriptions) - must be early for allUsers
   const {
@@ -254,28 +253,28 @@ export default function ChatWindow() {
     lastMessages,
     channelLastMessages,
     aiLastMessage,
-    otherUserTyping,
+    otherUserTyping
   } = useSubscriptions({
     user,
     currentChat,
     setCurrentChat,
     setMessages,
     messagesEndRef,
-    inputRef,
-  });
+    inputRef
+  })
 
   // AI hook (must be after virtuosoRef is defined)
   const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } =
-    useAI(user, currentChat, messages, setMessages, virtuosoRef);
+    useAI(user, currentChat, messages, setMessages, virtuosoRef)
 
   // Scroll to bottom helper (for mobile keyboard)
   const scrollToBottom = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({
-      index: "LAST",
-      align: "end",
-      behavior: "smooth",
-    });
-  }, []);
+      index: 'LAST',
+      align: 'end',
+      behavior: 'smooth'
+    })
+  }, [])
 
   // Auto-scroll when typing indicator appears (if user is at bottom)
   useEffect(() => {
@@ -283,13 +282,13 @@ export default function ChatWindow() {
       // Small delay to let the footer render first
       setTimeout(() => {
         virtuosoRef.current?.scrollToIndex({
-          index: "LAST",
-          align: "end",
-          behavior: "smooth",
-        });
-      }, 50);
+          index: 'LAST',
+          align: 'end',
+          behavior: 'smooth'
+        })
+      }, 50)
     }
-  }, [otherUserTyping, aiTyping]);
+  }, [otherUserTyping, aiTyping])
 
   // Message sending hook
   const {
@@ -300,7 +299,7 @@ export default function ChatWindow() {
     sendVideoReply,
     updateTypingIndicator,
     clearTypingIndicator,
-    typingTimeoutRef,
+    typingTimeoutRef
   } = useMessageSending({
     user,
     currentChat,
@@ -323,11 +322,11 @@ export default function ChatWindow() {
     askPoppy,
     askPoppyDirectly,
     aiMode,
-    privateMode,
-  });
+    privateMode
+  })
 
   // AI Modal helper (needed by useMentionMenu)
-  const openAiModal = () => setAiModalOpen(true);
+  const openAiModal = () => setAiModalOpen(true)
 
   // Mention menu hook
   const {
@@ -337,128 +336,128 @@ export default function ChatWindow() {
     handleTextareaChange,
     getMentionMenuItems,
     selectMentionItem,
-    handleMentionKeyDown,
+    handleMentionKeyDown
   } = useMentionMenu({
     inputRef,
     allUsers,
     user,
     updateTypingIndicator,
     setInsertPosition,
-    openAiModal,
-  });
+    openAiModal
+  })
 
-  const messageRefs = useRef({});
+  const messageRefs = useRef({})
 
   const handleKeyDown = (e) => {
     // Let mention menu handle its keys first
-    if (handleMentionKeyDown(e)) return;
+    if (handleMentionKeyDown(e)) return
 
     // On mobile, Enter should act as a new line (like Shift+Enter on desktop)
     // On desktop, Enter sends the message unless Shift is pressed
-    const isMobile = Capacitor.isNativePlatform();
+    const isMobile = Capacitor.isNativePlatform()
 
     // Quick AI shortcuts (like Shift for a single capital letter):
     // Cmd+Enter (Mac) or Ctrl+Enter (Windows): Send to public AI
     // Cmd+Shift+Enter (Mac) or Ctrl+Shift+Enter (Windows): Send to private AI
-    const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+    const isCmdOrCtrl = e.metaKey || e.ctrlKey
 
-    if (e.key === "Enter" && isCmdOrCtrl && !isMobile) {
-      e.preventDefault();
+    if (e.key === 'Enter' && isCmdOrCtrl && !isMobile) {
+      e.preventDefault()
       if (e.shiftKey) {
         // Cmd+Shift+Enter: Send to private AI (incognito mode)
-        handleSend({ forceAI: true, forcePrivate: true });
+        handleSend({ forceAI: true, forcePrivate: true })
       } else {
         // Cmd+Enter: Send to public AI
-        handleSend({ forceAI: true, forcePrivate: false });
+        handleSend({ forceAI: true, forcePrivate: false })
       }
-      return;
+      return
     }
 
-    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
-      e.preventDefault();
-      handleSend();
+    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+      e.preventDefault()
+      handleSend()
     }
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       if (editingMessage) {
-        cancelEdit();
+        cancelEdit()
       } else if (replyingTo) {
-        cancelReply();
+        cancelReply()
       }
     }
-  };
+  }
 
   const closeAiModal = () => {
-    setAiModalOpen(false);
-    inputRef.current?.focus();
-  };
+    setAiModalOpen(false)
+    inputRef.current?.focus()
+  }
 
   const handleInsertAiResponse = (text, position) => {
-    if (!inputRef.current) return;
+    if (!inputRef.current) return
 
-    const textarea = inputRef.current;
-    const value = textarea.value;
-    const pos = position !== null ? position : value.length;
+    const textarea = inputRef.current
+    const value = textarea.value
+    const pos = position !== null ? position : value.length
 
     // Insert AI response at the saved position
-    const before = value.substring(0, pos);
-    const after = value.substring(pos);
-    textarea.value = before + text + after;
+    const before = value.substring(0, pos)
+    const after = value.substring(pos)
+    textarea.value = before + text + after
 
     // Set cursor after inserted text
-    const newPos = pos + text.length;
-    textarea.setSelectionRange(newPos, newPos);
+    const newPos = pos + text.length
+    textarea.setSelectionRange(newPos, newPos)
 
     // Trigger input event to update height
-    const event = new Event("input", { bubbles: true });
-    textarea.dispatchEvent(event);
-  };
+    const event = new Event('input', { bubbles: true })
+    textarea.dispatchEvent(event)
+  }
 
   const handleSelectChat = (chat) => {
-    setCurrentChat(chat);
-    setIsSidebarOpen(false); // Close sidebar on mobile after selecting chat
+    setCurrentChat(chat)
+    setIsSidebarOpen(false) // Close sidebar on mobile after selecting chat
 
     // Cache current chat for instant load on next visit
-    localStorage.setItem("poppy_current_chat", JSON.stringify(chat));
+    localStorage.setItem('poppy_current_chat', JSON.stringify(chat))
 
     // Mark this chat as read in Firestore
     if (user) {
-      markChatAsRead(user.uid, chat.type, chat.id);
+      markChatAsRead(user.uid, chat.type, chat.id)
     }
 
     // Add to active DMs if it's a DM
-    if (chat.type === "dm" && user) {
-      addActiveDM(user.uid, chat.id);
+    if (chat.type === 'dm' && user) {
+      addActiveDM(user.uid, chat.id)
     }
     // Save current chat to Firestore
     if (user) {
-      console.log("📌 Saving chat to Firestore:", chat);
-      saveCurrentChat(user.uid, chat);
+      console.log('📌 Saving chat to Firestore:', chat)
+      saveCurrentChat(user.uid, chat)
     }
-  };
+  }
 
   // Expose current chat globally for push notification suppression
   useEffect(() => {
-    if (typeof window !== "undefined" && currentChat) {
+    if (typeof window !== 'undefined' && currentChat) {
       window.__poppyActiveChat = {
         type: currentChat.type,
         id: currentChat.id,
         // For DMs, also store the dmId format
         dmId:
-          currentChat.type === "dm" && user
+          currentChat.type === 'dm' && user
             ? getDMId(user.uid, currentChat.id)
-            : null,
-      };
+            : null
+      }
     }
     return () => {
-      if (typeof window !== "undefined") {
-        window.__poppyActiveChat = null;
+      if (typeof window !== 'undefined') {
+        window.__poppyActiveChat = null
       }
-    };
-  }, [currentChat, user]);
+    }
+  }, [currentChat, user])
 
   // Expose navigation function globally for push notification tap handling
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       window.__poppyNavigateToChat = (
         chatType,
         chatId,
@@ -466,375 +465,369 @@ export default function ChatWindow() {
         senderName
       ) => {
         console.log(
-          "🔔 [NAV] Navigating to chat:",
+          '🔔 [NAV] Navigating to chat:',
           chatType,
           chatId,
           senderId,
           senderName
-        );
-        let chat;
-        if (chatType === "channel") {
-          chat = { type: "channel", id: chatId, name: chatId };
-        } else if (chatType === "dm") {
+        )
+        let chat
+        if (chatType === 'channel') {
+          chat = { type: 'channel', id: chatId, name: chatId }
+        } else if (chatType === 'dm') {
           // For DMs, we need the sender's user ID (who sent the message)
-          const dmUserId = senderId || chatId;
+          const dmUserId = senderId || chatId
           // Look up user name from allUsers, fallback to senderName from notification
-          const dmUser = allUsers.find((u) => u.uid === dmUserId);
+          const dmUser = allUsers.find((u) => u.uid === dmUserId)
           const userName =
-            dmUser?.displayName || dmUser?.email || senderName || "Unknown";
-          chat = { type: "dm", id: dmUserId, name: userName };
+            dmUser?.displayName || dmUser?.email || senderName || 'Unknown'
+          chat = { type: 'dm', id: dmUserId, name: userName }
         }
 
         if (chat) {
-          setCurrentChat(chat);
-          setIsSidebarOpen(false);
+          setCurrentChat(chat)
+          setIsSidebarOpen(false)
           // Cache for instant load
-          localStorage.setItem("poppy_current_chat", JSON.stringify(chat));
+          localStorage.setItem('poppy_current_chat', JSON.stringify(chat))
           if (user) {
-            markChatAsRead(user.uid, chat.type, chat.id);
-            if (chat.type === "dm") {
-              addActiveDM(user.uid, chat.id);
+            markChatAsRead(user.uid, chat.type, chat.id)
+            if (chat.type === 'dm') {
+              addActiveDM(user.uid, chat.id)
             }
-            saveCurrentChat(user.uid, chat);
+            saveCurrentChat(user.uid, chat)
           }
         }
-      };
+      }
     }
     return () => {
-      if (typeof window !== "undefined") {
-        window.__poppyNavigateToChat = null;
+      if (typeof window !== 'undefined') {
+        window.__poppyNavigateToChat = null
       }
-    };
-  }, [user, allUsers]);
+    }
+  }, [user, allUsers])
 
   // Reply handlers
   const startReply = (target) => {
     // Accept either a full target object or individual parameters for backwards compatibility
     const replyData =
-      typeof target === "object" && target.msgId
+      typeof target === 'object' && target.msgId
         ? target
         : {
             msgId: target,
             sender: arguments[1],
-            text: arguments[2] || "",
-          };
+            text: arguments[2] || ''
+          }
     setReplyingTo({
       msgId: replyData.msgId,
       sender: replyData.sender,
-      text: replyData.text || "",
+      text: replyData.text || '',
       imageUrl: replyData.imageUrl || null,
       imageUrls: replyData.imageUrls || null,
       audioUrl: replyData.audioUrl || null,
       audioDuration: replyData.audioDuration || null,
-      muxPlaybackIds: replyData.muxPlaybackIds || null,
-    });
-    setContextMenu(null);
-    inputRef.current?.focus();
-  };
+      muxPlaybackIds: replyData.muxPlaybackIds || null
+    })
+    setContextMenu(null)
+    inputRef.current?.focus()
+  }
 
   const cancelReply = () => {
-    setReplyingTo(null);
-  };
+    setReplyingTo(null)
+  }
 
   // Video reply - uses native camera on iOS, webcam recorder on desktop
   const startVideoReply = async (messageId, sender, text) => {
     // Store the reply info for when video is selected
-    pendingVideoReplyRef.current = { msgId: messageId, sender, text };
-    setContextMenu(null);
+    pendingVideoReplyRef.current = { msgId: messageId, sender, text }
+    setContextMenu(null)
 
     // Use native camera on iOS, web video recorder on desktop
     if (Capacitor.isNativePlatform()) {
-      setVideoRecorderOpen(true);
+      setVideoRecorderOpen(true)
     } else {
       // Use webcam recorder on desktop
-      setWebVideoRecorderOpen(true);
+      setWebVideoRecorderOpen(true)
     }
-  };
+  }
 
   // Handle when a video is selected for reply (from gallery picker)
   const handleVideoReplySelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !pendingVideoReplyRef.current) return;
+    const file = e.target.files?.[0]
+    if (!file || !pendingVideoReplyRef.current) return
 
-    console.log("📹 Video selected for reply:", file.name, file.size);
+    console.log('📹 Video selected for reply:', file.name, file.size)
 
     // Set the reply state
-    setReplyingTo(pendingVideoReplyRef.current);
+    setReplyingTo(pendingVideoReplyRef.current)
 
     // Set auto-send flag BEFORE adding the file
-    setAutoSendPending(true);
+    setAutoSendPending(true)
 
     // Add the video to the upload queue
-    await handleImageSelect(file);
+    await handleImageSelect(file)
 
     // Clear the pending ref and input
-    pendingVideoReplyRef.current = null;
-    e.target.value = "";
+    pendingVideoReplyRef.current = null
+    e.target.value = ''
 
     // Reset the input so the same file can be selected again
-    e.target.value = "";
-  };
+    e.target.value = ''
+  }
 
   // Handle native video recorded (from VideoRecorder component)
   const handleNativeVideoRecorded = async (videoFilePath) => {
-    console.log("📹 Native video recorded:", videoFilePath);
-    setVideoRecorderOpen(false);
+    console.log('📹 Native video recorded:', videoFilePath)
+    setVideoRecorderOpen(false)
 
     // Check if this is a standalone video (not a reply)
     const isStandalone =
-      !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone;
+      !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
     // Store reply context locally and IMMEDIATELY clear the reply state
     // User has "replied" from their perspective the moment they hit Send
-    const replyContext = isStandalone ? null : pendingVideoReplyRef.current;
-    pendingVideoReplyRef.current = null;
-    if (!isStandalone) setReplyingTo(null);
+    const replyContext = isStandalone ? null : pendingVideoReplyRef.current
+    pendingVideoReplyRef.current = null
+    if (!isStandalone) setReplyingTo(null)
 
     try {
       // Get Mux upload URL
-      console.log("📹 Getting Mux upload URL...");
-      const uploadResponse = await fetch("/api/mux/upload", { method: "POST" });
-      const { uploadUrl, uploadId } = await uploadResponse.json();
-      console.log("📹 Got Mux upload URL, uploadId:", uploadId);
+      console.log('📹 Getting Mux upload URL...')
+      const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' })
+      const { uploadUrl, uploadId } = await uploadResponse.json()
+      console.log('📹 Got Mux upload URL, uploadId:', uploadId)
 
       // Use native Uploader to upload directly from file path
-      console.log("📹 Starting native upload to Mux...");
-      const { Uploader } = await import("@capgo/capacitor-uploader");
+      console.log('📹 Starting native upload to Mux...')
+      const { Uploader } = await import('@capgo/capacitor-uploader')
 
       // Show upload progress indicator
-      setVideoUploadProgress({ percent: 0, status: "uploading" });
+      setVideoUploadProgress({ percent: 0, status: 'uploading' })
 
       // Start native upload
       const { id: uploadTaskId } = await Uploader.startUpload({
         filePath: videoFilePath,
         serverUrl: uploadUrl,
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          "Content-Type": "video/mp4",
+          'Content-Type': 'video/mp4'
         },
-        mimeType: "video/mp4",
-      });
-      console.log("📹 Native upload started, task ID:", uploadTaskId);
+        mimeType: 'video/mp4'
+      })
+      console.log('📹 Native upload started, task ID:', uploadTaskId)
 
       // Wait for upload to complete
       await new Promise((resolve, reject) => {
-        const listener = Uploader.addListener("events", (event) => {
-          console.log("📹 Upload event:", event.name, event.payload);
-          if (event.name === "uploading") {
+        const listener = Uploader.addListener('events', (event) => {
+          console.log('📹 Upload event:', event.name, event.payload)
+          if (event.name === 'uploading') {
             setVideoUploadProgress({
               percent: Math.round(event.payload.percent),
-              status: "uploading",
-            });
-          } else if (event.name === "completed") {
-            setVideoUploadProgress({ percent: 100, status: "processing" });
-            listener.remove();
-            resolve();
-          } else if (event.name === "failed") {
-            setVideoUploadProgress(null);
-            listener.remove();
-            reject(new Error(event.payload?.error || "Upload failed"));
+              status: 'uploading'
+            })
+          } else if (event.name === 'completed') {
+            setVideoUploadProgress({ percent: 100, status: 'processing' })
+            listener.remove()
+            resolve()
+          } else if (event.name === 'failed') {
+            setVideoUploadProgress(null)
+            listener.remove()
+            reject(new Error(event.payload?.error || 'Upload failed'))
           }
-        });
-      });
-      console.log("📹 Native upload completed!");
+        })
+      })
+      console.log('📹 Native upload completed!')
 
       // Poll for playback ID
-      console.log("📹 Polling for playback ID...");
-      let playbackId = null;
+      console.log('📹 Polling for playback ID...')
+      let playbackId = null
       for (let i = 0; i < 60; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const assetResponse = await fetch(
-          `/api/mux/asset?uploadId=${uploadId}`
-        );
-        const assetData = await assetResponse.json();
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
+        const assetData = await assetResponse.json()
 
         // Wait for BOTH playbackId AND ready status to ensure video is playable
         if (assetData.playbackId && assetData.ready) {
-          playbackId = assetData.playbackId;
-          console.log("📹 Got playback ID (asset ready):", playbackId);
-          break;
+          playbackId = assetData.playbackId
+          console.log('📹 Got playback ID (asset ready):', playbackId)
+          break
         }
         console.log(
-          "📹 Waiting for asset to be ready, attempt",
+          '📹 Waiting for asset to be ready, attempt',
           i + 1,
-          "status:",
+          'status:',
           assetData.status
-        );
+        )
       }
 
       if (!playbackId) {
-        throw new Error("Failed to get Mux playback ID");
+        throw new Error('Failed to get Mux playback ID')
       }
 
       // Send the message with the video
-      console.log("📹 Sending message with video...");
-      setVideoUploadProgress({ percent: 100, status: "sending" });
-      await sendVideoReply(playbackId, replyContext);
+      console.log('📹 Sending message with video...')
+      setVideoUploadProgress({ percent: 100, status: 'sending' })
+      await sendVideoReply(playbackId, replyContext)
 
       // Clear progress and show success briefly
-      setVideoUploadProgress({ percent: 100, status: "done" });
-      setTimeout(() => setVideoUploadProgress(null), 2000);
+      setVideoUploadProgress({ percent: 100, status: 'done' })
+      setTimeout(() => setVideoUploadProgress(null), 2000)
 
-      console.log("📹 Video reply sent!");
+      console.log('📹 Video reply sent!')
     } catch (error) {
-      console.error("Failed to process native video:", error);
-      setVideoUploadProgress({ percent: 0, status: "error" });
-      setTimeout(() => setVideoUploadProgress(null), 3000);
+      console.error('Failed to process native video:', error)
+      setVideoUploadProgress({ percent: 0, status: 'error' })
+      setTimeout(() => setVideoUploadProgress(null), 3000)
     }
-  };
+  }
 
   // Handle web video recorded (from WebVideoRecorder component - desktop)
   // Now receives a video blob instead of playbackId - handles upload asynchronously like mobile
   const handleWebVideoRecorded = async (videoBlob) => {
-    console.log("📹 Web video recorded, blob size:", videoBlob.size);
-    setWebVideoRecorderOpen(false);
+    console.log('📹 Web video recorded, blob size:', videoBlob.size)
+    setWebVideoRecorderOpen(false)
 
     // Check if this is a standalone video (not a reply)
     const isStandalone =
-      !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone;
+      !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
     // Store reply context locally and IMMEDIATELY clear the reply state
     // User has "replied" from their perspective the moment they hit Send
-    const replyContext = isStandalone ? null : pendingVideoReplyRef.current;
-    pendingVideoReplyRef.current = null;
-    if (!isStandalone) setReplyingTo(null);
+    const replyContext = isStandalone ? null : pendingVideoReplyRef.current
+    pendingVideoReplyRef.current = null
+    if (!isStandalone) setReplyingTo(null)
 
     try {
       // Get Mux upload URL
-      console.log("📹 Getting Mux upload URL...");
-      const uploadResponse = await fetch("/api/mux/upload", { method: "POST" });
-      const { uploadUrl, uploadId } = await uploadResponse.json();
-      console.log("📹 Got Mux upload URL, uploadId:", uploadId);
+      console.log('📹 Getting Mux upload URL...')
+      const uploadResponse = await fetch('/api/mux/upload', { method: 'POST' })
+      const { uploadUrl, uploadId } = await uploadResponse.json()
+      console.log('📹 Got Mux upload URL, uploadId:', uploadId)
 
       // Show upload progress indicator
-      setVideoUploadProgress({ percent: 0, status: "uploading" });
+      setVideoUploadProgress({ percent: 0, status: 'uploading' })
 
       // Upload the blob to Mux using XMLHttpRequest for progress tracking
-      console.log("📹 Starting web upload to Mux...");
+      console.log('📹 Starting web upload to Mux...')
       await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
+        const xhr = new XMLHttpRequest()
 
-        xhr.upload.addEventListener("progress", (event) => {
+        xhr.upload.addEventListener('progress', (event) => {
           if (event.lengthComputable) {
-            const percent = Math.round((event.loaded / event.total) * 100);
-            setVideoUploadProgress({ percent, status: "uploading" });
+            const percent = Math.round((event.loaded / event.total) * 100)
+            setVideoUploadProgress({ percent, status: 'uploading' })
           }
-        });
+        })
 
-        xhr.addEventListener("load", () => {
+        xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            setVideoUploadProgress({ percent: 100, status: "processing" });
-            resolve();
+            setVideoUploadProgress({ percent: 100, status: 'processing' })
+            resolve()
           } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
+            reject(new Error(`Upload failed with status ${xhr.status}`))
           }
-        });
+        })
 
-        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
-        xhr.addEventListener("abort", () =>
-          reject(new Error("Upload aborted"))
-        );
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
 
-        xhr.open("PUT", uploadUrl);
-        xhr.setRequestHeader("Content-Type", videoBlob.type || "video/webm");
-        xhr.send(videoBlob);
-      });
-      console.log("📹 Web upload completed!");
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', videoBlob.type || 'video/webm')
+        xhr.send(videoBlob)
+      })
+      console.log('📹 Web upload completed!')
 
       // Poll for playback ID
-      console.log("📹 Polling for playback ID...");
-      let playbackId = null;
+      console.log('📹 Polling for playback ID...')
+      let playbackId = null
       for (let i = 0; i < 60; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const assetResponse = await fetch(
-          `/api/mux/asset?uploadId=${uploadId}`
-        );
-        const assetData = await assetResponse.json();
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
+        const assetData = await assetResponse.json()
 
         // Wait for BOTH playbackId AND ready status to ensure video is playable
         if (assetData.playbackId && assetData.ready) {
-          playbackId = assetData.playbackId;
-          console.log("📹 Got playback ID (asset ready):", playbackId);
-          break;
+          playbackId = assetData.playbackId
+          console.log('📹 Got playback ID (asset ready):', playbackId)
+          break
         }
         console.log(
-          "📹 Waiting for asset to be ready, attempt",
+          '📹 Waiting for asset to be ready, attempt',
           i + 1,
-          "status:",
+          'status:',
           assetData.status
-        );
+        )
       }
 
       if (!playbackId) {
-        throw new Error("Failed to get Mux playback ID");
+        throw new Error('Failed to get Mux playback ID')
       }
 
       // Send the message with the video
-      console.log("📹 Sending message with video...");
-      setVideoUploadProgress({ percent: 100, status: "sending" });
-      await sendVideoReply(playbackId, replyContext);
+      console.log('📹 Sending message with video...')
+      setVideoUploadProgress({ percent: 100, status: 'sending' })
+      await sendVideoReply(playbackId, replyContext)
 
       // Clear progress and show success briefly
-      setVideoUploadProgress({ percent: 100, status: "done" });
-      setTimeout(() => setVideoUploadProgress(null), 2000);
+      setVideoUploadProgress({ percent: 100, status: 'done' })
+      setTimeout(() => setVideoUploadProgress(null), 2000)
 
-      console.log("📹 Web video reply sent!");
+      console.log('📹 Web video reply sent!')
     } catch (error) {
-      console.error("Failed to process web video:", error);
-      setVideoUploadProgress({ percent: 0, status: "error" });
-      setTimeout(() => setVideoUploadProgress(null), 3000);
+      console.error('Failed to process web video:', error)
+      setVideoUploadProgress({ percent: 0, status: 'error' })
+      setTimeout(() => setVideoUploadProgress(null), 3000)
     }
-  };
+  }
 
   // Auto-send when video is ready (triggered by imageFiles change when autoSendPending is true)
   useEffect(() => {
     if (autoSendPending && imageFiles.length > 0 && replyingTo) {
       // File is ready, send it!
-      setAutoSendPending(false);
-      handleSend();
+      setAutoSendPending(false)
+      handleSend()
     }
-  }, [autoSendPending, imageFiles.length, replyingTo, handleSend]);
+  }, [autoSendPending, imageFiles.length, replyingTo, handleSend])
 
   const handleMessagesAreaClick = (e) => {
     // Cancel reply when clicking in the messages area
     // But don't cancel if clicking on interactive elements like buttons, emojis, etc.
     if (
       replyingTo &&
-      !e.target.closest(".quick-reactions") &&
-      !e.target.closest(".emoji-panel") &&
-      !e.target.closest(".more-reactions-btn") &&
-      !e.target.closest(".message-image")
+      !e.target.closest('.quick-reactions') &&
+      !e.target.closest('.emoji-panel') &&
+      !e.target.closest('.more-reactions-btn') &&
+      !e.target.closest('.message-image')
     ) {
-      cancelReply();
+      cancelReply()
     }
-  };
+  }
 
   const scrollToMessage = (messageId) => {
-    const msgEl = messageRefs.current[messageId];
+    const msgEl = messageRefs.current[messageId]
     if (msgEl) {
-      msgEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      msgEl.style.animation = "none";
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      msgEl.style.animation = 'none'
       setTimeout(() => {
-        msgEl.style.animation = "highlight-msg 1s ease-out";
-      }, 10);
+        msgEl.style.animation = 'highlight-msg 1s ease-out'
+      }, 10)
     }
-  };
+  }
 
   // Edit handlers
   const startEdit = (messageId, currentText) => {
-    setEditingMessage({ id: messageId, text: currentText });
+    setEditingMessage({ id: messageId, text: currentText })
     if (inputRef.current) {
-      inputRef.current.value = currentText;
+      inputRef.current.value = currentText
     }
-    inputRef.current?.focus();
-  };
+    inputRef.current?.focus()
+  }
 
   const cancelEdit = () => {
-    setEditingMessage(null);
+    setEditingMessage(null)
     if (inputRef.current) {
-      inputRef.current.value = "";
+      inputRef.current.value = ''
     }
-  };
+  }
 
   // Global keyboard shortcuts (must be after startReply, startEdit, cancelReply are defined)
   useKeyboardShortcuts({
@@ -850,31 +843,31 @@ export default function ChatWindow() {
     startReply,
     startEdit,
     cancelReply,
-    inputRef,
-  });
+    inputRef
+  })
 
   // Delete handler
   const handleDeleteMessage = async (messageId) => {
-    const chatType = currentChat.type; // 'channel', 'dm', or 'group'
+    const chatType = currentChat.type // 'channel', 'dm', or 'group'
     const chatId =
-      chatType === "dm" ? getDMId(user.uid, currentChat.id) : currentChat.id;
+      chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
-      await deleteMessage(chatId, messageId, chatType);
+      await deleteMessage(chatId, messageId, chatType)
     } catch (error) {
-      console.error("Error deleting message:", error);
-      alert("Failed to delete message. Please try again.");
+      console.error('Error deleting message:', error)
+      alert('Failed to delete message. Please try again.')
     }
-  };
+  }
 
   // Make private message public handler
   const handleMakePublic = async (messageId) => {
-    const chatType = currentChat.type; // 'channel', 'dm', or 'group'
+    const chatType = currentChat.type // 'channel', 'dm', or 'group'
     const chatId =
-      chatType === "dm" ? getDMId(user.uid, currentChat.id) : currentChat.id;
+      chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
-      await toggleMessageVisibility(chatId, messageId, true, chatType);
+      await toggleMessageVisibility(chatId, messageId, true, chatType)
       // Update local state immediately for responsiveness
       setMessages((prev) =>
         prev.map((msg) =>
@@ -882,38 +875,38 @@ export default function ChatWindow() {
             ? { ...msg, isPrivate: false, privateFor: null }
             : msg
         )
-      );
+      )
     } catch (error) {
-      console.error("Error making message public:", error);
-      alert("Failed to make message public. Please try again.");
+      console.error('Error making message public:', error)
+      alert('Failed to make message public. Please try again.')
     }
-  };
+  }
 
   // Thread view handlers
   const openThreadView = useCallback((originalMessage) => {
-    setThreadView({ open: true, originalMessage });
-  }, []);
+    setThreadView({ open: true, originalMessage })
+  }, [])
 
   const closeThreadView = useCallback(() => {
-    setThreadView({ open: false, originalMessage: null });
-  }, []);
+    setThreadView({ open: false, originalMessage: null })
+  }, [])
 
   // Get thread messages for the currently open thread
   const getThreadMessages = useCallback(() => {
-    if (!threadView.originalMessage) return [];
+    if (!threadView.originalMessage) return []
     return messages.filter(
       (m) => m.replyTo?.msgId === threadView.originalMessage.id
-    );
-  }, [messages, threadView.originalMessage]);
+    )
+  }, [messages, threadView.originalMessage])
 
   // Send a reply directly from the thread view
   const sendThreadReply = useCallback(
     async (text, replyTo) => {
-      if (!text.trim() || !user || !currentChat) return;
+      if (!text.trim() || !user || !currentChat) return
 
-      const isDM = currentChat.type === "dm";
-      const isGroup = currentChat.type === "group";
-      const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id;
+      const isDM = currentChat.type === 'dm'
+      const isGroup = currentChat.type === 'group'
+      const chatId = isDM ? getDMId(user.uid, currentChat.id) : currentChat.id
 
       try {
         if (isDM) {
@@ -923,49 +916,49 @@ export default function ChatWindow() {
             text,
             currentChat.id,
             replyTo
-          );
+          )
         } else if (isGroup) {
-          await sendGroupMessageWithReply(chatId, user, text, replyTo);
+          await sendGroupMessageWithReply(chatId, user, text, replyTo)
         } else {
-          await sendMessageWithReply(chatId, user, text, replyTo);
+          await sendMessageWithReply(chatId, user, text, replyTo)
         }
       } catch (error) {
-        console.error("Error sending thread reply:", error);
-        throw error;
+        console.error('Error sending thread reply:', error)
+        throw error
       }
     },
     [user, currentChat]
-  );
+  )
 
   // Promote message to post
   const handlePromoteMessage = async (messageId) => {
     const chatId =
-      currentChat.type === "dm"
+      currentChat.type === 'dm'
         ? getDMId(user.uid, currentChat.id)
-        : currentChat.id;
+        : currentChat.id
 
     try {
-      await promoteMessageToPost(currentChat.type, chatId, messageId);
+      await promoteMessageToPost(currentChat.type, chatId, messageId)
     } catch (error) {
-      console.error("Error promoting message to post:", error);
-      alert("Failed to promote message. Please try again.");
+      console.error('Error promoting message to post:', error)
+      alert('Failed to promote message. Please try again.')
     }
-  };
+  }
 
   // Demote post to message
   const handleDemotePost = async (postId) => {
     const chatId =
-      currentChat.type === "dm"
+      currentChat.type === 'dm'
         ? getDMId(user.uid, currentChat.id)
-        : currentChat.id;
+        : currentChat.id
 
     try {
-      await demotePostToMessage(currentChat.type, chatId, postId);
+      await demotePostToMessage(currentChat.type, chatId, postId)
     } catch (error) {
-      console.error("Error demoting post to message:", error);
-      alert("Failed to demote post. Please try again.");
+      console.error('Error demoting post to message:', error)
+      alert('Failed to demote post. Please try again.')
     }
-  };
+  }
 
   // Add message to Team AI Memory (globally accessible)
   // Supports both text and image messages (including multiple images)
@@ -973,14 +966,14 @@ export default function ChatWindow() {
     try {
       // Get all image URLs (support both single and multiple)
       const imageUrls =
-        message.imageUrls || (message.imageUrl ? [message.imageUrl] : []);
+        message.imageUrls || (message.imageUrl ? [message.imageUrl] : [])
 
-      const response = await fetch("/api/ragie/team-memory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/ragie/team-memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messageId: message.id,
-          text: message.text || message.content || "",
+          text: message.text || message.content || '',
           imageUrl: imageUrls[0] || null, // First image for backwards compat
           imageUrls: imageUrls.length > 0 ? imageUrls : null, // All images
           sender: message.sender,
@@ -988,113 +981,113 @@ export default function ChatWindow() {
           senderId: user.uid,
           timestamp:
             message.timestamp?.toDate?.()?.toISOString() ||
-            new Date().toISOString(),
-        }),
-      });
+            new Date().toISOString()
+        })
+      })
 
       if (response.ok) {
-        const data = await response.json();
-        let typeMsg = "message";
-        if (data.type === "image+text" || data.type === "images+text") {
-          typeMsg = imageUrls.length > 1 ? "images and text" : "image and text";
-        } else if (data.type === "image" || data.type === "images") {
-          typeMsg = imageUrls.length > 1 ? "images" : "image";
+        const data = await response.json()
+        let typeMsg = 'message'
+        if (data.type === 'image+text' || data.type === 'images+text') {
+          typeMsg = imageUrls.length > 1 ? 'images and text' : 'image and text'
+        } else if (data.type === 'image' || data.type === 'images') {
+          typeMsg = imageUrls.length > 1 ? 'images' : 'image'
         }
         alert(
           `✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`
-        );
+        )
       } else {
-        throw new Error("Failed to add to team memory");
+        throw new Error('Failed to add to team memory')
       }
     } catch (error) {
-      console.error("Error adding to team memory:", error);
-      alert("Failed to add to Team AI Memory. Please try again.");
+      console.error('Error adding to team memory:', error)
+      alert('Failed to add to Team AI Memory. Please try again.')
     }
-  };
+  }
 
   // Context menu handler
   const handleContextMenu = (e, message) => {
-    e.preventDefault();
+    e.preventDefault()
     // Get the message wrapper element - for right-click, find from target
     const messageElement =
-      e.messageElement || e.target.closest(".message-wrapper");
-    contextMenuOpenTime.current = Date.now(); // Track when menu opens to prevent immediate close
+      e.messageElement || e.target.closest('.message-wrapper')
+    contextMenuOpenTime.current = Date.now() // Track when menu opens to prevent immediate close
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       message,
       messageElement,
-      reactionsOnly: e.reactionsOnly || false, // Double-tap passes this flag
-    });
-  };
+      reactionsOnly: e.reactionsOnly || false // Double-tap passes this flag
+    })
+  }
 
   // Subscribe to unread chats
   useEffect(() => {
-    if (!user) return;
+    if (!user) return
 
-    let lastUnreadString = "";
+    let lastUnreadString = ''
     const unsubscribe = subscribeToUnreadChats(user.uid, (newUnreadChats) => {
       // Only update if unread chats actually changed (prevents unnecessary re-renders)
-      const newUnreadString = JSON.stringify(newUnreadChats.sort());
+      const newUnreadString = JSON.stringify(newUnreadChats.sort())
       if (newUnreadString !== lastUnreadString) {
-        lastUnreadString = newUnreadString;
-        setUnreadChats(newUnreadChats);
+        lastUnreadString = newUnreadString
+        setUnreadChats(newUnreadChats)
       }
-    });
+    })
 
     return () => {
-      console.log("🔕 Unsubscribing from unread chats");
-      unsubscribe();
-    };
-  }, [user]);
+      console.log('🔕 Unsubscribing from unread chats')
+      unsubscribe()
+    }
+  }, [user])
 
   // Subscribe to user's groups
   useEffect(() => {
-    if (!user) return;
+    if (!user) return
 
     const unsubscribe = subscribeToUserGroups(user.uid, (loadedGroups) => {
-      setGroups(loadedGroups);
-    });
+      setGroups(loadedGroups)
+    })
 
-    return () => unsubscribe();
-  }, [user]);
+    return () => unsubscribe()
+  }, [user])
 
   // Subscribe to group last messages (for sidebar previews)
   useEffect(() => {
     if (!user || groups.length === 0) {
-      setGroupLastMessages({});
-      return () => {};
+      setGroupLastMessages({})
+      return () => {}
     }
 
-    const groupIds = groups.map((g) => g.id);
+    const groupIds = groups.map((g) => g.id)
     const unsubscribe = subscribeToGroupLastMessages(
       groupIds,
       setGroupLastMessages,
       user.uid
-    );
+    )
 
-    return () => unsubscribe();
-  }, [user, groups]);
+    return () => unsubscribe()
+  }, [user, groups])
 
   // Subscribe to posts
   useEffect(() => {
-    if (!currentChat) return;
+    if (!currentChat) return
 
     const chatId =
-      currentChat.type === "dm"
+      currentChat.type === 'dm'
         ? getDMId(user.uid, currentChat.id)
-        : currentChat.id;
+        : currentChat.id
 
     const unsubscribe = subscribeToPosts(
       currentChat.type,
       chatId,
       (loadedPosts) => {
-        setPosts(loadedPosts);
+        setPosts(loadedPosts)
       }
-    );
+    )
 
-    return () => unsubscribe();
-  }, [currentChat, user]);
+    return () => unsubscribe()
+  }, [currentChat, user])
 
   // Scroll to bottom when switching from posts to messages
   // DISABLED: Virtuoso handles scrolling with followOutput
@@ -1106,174 +1099,174 @@ export default function ChatWindow() {
 
   // Load older messages callback for Virtuoso
   const loadOlder = useCallback(async () => {
-    console.log("📜 loadOlder called", {
+    console.log('📜 loadOlder called', {
       loadingOlder,
       hasMoreMessages,
       currentChat: currentChat?.id,
-      messagesCount: messages.length,
-    });
+      messagesCount: messages.length
+    })
 
     if (loadingOlder || !hasMoreMessages || !currentChat || !user) {
-      console.log("📜 loadOlder skipped:", {
+      console.log('📜 loadOlder skipped:', {
         loadingOlder,
         hasMoreMessages,
         hasCurrentChat: !!currentChat,
-        hasUser: !!user,
-      });
-      return;
+        hasUser: !!user
+      })
+      return
     }
 
-    setLoadingOlder(true);
-    console.log("📜 Loading older messages...");
+    setLoadingOlder(true)
+    console.log('📜 Loading older messages...')
 
     try {
       // Combine messages and posts to find the oldest item
       const allItems = [
         ...messages,
-        ...posts.map((post) => ({ ...post, isPost: true })),
+        ...posts.map((post) => ({ ...post, isPost: true }))
       ].sort((a, b) => {
-        const aTime = a.timestamp?.seconds || 0;
-        const bTime = b.timestamp?.seconds || 0;
-        return aTime - bTime;
-      });
+        const aTime = a.timestamp?.seconds || 0
+        const bTime = b.timestamp?.seconds || 0
+        return aTime - bTime
+      })
 
-      const oldestItem = allItems[0];
-      console.log("📜 Oldest item timestamp:", oldestItem?.timestamp);
+      const oldestItem = allItems[0]
+      console.log('📜 Oldest item timestamp:', oldestItem?.timestamp)
 
       if (!oldestItem || !oldestItem.timestamp) {
-        console.log("📜 No oldest item found");
-        setLoadingOlder(false);
-        return;
+        console.log('📜 No oldest item found')
+        setLoadingOlder(false)
+        return
       }
 
-      let olderMessages = [];
-      if (currentChat.type === "channel") {
+      let olderMessages = []
+      if (currentChat.type === 'channel') {
         olderMessages = await loadOlderMessages(
           currentChat.id,
           oldestItem.timestamp
-        );
-      } else if (currentChat.type === "dm") {
-        const dmId = getDMId(user.uid, currentChat.id);
-        olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp);
-      } else if (currentChat.type === "group") {
+        )
+      } else if (currentChat.type === 'dm') {
+        const dmId = getDMId(user.uid, currentChat.id)
+        olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp)
+      } else if (currentChat.type === 'group') {
         olderMessages = await loadOlderGroupMessages(
           currentChat.id,
           oldestItem.timestamp
-        );
+        )
       }
 
-      console.log(`📜 Loaded ${olderMessages.length} older messages`);
+      console.log(`📜 Loaded ${olderMessages.length} older messages`)
 
       if (olderMessages.length === 0) {
-        console.log("📜 No more messages, setting hasMoreMessages to false");
-        setHasMoreMessages(false);
+        console.log('📜 No more messages, setting hasMoreMessages to false')
+        setHasMoreMessages(false)
       } else {
         // Prepend older messages
-        console.log(`📜 Prepending ${olderMessages.length} messages`);
-        justPrependedRef.current = true;
-        setMessages((prev) => [...olderMessages, ...prev]);
-        setLoadingOlder(false);
-        isOlderMessagesLoadingRef.current = false;
-        console.log("📜 loadOlder completed");
+        console.log(`📜 Prepending ${olderMessages.length} messages`)
+        justPrependedRef.current = true
+        setMessages((prev) => [...olderMessages, ...prev])
+        setLoadingOlder(false)
+        isOlderMessagesLoadingRef.current = false
+        console.log('📜 loadOlder completed')
       }
     } catch (error) {
-      console.error("📜 Error loading older messages:", error);
-      setLoadingOlder(false);
-      isOlderMessagesLoadingRef.current = false;
+      console.error('📜 Error loading older messages:', error)
+      setLoadingOlder(false)
+      isOlderMessagesLoadingRef.current = false
     }
-  }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user]);
+  }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
 
   // Reset hasMoreMessages when switching chats
   useEffect(() => {
-    console.log("📜 Chat changed, resetting pagination state");
-    setHasMoreMessages(true);
-    justPrependedRef.current = false;
-    isOlderMessagesLoadingRef.current = false;
-    setLoadingOlder(false);
+    console.log('📜 Chat changed, resetting pagination state')
+    setHasMoreMessages(true)
+    justPrependedRef.current = false
+    isOlderMessagesLoadingRef.current = false
+    setLoadingOlder(false)
 
     // Scroll to bottom when switching chats
     setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
-        index: "LAST",
-        align: "end",
-        behavior: "auto",
-      });
-    }, 100);
-  }, [currentChat]);
+        index: 'LAST',
+        align: 'end',
+        behavior: 'auto'
+      })
+    }, 100)
+  }, [currentChat])
 
   // Close context menu on click outside
-  const contextMenuOpenTime = useRef(0);
+  const contextMenuOpenTime = useRef(0)
 
   useEffect(() => {
     const handleClick = () => {
       // Don't close if menu was just opened (prevents gestures from immediately closing)
-      const timeSinceOpen = Date.now() - contextMenuOpenTime.current;
+      const timeSinceOpen = Date.now() - contextMenuOpenTime.current
       if (timeSinceOpen < 300) {
-        return;
+        return
       }
-      setContextMenu(null);
-    };
+      setContextMenu(null)
+    }
     const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        setContextMenu(null);
+      if (e.key === 'Escape') {
+        setContextMenu(null)
       }
-    };
+    }
 
-    document.addEventListener("click", handleClick);
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener('click', handleClick)
+    document.addEventListener('keydown', handleEscape)
 
     return () => {
-      document.removeEventListener("click", handleClick);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
+      document.removeEventListener('click', handleClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
 
   // 1. Create the Data Structure (Replacing your 'data' and 'sortedData')
   const sortedData = useMemo(() => {
     console.log(
-      "[SortedData] Recomputing sorted data... sorted Data Length is : ",
-      " length of messages:",
+      '[SortedData] Recomputing sorted data... sorted Data Length is : ',
+      ' length of messages:',
       messages.length
-    );
+    )
     const sortedItems = [...messages].sort((a, b) => {
-      const aTime = a.timestamp?.seconds || 0;
-      const bTime = b.timestamp?.seconds || 0;
-      return aTime - bTime;
-    });
+      const aTime = a.timestamp?.seconds || 0
+      const bTime = b.timestamp?.seconds || 0
+      return aTime - bTime
+    })
 
     // Determine scroll behavior based on whether we just prepended messages
     const scrollModifier = justPrependedRef.current
-      ? "prepend" // Maintain scroll position when loading older messages
+      ? 'prepend' // Maintain scroll position when loading older messages
       : {
-          type: "item-location",
-          location: { index: "LAST", align: "end" },
-        };
+          type: 'item-location',
+          location: { index: 'LAST', align: 'end' }
+        }
 
-    console.log("[SortedData] justPrependedRef:", justPrependedRef.current);
+    console.log('[SortedData] justPrependedRef:', justPrependedRef.current)
 
     console.log(
-      "[SortedData] Final Sorted Items:",
+      '[SortedData] Final Sorted Items:',
       sortedItems,
-      " Scroll Modifier:",
+      ' Scroll Modifier:',
       scrollModifier
-    );
+    )
 
     return {
       data: sortedItems,
-      scrollModifier: scrollModifier,
-    };
-  }, [messages]);
+      scrollModifier: scrollModifier
+    }
+  }, [messages])
 
   useEffect(() => {
     // Reset the flag after Virtuoso has finished adjusting scroll position
     if (justPrependedRef.current) {
       // Use a small delay to ensure Virtuoso completes its scroll adjustment
       const timer = setTimeout(() => {
-        justPrependedRef.current = false;
-      }, 100);
-      return () => clearTimeout(timer);
+        justPrependedRef.current = false
+      }, 100)
+      return () => clearTimeout(timer)
     }
-  }, [sortedData]);
+  }, [sortedData])
 
   // 2. Memoize the Item Content Renderer
   // Note: 'VirtuosoMessageList' passes an object { data } to the renderer
@@ -1285,15 +1278,15 @@ export default function ChatWindow() {
             key={`post-${item.id}`}
             post={item}
             onClick={() => {
-              setSelectedPost(item);
-              setViewMode("posts");
+              setSelectedPost(item)
+              setViewMode('posts')
             }}
             onContextMenu={handleContextMenu}
           />
-        );
+        )
       } else {
         // We calculate index relative to the full message list if needed
-        const msgIndex = messages.findIndex((m) => m.id === item.id);
+        const msgIndex = messages.findIndex((m) => m.id === item.id)
 
         return (
           <MessageItem
@@ -1322,36 +1315,36 @@ export default function ChatWindow() {
             onOpenThread={openThreadView}
             onMakePublic={handleMakePublic}
           />
-        );
+        )
       }
     },
     [messages, user, currentChat, allUsers, replyingTo, topReactions]
-  );
+  )
 
   // This function is used to generate key properties for the message list items based on the data rendered.
   // use a stable identifier to avoid unnecessary re-mounts when the message list data changes.
   const computeItemKey = ({ data }) => {
-    return data.id;
-  };
+    return data.id
+  }
 
   const onScroll = useCallback(
     (location) => {
       // offset is 0 at the top, -totalScrollSize + viewportHeight at the bottom
       if (location.listOffset > -100 && messages !== null && messages.length) {
         if (!isOlderMessagesLoadingRef.current) {
-          console.log("Need to load older messages...");
-          isOlderMessagesLoadingRef.current = true;
-          loadOlder();
+          console.log('Need to load older messages...')
+          isOlderMessagesLoadingRef.current = true
+          loadOlder()
         }
       }
     },
     [loadOlder, messages]
-  );
+  )
 
   // Wait for currentChat to be loaded from cache/Firestore
   // Return null instead of loading text to avoid hydration mismatch
   if (!currentChat) {
-    return null;
+    return null
   }
 
   return (
@@ -1378,8 +1371,8 @@ export default function ChatWindow() {
       <VideoRecorder
         isOpen={videoRecorderOpen}
         onClose={() => {
-          setVideoRecorderOpen(false);
-          pendingVideoReplyRef.current = null;
+          setVideoRecorderOpen(false)
+          pendingVideoReplyRef.current = null
         }}
         onVideoRecorded={handleNativeVideoRecorded}
       />
@@ -1388,8 +1381,8 @@ export default function ChatWindow() {
       <WebVideoRecorder
         isOpen={webVideoRecorderOpen}
         onClose={() => {
-          setWebVideoRecorderOpen(false);
-          pendingVideoReplyRef.current = null;
+          setWebVideoRecorderOpen(false)
+          pendingVideoReplyRef.current = null
         }}
         onVideoRecorded={handleWebVideoRecorded}
       />
@@ -1403,17 +1396,17 @@ export default function ChatWindow() {
           onGroupCreated={(groupData) => {
             // Select the newly created group
             handleSelectChat({
-              type: "group",
+              type: 'group',
               id: groupData.id,
-              name: groupData.memberNames?.join(", ") || "Group Chat",
-              group: groupData,
-            });
+              name: groupData.memberNames?.join(', ') || 'Group Chat',
+              group: groupData
+            })
           }}
         />
       )}
 
       {/* Group Info Modal */}
-      {showGroupInfoModal && currentChat?.type === "group" && (
+      {showGroupInfoModal && currentChat?.type === 'group' && (
         <GroupInfoModal
           groupId={currentChat.id}
           group={currentChat.group}
@@ -1461,63 +1454,63 @@ export default function ChatWindow() {
       {videoUploadProgress && (
         <div
           style={{
-            position: "fixed",
-            bottom: "100px",
-            left: "50%",
-            transform: "translateX(-50%)",
+            position: 'fixed',
+            bottom: '100px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             background:
-              videoUploadProgress.status === "error"
-                ? "rgba(255, 59, 48, 0.95)"
-                : videoUploadProgress.status === "done"
-                ? "rgba(52, 199, 89, 0.95)"
-                : "rgba(30, 30, 30, 0.95)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "24px",
-            padding: "12px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+              videoUploadProgress.status === 'error'
+                ? 'rgba(255, 59, 48, 0.95)'
+                : videoUploadProgress.status === 'done'
+                ? 'rgba(52, 199, 89, 0.95)'
+                : 'rgba(30, 30, 30, 0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '24px',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             zIndex: 10001,
-            minWidth: "200px",
+            minWidth: '200px'
           }}
         >
           {/* Icon/Spinner */}
-          {videoUploadProgress.status === "uploading" && (
+          {videoUploadProgress.status === 'uploading' && (
             <div
               style={{
-                width: "20px",
-                height: "20px",
-                border: "2px solid rgba(255,255,255,0.3)",
-                borderTopColor: "#fff",
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
+                width: '20px',
+                height: '20px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTopColor: '#fff',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite'
               }}
             />
           )}
-          {videoUploadProgress.status === "processing" && (
+          {videoUploadProgress.status === 'processing' && (
             <div
               style={{
-                width: "20px",
-                height: "20px",
-                border: "2px solid rgba(255,255,255,0.3)",
-                borderTopColor: "#7c3aed",
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
+                width: '20px',
+                height: '20px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTopColor: '#7c3aed',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite'
               }}
             />
           )}
-          {videoUploadProgress.status === "sending" && (
+          {videoUploadProgress.status === 'sending' && (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#7c3aed">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
           )}
-          {videoUploadProgress.status === "done" && (
+          {videoUploadProgress.status === 'done' && (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
               <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
             </svg>
           )}
-          {videoUploadProgress.status === "error" && (
+          {videoUploadProgress.status === 'error' && (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
             </svg>
@@ -1525,37 +1518,37 @@ export default function ChatWindow() {
 
           {/* Text */}
           <div style={{ flex: 1 }}>
-            <div style={{ color: "white", fontSize: "14px", fontWeight: 600 }}>
-              {videoUploadProgress.status === "uploading" &&
+            <div style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>
+              {videoUploadProgress.status === 'uploading' &&
                 `Uploading... ${videoUploadProgress.percent}%`}
-              {videoUploadProgress.status === "processing" &&
-                "Processing video..."}
-              {videoUploadProgress.status === "sending" && "Sending..."}
-              {videoUploadProgress.status === "done" && "Video sent! ✨"}
-              {videoUploadProgress.status === "error" && "Upload failed"}
+              {videoUploadProgress.status === 'processing' &&
+                'Processing video...'}
+              {videoUploadProgress.status === 'sending' && 'Sending...'}
+              {videoUploadProgress.status === 'done' && 'Video sent! ✨'}
+              {videoUploadProgress.status === 'error' && 'Upload failed'}
             </div>
           </div>
 
           {/* Progress bar for uploading */}
-          {videoUploadProgress.status === "uploading" && (
+          {videoUploadProgress.status === 'uploading' && (
             <div
               style={{
-                position: "absolute",
+                position: 'absolute',
                 bottom: 0,
                 left: 0,
                 right: 0,
-                height: "3px",
-                background: "rgba(255,255,255,0.2)",
-                borderRadius: "0 0 24px 24px",
-                overflow: "hidden",
+                height: '3px',
+                background: 'rgba(255,255,255,0.2)',
+                borderRadius: '0 0 24px 24px',
+                overflow: 'hidden'
               }}
             >
               <div
                 style={{
-                  height: "100%",
+                  height: '100%',
                   width: `${videoUploadProgress.percent}%`,
-                  background: "#7c3aed",
-                  transition: "width 0.2s ease",
+                  background: '#7c3aed',
+                  transition: 'width 0.2s ease'
                 }}
               />
             </div>
@@ -1594,8 +1587,8 @@ export default function ChatWindow() {
           aiLastMessage={aiLastMessage}
           isOpen={isSidebarOpen}
           onOpenSearch={() => {
-            setIsSidebarOpen(false);
-            setIsPaletteOpen(true);
+            setIsSidebarOpen(false)
+            setIsPaletteOpen(true)
           }}
           onCreateGroup={() => setShowCreateGroupModal(true)}
         />
@@ -1616,7 +1609,7 @@ export default function ChatWindow() {
             onOpenGroupInfo={() => setShowGroupInfoModal(true)}
           />
 
-          {viewMode === "posts" ? (
+          {viewMode === 'posts' ? (
             <PostsView
               user={user}
               currentChat={currentChat}
@@ -1627,15 +1620,15 @@ export default function ChatWindow() {
               {/* Messages Area */}
               <div
                 ref={messageListRef}
-                className={`messages ${replyingTo ? "replying-active" : ""}`}
+                className={`messages ${replyingTo ? 'replying-active' : ''}`}
                 {...getRootProps()}
                 onClick={handleMessagesAreaClick}
-                style={{ height: "100%", position: "relative" }}
+                style={{ height: '100%', position: 'relative' }}
               >
                 <input
                   {...getInputProps()}
-                  capture={replyingTo ? "user" : undefined}
-                  accept={replyingTo ? "video/*" : undefined}
+                  capture={replyingTo ? 'user' : undefined}
+                  accept={replyingTo ? 'video/*' : undefined}
                 />
                 {/* Hidden input for video replies - opens camera directly */}
                 <input
@@ -1644,7 +1637,7 @@ export default function ChatWindow() {
                   accept="video/*"
                   capture="user"
                   onChange={handleVideoReplySelect}
-                  style={{ display: "none" }}
+                  style={{ display: 'none' }}
                 />
                 {isDragActive && (
                   <div className="drag-overlay">
@@ -1660,50 +1653,50 @@ export default function ChatWindow() {
                 ) : (
                   <VirtuosoMessageListLicense licenseKey={licenseKey}>
                     <VirtuosoMessageList
-                      style={{ height: "100%" }}
+                      style={{ height: '100%' }}
                       data={sortedData}
                       ItemContent={ItemContent}
                       computeItemKey={computeItemKey}
                       onScroll={onScroll}
                       Header={() => {
                         // Show tasks section at the top of the chat (DMs only for now)
-                        if (currentChat?.type !== "dm") return null;
-                        const dmId = getDMId(user.uid, currentChat.id);
+                        if (currentChat?.type !== 'dm') return null
+                        const dmId = getDMId(user.uid, currentChat.id)
                         return (
                           <TasksSection
                             chatId={dmId}
                             chatType="dm"
                             user={user}
                           />
-                        );
+                        )
                       }}
                       Footer={() => {
                         // On mobile (native), always add base padding for read receipts to not overlap input
                         // When keyboard is open, add keyboard height on top of that
                         const basePadding = Capacitor.isNativePlatform()
                           ? 60
-                          : 0;
+                          : 0
                         const totalHeight =
                           keyboardHeight > 0
                             ? keyboardHeight + basePadding
-                            : basePadding;
+                            : basePadding
 
                         // Get other user for DM typing indicator
                         const otherUser =
-                          currentChat?.type === "dm"
+                          currentChat?.type === 'dm'
                             ? allUsers.find((u) => u.uid === currentChat.id)
-                            : null;
+                            : null
 
                         return (
                           <>
                             {/* DM Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
                             {otherUserTyping &&
-                              currentChat?.type === "dm" &&
+                              currentChat?.type === 'dm' &&
                               otherUser && (
                                 <div className="message-wrapper received typing-message">
                                   <img
-                                    src={otherUser.photoURL || ""}
-                                    alt={otherUser.displayName || "User"}
+                                    src={otherUser.photoURL || ''}
+                                    alt={otherUser.displayName || 'User'}
                                     className="message-avatar"
                                   />
                                   <div className="message-content-wrapper">
@@ -1725,16 +1718,16 @@ export default function ChatWindow() {
                                   className="message-avatar"
                                   style={{
                                     background:
-                                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
+                                      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
                                   }}
                                 >
                                   <img
                                     src="/poppy-icon.png"
                                     alt="Poppy"
-                                    style={{ width: "20px", height: "20px" }}
+                                    style={{ width: '20px', height: '20px' }}
                                   />
                                 </div>
                                 <div className="message-content-wrapper">
@@ -1759,12 +1752,12 @@ export default function ChatWindow() {
                               <div
                                 style={{
                                   height: totalHeight,
-                                  background: "transparent",
+                                  background: 'transparent'
                                 }}
                               />
                             )}
                           </>
-                        );
+                        )
                       }}
                     />
                   </VirtuosoMessageListLicense>
@@ -1810,11 +1803,11 @@ export default function ChatWindow() {
                 handleImageSelect={handleImageSelect}
                 onOpenVideoRecorder={() => {
                   // Mark as standalone video (not a reply)
-                  pendingVideoReplyRef.current = { standalone: true };
+                  pendingVideoReplyRef.current = { standalone: true }
                   if (Capacitor.isNativePlatform()) {
-                    setVideoRecorderOpen(true);
+                    setVideoRecorderOpen(true)
                   } else {
-                    setWebVideoRecorderOpen(true);
+                    setWebVideoRecorderOpen(true)
                   }
                 }}
               />
@@ -1839,5 +1832,5 @@ export default function ChatWindow() {
         reactionsOnly={contextMenu?.reactionsOnly || false}
       />
     </>
-  );
+  )
 }
