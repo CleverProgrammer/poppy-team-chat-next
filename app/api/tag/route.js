@@ -522,7 +522,7 @@ If it's NOT a task, it might be:
   "canonical_tag": "daily_revenue_report",
   "tags": ["revenue", "epv", "aov", "daily_metrics", "finance", "christmas"],
   "queries": ["christmas revenue", "how much did we make dec 25", "what was EPV on christmas", "daily revenue report"],
-  "date": "2024-12-25",
+  "date": "2025-12-25",
   "summary": "Daily metrics: $3156 revenue, $4.89 EPV, 4 purchases",
   "data": {
     "revenue": 3156,
