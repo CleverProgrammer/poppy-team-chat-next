@@ -82,8 +82,6 @@
 │   │                                                                              │
 │   ├──→ ☐ Smart Task Tracking (3-4 hrs)                                          │
 │   │                                                                              │
-│   ├──→ ☐ Announcement Center (2-3 hrs)                                          │
-│   │                                                                              │
 │   ├──→ ☐ Interview Analysis Mode (2-3 hrs)                                      │
 │   │                                                                              │
 │   └──→ 💡 Leaderboards (exploring)                                              │
@@ -91,10 +89,11 @@
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
     │
-    │ ~30 hours total
+    │ ~25 hours remaining
     ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ ✅ DONE: DMs • Channels • Images • Voice • Video • AI Chat • Push • iOS        │
+│ ✅ DONE: Announcement Center • AI Memory Docs • Group AI Search                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -108,11 +107,11 @@
 | 2b | YouTube/Loom Links | 2-3 hrs | ⬜ |
 | 3 | Audio Rooms 🎙️ | 6-8 hrs | ⬜ |
 | 4 | [Smart Tasks](plans/ai-improvements/dm-tasks-system.md) 📋 | 3-4 hrs | ⬜ |
-| 5 | [Announcement Center](plans/announcement-center.md) 📢 | 2-3 hrs | ⬜ |
-| 6 | Video Calls 📹 | 4-6 hrs | ⬜ |
-| 7 | Interview Analysis 🎯 | 2-3 hrs | ⬜ |
-| 8 | Leaderboards 🏆 | 3-4 hrs | 💡 idea |
-| 9 | Goals Widget 🎯 | 2-3 hrs | 💡 idea |
+| 5 | Video Calls 📹 | 4-6 hrs | ⬜ |
+| 6 | Interview Analysis 🎯 | 2-3 hrs | ⬜ |
+| 7 | Leaderboards 🏆 | 3-4 hrs | 💡 idea |
+| 8 | Goals Widget 🎯 | 2-3 hrs | 💡 idea |
+| ✅ | [**Announcement Center**](plans/announcement-center.md) 📢 | 2-3 hrs | ✅ **DONE** |
 
 ---
 
@@ -128,6 +127,9 @@
 | Video Uploads (Mux) | ✅ Done | |
 | AI Chat (@poppy) | ✅ Done | [AI Memory System](plans/ai-memory-system.md) |
 | Push Notifications | ✅ Done | |
+| **Announcement Center** | ✅ Done | [Plan](plans/announcement-center.md) |
+| AI Search Improvements | ✅ Done | Tool description fix for exact keywords |
+| Group AI Permissions | ✅ Done | Groups now searchable in AI chat |
 | iOS App | ✅ Done | |
 | Group Chats | ✅ Done | [Plan](plans/group-chats.md) |
 

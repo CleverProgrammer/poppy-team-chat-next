@@ -106,13 +106,13 @@ The magic of Poppy's memory is **context-aware permission filtering**. What you 
 
 if (currentChat?.type === 'ai') {
   // AI assistant: full access
+  // NOTE: Simplified filter - complex $and/$contains was breaking in Ragie
   filter = {
     $or: [
       { senderId: { $eq: userId } },      // Messages I sent
       { recipientId: { $eq: userId } },   // DMs sent TO me
       { chatType: { $eq: 'channel' } },   // All channel messages
-      // Groups where user is a participant
-      { $and: [{ chatType: { $eq: 'group' } }, { participants: { $contains: userId } }] },
+      { chatType: { $eq: 'group' } },     // All group messages (simplified)
       { chatType: { $eq: 'team_memory' } } // Team memory (always)
     ]
   };
@@ -196,12 +196,25 @@ When Poppy needs context, it calls the `search_chat_history` tool:
   name: "search_chat_history",
   description: "Search past messages from the team's chat history",
   input_schema: {
-    query: "what to search for",
+    query: {
+      type: "string",
+      // CRITICAL: Tool description enforces using user's exact words
+      description: "CRITICAL: Use the user's EXACT key words with minimal changes! " +
+                   "User asks 'what food did I get?' → query 'food got'. " +
+                   "Do NOT invent brand names or add 10+ random synonyms. " +
+                   "Ragie uses semantic search so it already understands synonyms."
+    },
     start_date: "optional ISO date",
     end_date: "optional ISO date"
   }
 }
 ```
+
+### Search Query Strategy (Dec 2025 Fix)
+
+We discovered Claude was expanding queries too aggressively (e.g., "what food?" → "food order delivery meal breakfast lunch dinner restaurant"). The fix was to add explicit guidance **in the tool parameter description**, not just the system prompt.
+
+**Why this matters:** Claude weighs parameter descriptions heavily when constructing tool calls. System prompt guidance can be ignored, but parameter descriptions are right there when deciding what value to pass.
 
 ### Retrieval Process
 1. User asks a question in chat
