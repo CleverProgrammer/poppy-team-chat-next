@@ -170,25 +170,62 @@ function InlineImage({ src, onImageClick }) {
 function processMentions(text, allUsers, currentUser, keyPrefix = '') {
   if (!text || typeof text !== 'string') return text;
   
-  // Split by @mention pattern - captures the name after @
-  const mentionSplitRegex = /(@\S+)/g;
-  const parts = text.split(mentionSplitRegex);
+  // Match @FirstName or @FirstName LastName (captures full name to hide last name)
+  // This regex captures: @Word or @Word Word (two words max)
+  const mentionRegex = /@(\S+)(?:\s+(\S+))?/g;
   
-  return parts.map((part, index) => {
-    // Check if this part is a mention (starts with @)
-    if (part.startsWith('@')) {
-      const mentionName = part.slice(1); // Remove the @
-      return (
+  const result = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = mentionRegex.exec(text)) !== null) {
+    // Add text before this mention
+    if (match.index > lastIndex) {
+      result.push(text.slice(lastIndex, match.index));
+    }
+    
+    const firstName = match[1];
+    const possibleLastName = match[2];
+    
+    // Check if this is a known user with a two-word name
+    const fullName = possibleLastName ? `${firstName} ${possibleLastName}` : firstName;
+    const isKnownFullName = allUsers?.some(u => 
+      u.displayName?.toLowerCase() === fullName.toLowerCase()
+    );
+    
+    // If it's a known full name, consume both words. Otherwise just the first word.
+    if (isKnownFullName && possibleLastName) {
+      // Full name matched - consume both words, show first name only
+      result.push(
         <MentionPill
-          key={`${keyPrefix}mention-${index}`}
-          mentionText={mentionName}
+          key={`${keyPrefix}mention-${result.length}`}
+          mentionText={fullName}
           allUsers={allUsers}
           currentUser={currentUser}
         />
       );
+      lastIndex = match.index + match[0].length;
+    } else {
+      // Just first name or unknown - consume only the first word
+      result.push(
+        <MentionPill
+          key={`${keyPrefix}mention-${result.length}`}
+          mentionText={firstName}
+          allUsers={allUsers}
+          currentUser={currentUser}
+        />
+      );
+      // Only consume @firstName, leave the rest
+      lastIndex = match.index + 1 + firstName.length; // @firstName
     }
-    return part;
-  });
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    result.push(text.slice(lastIndex));
+  }
+  
+  return result.length > 0 ? result : text;
 }
 
 export function linkifyText(text, onImageClick = null, allUsers = [], currentUser = null) {
