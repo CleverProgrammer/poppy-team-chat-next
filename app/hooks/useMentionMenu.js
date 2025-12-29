@@ -203,10 +203,11 @@ export function useMentionMenu({
         return
       }
 
-      // Replace @query with @name
+      // Replace @query with @FirstName (only first name for cleaner mentions)
       const beforeMention = value.substring(0, position)
       const afterCursor = value.substring(textarea.selectionStart)
-      const mentionText = item.type === 'ai' ? '@poppy ' : `@${item.name} `
+      const firstName = item.name?.split(' ')[0] || item.name
+      const mentionText = item.type === 'ai' ? '@poppy ' : `@${firstName} `
 
       textarea.value = beforeMention + mentionText + afterCursor
       const newCursorPos = position + mentionText.length

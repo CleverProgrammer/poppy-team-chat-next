@@ -5,6 +5,79 @@ import React, { useState } from 'react';
 // URL regex pattern used across the app
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
 
+// Mention regex pattern - matches @Name (handles multi-word names like @John Doe)
+// This captures @poppy and @DisplayName patterns
+export const mentionRegex = /@(\S+(?:\s+\S+)?)/g;
+
+// Helper to get first name from display name
+function getFirstName(displayName) {
+  if (!displayName) return '';
+  return displayName.split(' ')[0];
+}
+
+// Mention pill component - shows profile photo + first name in a styled pill
+function MentionPill({ mentionText, allUsers, currentUser }) {
+  // Check if it's @poppy (AI mention)
+  const isPoppy = mentionText.toLowerCase() === 'poppy';
+  
+  // Find the mentioned user
+  let mentionedUser = null;
+  let isCurrentUserMentioned = false;
+  
+  if (isPoppy) {
+    mentionedUser = {
+      displayName: 'Poppy',
+      photoURL: '/poppy-icon.png',
+      uid: 'poppy-ai'
+    };
+  } else {
+    // Try to find user by display name (case insensitive)
+    mentionedUser = allUsers?.find(u => 
+      u.displayName?.toLowerCase() === mentionText.toLowerCase() ||
+      getFirstName(u.displayName)?.toLowerCase() === mentionText.toLowerCase()
+    );
+    
+    // Check if current user is mentioned
+    if (mentionedUser && currentUser) {
+      isCurrentUserMentioned = mentionedUser.uid === currentUser.uid;
+    }
+    
+    // Also check if @mentionText matches current user's name
+    if (!isCurrentUserMentioned && currentUser) {
+      const currentUserFirstName = getFirstName(currentUser.displayName)?.toLowerCase();
+      const currentUserFullName = currentUser.displayName?.toLowerCase();
+      isCurrentUserMentioned = 
+        mentionText.toLowerCase() === currentUserFirstName ||
+        mentionText.toLowerCase() === currentUserFullName;
+    }
+  }
+  
+  const firstName = mentionedUser 
+    ? getFirstName(mentionedUser.displayName) 
+    : mentionText;
+  
+  const photoURL = mentionedUser?.photoURL;
+  
+  return (
+    <span 
+      className={`mention-pill ${isCurrentUserMentioned ? 'mention-pill-highlighted' : ''} ${isPoppy ? 'mention-pill-poppy' : ''}`}
+    >
+      {photoURL ? (
+        <img 
+          src={photoURL} 
+          alt={firstName}
+          className="mention-pill-avatar"
+        />
+      ) : (
+        <span className="mention-pill-avatar-placeholder">
+          {firstName.charAt(0).toUpperCase()}
+        </span>
+      )}
+      <span className="mention-pill-name">{firstName}</span>
+    </span>
+  );
+}
+
 // Check if URL is a Firebase Storage image URL
 export function isFirebaseImageUrl(url) {
   if (!url) return false;
@@ -93,7 +166,32 @@ function InlineImage({ src, onImageClick }) {
   );
 }
 
-export function linkifyText(text, onImageClick = null) {
+// Process mentions in a text segment
+function processMentions(text, allUsers, currentUser, keyPrefix = '') {
+  if (!text || typeof text !== 'string') return text;
+  
+  // Split by @mention pattern - captures the name after @
+  const mentionSplitRegex = /(@\S+)/g;
+  const parts = text.split(mentionSplitRegex);
+  
+  return parts.map((part, index) => {
+    // Check if this part is a mention (starts with @)
+    if (part.startsWith('@')) {
+      const mentionName = part.slice(1); // Remove the @
+      return (
+        <MentionPill
+          key={`${keyPrefix}mention-${index}`}
+          mentionText={mentionName}
+          allUsers={allUsers}
+          currentUser={currentUser}
+        />
+      );
+    }
+    return part;
+  });
+}
+
+export function linkifyText(text, onImageClick = null, allUsers = [], currentUser = null) {
   const parts = text.split(urlRegex);
 
   return parts.map((part, index) => {
@@ -116,7 +214,12 @@ export function linkifyText(text, onImageClick = null) {
         </a>
       );
     }
-    return part;
+    // Process mentions in non-URL parts
+    return (
+      <React.Fragment key={index}>
+        {processMentions(part, allUsers, currentUser, `${index}-`)}
+      </React.Fragment>
+    );
   });
 }
 

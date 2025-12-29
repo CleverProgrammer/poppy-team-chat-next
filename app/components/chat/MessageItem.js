@@ -1062,7 +1062,7 @@ export default function MessageItem({
           )}
           {msg.text && (
             <div className='text'>
-              {linkifyText(msg.text, onImageClick)}
+              {linkifyText(msg.text, onImageClick, allUsers, user)}
               {msg.edited && <span className='edited-indicator'> (edited)</span>}
               {msg.isPrivate && (
                 <span className='private-indicator' title='Only you can see this'>

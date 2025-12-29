@@ -873,6 +873,117 @@ html {
   color: #c7e8ff;
 }
 
+/* Mention Pills - Fun styled @mentions */
+.mention-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 3px;
+  margin: 0 1px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 20px;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #94a3b8;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+}
+
+.mention-pill:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+/* Avatar in mention pill */
+.mention-pill-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mention-pill-avatar-placeholder {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.mention-pill-name {
+  line-height: 1;
+}
+
+/* Highlighted mention - when YOU are mentioned 🔥 */
+.mention-pill-highlighted {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);
+  animation: mention-glow 2s ease-in-out infinite alternate;
+}
+
+.mention-pill-highlighted:hover {
+  background: linear-gradient(135deg, #ff7d4d 0%, #f9a136 100%);
+}
+
+.mention-pill-highlighted .mention-pill-avatar-placeholder {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+@keyframes mention-glow {
+  0% {
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);
+  }
+  100% {
+    box-shadow: 0 2px 12px rgba(255, 107, 53, 0.6);
+  }
+}
+
+/* Poppy AI mention - subtle gray/slate vibe */
+.mention-pill-poppy {
+  background: rgba(100, 116, 139, 0.25);
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.mention-pill-poppy:hover {
+  background: rgba(100, 116, 139, 0.35);
+}
+
+/* Adjust mention pills in sent messages (your own) */
+.message-wrapper.sent .mention-pill {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message-wrapper.sent .mention-pill:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.message-wrapper.sent .mention-pill-avatar-placeholder {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Keep highlighted and poppy styles in sent messages */
+.message-wrapper.sent .mention-pill-highlighted {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+}
+
+.message-wrapper.sent .mention-pill-poppy {
+  background: rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+
 /* Inline images rendered from Firebase URLs in AI responses */
 .inline-image-container {
   display: block;
