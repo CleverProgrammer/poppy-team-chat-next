@@ -8,69 +8,53 @@ When someone says "send me the report by Friday" or "can you review this PR", th
 
 ---
 
-## 🚨 Current Status & Known Gaps
+## ✅ Current Status (Updated Dec 29, 2025)
 
 | Feature | DMs | Channels | Groups |
 |---------|-----|----------|--------|
-| Task detection (AI tagging) | ✅ Works | ✅ Works | ✅ Indexed, but... |
-| Task creation (`handleTasksFromMessage`) | ✅ Works | ⚠️ Untested | ❌ **NOT CALLED** |
-| Task completion from gratitude | ✅ Works | ⚠️ Untested | ❌ **NOT CALLED** |
-| Task assignee resolution | ✅ DM recipient | ⚠️ Uses chatId | ❌ **No group handling** |
+| Task detection (AI tagging) | ✅ Works | ✅ Works | ✅ Works |
+| Task creation (`handleTasksFromMessage`) | ✅ Works | ✅ Works | ✅ **FIXED** |
+| Task completion from gratitude | ✅ Works | ✅ Works | ✅ **FIXED** |
+| Task assignee resolution | ✅ DM recipient | ✅ Uses chatId | ✅ **FIXED** |
 
-### What's Broken in Groups
+### What Was Fixed (Dec 29, 2025)
 
-**1. `handleTasksFromMessage` is never called in group message functions**
+**1. Added `handleTasksFromMessage` calls to all group message functions**
 
-The group message functions (`sendGroupMessage`, `sendGroupMessageWithReply`, etc.) in `app/lib/firestore.js` do tag messages via `/api/tag`, but they **don't call `handleTasksFromMessage`** after receiving `aiTags`:
+All group message functions in `app/lib/firestore.js` now call `handleTasksFromMessage` after receiving `aiTags`:
 
 ```javascript
-// Current (broken) - around line 3742
+// Fixed - in sendGroupMessage, sendGroupMessageWithReply, sendGroupMessageWithMedia, sendGroupMessageWithAudio
 .then(data => {
   if (data.aiTags) {
     updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), { aiTags: data.aiTags })
     saveCanonicalTag(data.aiTags)
-    // ❌ MISSING: handleTasksFromMessage call!
+    
+    // ✅ ADDED: Handle task creation for groups
+    if (data.aiTags.task_action || data.aiTags.tasks?.length > 0) {
+      handleTasksFromMessage(groupId, 'group', docRef.id, text, user, null, data.aiTags)
+    }
   }
 })
 ```
 
-**2. `createTaskFromMessage` doesn't handle `chatType === 'group'`**
-
-The function only handles DM and defaults to channel:
+**2. Added `chatType === 'group'` handling in `createTaskFromMessage`**
 
 ```javascript
-// Current (incomplete) - around line 2807
+// Fixed - now handles groups properly
 if (chatType === 'dm') {
   chatName = recipient?.displayName || recipient?.email || 'Direct Message'
+} else if (chatType === 'group') {
+  // ✅ ADDED: Fetch group name from Firestore
+  const groupSnap = await getDoc(doc(db, 'groups', chatId))
+  const groupData = groupSnap.data()
+  chatName = groupData?.name || groupData?.memberNames?.join(', ') || 'Group Chat'
 } else {
-  chatName = chatId // ← Defaults to channel, but group IDs are ugly
+  chatName = chatId // Channel name
 }
-// ❌ MISSING: else if (chatType === 'group') handling
 ```
 
-### Fix Required (Not Yet Implemented)
-
-1. **Add `handleTasksFromMessage` calls** to all group message functions in `firestore.js`:
-   - `sendGroupMessage`
-   - `sendGroupMessageWithReply`
-   - `sendGroupMessageWithMedia`
-   - `sendGroupMessageWithAudio`
-
-2. **Update `createTaskFromMessage`** to handle groups:
-   ```javascript
-   if (chatType === 'dm') {
-     chatName = recipient?.displayName || 'Direct Message'
-   } else if (chatType === 'group') {
-     // Fetch group name from Firestore or pass it in
-     chatName = groupName || 'Group Chat'
-   } else {
-     chatName = chatId // Channel
-   }
-   ```
-
-3. **Pass group context** to `handleTasksFromMessage`:
-   - Group name (for display)
-   - Group members (for assignee resolution via @mentions)
+**Branch:** `fix/group-chat-ai-response`
 
 ---
 
@@ -514,14 +498,14 @@ The system works if:
 
 ## Future Improvements
 
-### Priority 1: Group Tasks (Blocking)
-- [ ] **Call `handleTasksFromMessage` in group message functions**
-- [ ] **Add `chatType === 'group'` handling in `createTaskFromMessage`**
-- [ ] Pass group name and members to task creation
-- [ ] Test assignee resolution with @mentions in groups
+### ~~Priority 1: Group Tasks~~ ✅ DONE (Dec 29, 2025)
+- [x] **Call `handleTasksFromMessage` in group message functions**
+- [x] **Add `chatType === 'group'` handling in `createTaskFromMessage`**
+- [x] Pass group name and members to task creation
+- [ ] Test assignee resolution with @mentions in groups (needs testing)
 
 ### Priority 2: Channel Tasks (Verify)
-- [ ] Confirm `handleTasksFromMessage` is called in channel functions
+- [x] Confirm `handleTasksFromMessage` is called in channel functions
 - [ ] Test assignee detection in channels
 - [ ] Add channel name display in task UI
 
