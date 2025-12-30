@@ -40,6 +40,7 @@ MCP is a standardized protocol that enables AI applications to securely connect 
 - **Official TypeScript SDK** (`@modelcontextprotocol/sdk`) - 3.4M+ weekly downloads
 - **Unified API** - Single `/api/mcp` endpoint for all MCP servers
 - **Notion MCP** - Pre-configured and ready to use
+- **BrowserBase MCP** - AI browser automation for form filling and web interactions
 - **Extensible Design** - Add new MCPs with 3 lines of code
 
 ### 🎯 Supported Operations
@@ -318,6 +319,162 @@ The MCP client automatically handles this, but be mindful when building high-fre
 
 ---
 
+## BrowserBase MCP (Browser Automation)
+
+BrowserBase MCP enables AI-powered browser automation for tasks like filling forms, navigating websites, and extracting data.
+
+### Setup
+
+1. **Create a BrowserBase Account**: Go to [browserbase.com](https://www.browserbase.com/)
+2. **Get Your Credentials**:
+   - API Token: Settings > API Keys
+   - Project ID: Settings > Project ID
+3. **Add to Environment Variables**:
+
+```bash
+# .env.local
+BROWSER_BASE_API_TOKEN=your_api_token_here
+BROWSER_BASE_PROJECT_ID=your_project_id_here
+```
+
+### API Endpoint
+
+**POST /api/browserbase**
+
+### Available Actions
+
+| Action | Description | Required Params |
+|--------|-------------|-----------------|
+| `list_tools` | List available browser tools | None |
+| `call_tool` | Execute a browser tool | `toolName`, `args` |
+| `navigate` | Navigate to URL and perform action | `url`, `instruction` (optional) |
+| `fill_form` | Fill out a web form | `url`, `formData`, `submitInstruction` (optional) |
+| `screenshot` | Take screenshot of current page | None |
+| `extract` | Extract data from a webpage | `url`, `instruction` |
+| `click` | Click an element | `selector` |
+| `type` | Type text into input | `selector`, `text` |
+| `get_content` | Get page text content | None |
+
+### Usage Examples
+
+#### Fill Out a Form
+
+```javascript
+const response = await fetch('/api/browserbase', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'fill_form',
+    params: {
+      url: 'https://example.com/contact',
+      formData: {
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'Hello, this is a test message'
+      },
+      submitInstruction: 'Click the submit button'
+    }
+  })
+});
+
+const { result } = await response.json();
+console.log('Form filled:', result);
+```
+
+#### Navigate and Interact
+
+```javascript
+const response = await fetch('/api/browserbase', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'navigate',
+    params: {
+      url: 'https://example.com/login',
+      instruction: 'Log in with username "user@example.com" and password "password123", then click the login button'
+    }
+  })
+});
+```
+
+#### Extract Data from a Page
+
+```javascript
+const response = await fetch('/api/browserbase', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'extract',
+    params: {
+      url: 'https://example.com/products',
+      instruction: 'Extract all product names and prices from this page'
+    }
+  })
+});
+
+const { result } = await response.json();
+console.log('Extracted data:', result);
+```
+
+#### Take a Screenshot
+
+```javascript
+const response = await fetch('/api/browserbase', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'screenshot'
+  })
+});
+
+const { result } = await response.json();
+// result contains base64 encoded screenshot
+```
+
+#### Check BrowserBase Status
+
+```javascript
+// GET request to check configuration and available tools
+const response = await fetch('/api/browserbase');
+const status = await response.json();
+console.log('BrowserBase status:', status);
+```
+
+### Use Cases
+
+- **Automated Form Filling**: Fill out contact forms, registration forms, surveys
+- **Data Extraction**: Scrape product information, prices, reviews
+- **Account Management**: Automate login flows, update account settings
+- **Testing**: Automated UI testing and screenshots
+- **Research**: Gather information from multiple web sources
+
+### Integration with Poppy AI
+
+You can enhance Poppy's AI to use BrowserBase for browser tasks:
+
+```javascript
+// Example: AI-driven form filling in chat
+const handleBrowserTask = async (userRequest) => {
+  // Parse user intent (e.g., "Fill out the contact form on example.com with my info")
+  const response = await fetch('/api/browserbase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'fill_form',
+      params: {
+        url: extractedUrl,
+        formData: userFormData,
+        submitInstruction: 'Submit the form'
+      }
+    })
+  });
+  
+  return response.json();
+};
+```
+
+---
+
 ## Troubleshooting
 
 ### Error: "MCP server 'notion' not configured"
@@ -349,6 +506,19 @@ The MCP client uses `npx` to start servers. Make sure:
 - Node.js is installed
 - `npx` is available in PATH
 - Package is installed via `yarn add`
+
+### Error: "BrowserBase not configured"
+Add BrowserBase credentials to `.env.local`:
+```bash
+BROWSER_BASE_API_TOKEN=your_api_token_here
+BROWSER_BASE_PROJECT_ID=your_project_id_here
+```
+
+### Error: Browser session timeout
+BrowserBase sessions have a default timeout. For long operations:
+- Break down tasks into smaller steps
+- Use shorter, more specific instructions
+- Check the `maxDuration` setting in the API route
 
 ---
 
