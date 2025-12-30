@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Virtuoso } from 'react-virtuoso'
-import { Howl } from 'howler'
 import { Capacitor } from '@capacitor/core'
 import Sidebar from '../layout/Sidebar'
 import CommandPalette from './CommandPalette'
@@ -202,9 +200,7 @@ export default function ChatWindow() {
       isSwiping.current = false
     }
 
-    document.addEventListener('touchstart', handleTouchStart, {
-      passive: true
-    })
+    document.addEventListener('touchstart', handleTouchStart, { passive: true })
     document.addEventListener('touchmove', handleTouchMove, { passive: false })
     document.addEventListener('touchend', handleTouchEnd, { passive: true })
 
@@ -1165,18 +1161,16 @@ export default function ChatWindow() {
         console.log(`📜 Prepending ${olderMessages.length} messages`)
         justPrependedRef.current = true
         setMessages((prev) => [...olderMessages, ...prev])
-        setLoadingOlder(false)
-        isOlderMessagesLoadingRef.current = false
-        console.log('📜 loadOlder completed')
       }
     } catch (error) {
       console.error('📜 Error loading older messages:', error)
+    } finally {
       setLoadingOlder(false)
       isOlderMessagesLoadingRef.current = false
     }
   }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
 
-  // Reset hasMoreMessages when switching chats
+  // Reset hasMoreMessages and firstItemIndex when switching chats
   useEffect(() => {
     console.log('📜 Chat changed, resetting pagination state')
     setHasMoreMessages(true)
@@ -1274,47 +1268,51 @@ export default function ChatWindow() {
     ({ data: item }) => {
       if (item.isPost) {
         return (
-          <PostPreview
-            key={`post-${item.id}`}
-            post={item}
-            onClick={() => {
-              setSelectedPost(item)
-              setViewMode('posts')
-            }}
-            onContextMenu={handleContextMenu}
-          />
+          <div className="w-full flex flex-col">
+            <PostPreview
+              key={`post-${item.id}`}
+              post={item}
+              onClick={() => {
+                setSelectedPost(item)
+                setViewMode('posts')
+              }}
+              onContextMenu={handleContextMenu}
+            />
+          </div>
         )
       } else {
         // We calculate index relative to the full message list if needed
         const msgIndex = messages.findIndex((m) => m.id === item.id)
 
         return (
-          <MessageItem
-            key={item.id}
-            msg={item}
-            index={msgIndex}
-            messages={messages}
-            totalMessages={messages.length}
-            user={user}
-            currentChat={currentChat}
-            allUsers={allUsers}
-            replyingTo={replyingTo}
-            topReactions={topReactions}
-            onReply={startReply}
-            onVideoReply={startVideoReply}
-            onEdit={startEdit}
-            onDelete={handleDeleteMessage}
-            onPromote={handlePromoteMessage}
-            onAddToTeamMemory={handleAddToTeamMemory}
-            onAddReaction={handleAddReaction}
-            onImageClick={(images, startIndex) =>
-              setLightboxData({ open: true, images, startIndex })
-            }
-            onScrollToMessage={scrollToMessage}
-            messageRef={(el) => (messageRefs.current[item.id] = el)}
-            onOpenThread={openThreadView}
-            onMakePublic={handleMakePublic}
-          />
+          <div className="w-full flex flex-col">
+            <MessageItem
+              key={item.id}
+              msg={item}
+              index={msgIndex}
+              messages={messages}
+              totalMessages={messages.length}
+              user={user}
+              currentChat={currentChat}
+              allUsers={allUsers}
+              replyingTo={replyingTo}
+              topReactions={topReactions}
+              onReply={startReply}
+              onVideoReply={startVideoReply}
+              onEdit={startEdit}
+              onDelete={handleDeleteMessage}
+              onPromote={handlePromoteMessage}
+              onAddToTeamMemory={handleAddToTeamMemory}
+              onAddReaction={handleAddReaction}
+              onImageClick={(images, startIndex) =>
+                setLightboxData({ open: true, images, startIndex })
+              }
+              onScrollToMessage={scrollToMessage}
+              messageRef={(el) => (messageRefs.current[item.id] = el)}
+              onOpenThread={openThreadView}
+              onMakePublic={handleMakePublic}
+            />
+          </div>
         )
       }
     },
@@ -1651,13 +1649,19 @@ export default function ChatWindow() {
                     <p>Welcome to the chat! Start a conversation. 😱</p>
                   </div>
                 ) : (
-                  <VirtuosoMessageListLicense licenseKey={licenseKey}>
+                  <VirtuosoMessageListLicense
+                    licenseKey={
+                      '1033201233240843534ecd083e83e692TzoxNzc7RToxNzk4MjQzMjc4NjI5'
+                    }
+                  >
                     <VirtuosoMessageList
                       style={{ height: '100%' }}
                       data={sortedData}
                       ItemContent={ItemContent}
                       computeItemKey={computeItemKey}
                       onScroll={onScroll}
+                      enforceStickyFooterAtBottom={true}
+                      shortSizeAlign={'bottom'}
                       Header={() => {
                         // Show tasks section at the top of the chat (DMs only for now)
                         if (currentChat?.type !== 'dm') return null
