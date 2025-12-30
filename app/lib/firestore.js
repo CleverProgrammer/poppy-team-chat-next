@@ -4426,3 +4426,190 @@ export async function deleteAnnouncement(announcementId) {
     throw error
   }
 }
+
+// =====================================================
+// PINNED ITEMS
+// =====================================================
+
+/**
+ * Pin item structure:
+ * {
+ *   type: 'dm' | 'group' | 'channel',
+ *   id: string,           // userId for DM, groupId for group, channelId for channel
+ *   name: string,         // Display name
+ *   photoURL?: string,    // Avatar URL
+ *   position: number,     // 0-8 for 3x3 grid positions
+ *   pinnedAt: timestamp,
+ * }
+ */
+
+/**
+ * Get all pinned items for a user
+ */
+export async function getPinnedItems(userId) {
+  if (!userId) return []
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const userData = userDoc.data()
+    return userData?.pinnedItems || []
+  } catch (error) {
+    console.error('Error getting pinned items:', error)
+    return []
+  }
+}
+
+/**
+ * Subscribe to pinned items for real-time updates
+ */
+export function subscribeToPinnedItems(userId, callback) {
+  if (!userId) {
+    callback([])
+    return () => {}
+  }
+
+  return onSnapshot(doc(db, 'users', userId), snapshot => {
+    const userData = snapshot.data()
+    callback(userData?.pinnedItems || [])
+  })
+}
+
+/**
+ * Pin an item (DM, group, or channel)
+ * Automatically assigns the next available position (0-8)
+ */
+export async function pinItem(userId, item) {
+  if (!userId || !item) return
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const userData = userDoc.data()
+    const currentPins = userData?.pinnedItems || []
+
+    // Check if already pinned
+    const alreadyPinned = currentPins.find(
+      p => p.type === item.type && p.id === item.id
+    )
+    if (alreadyPinned) {
+      return // Item already pinned
+    }
+
+    // Check if we have space (max 9 pins for 3x3 grid)
+    if (currentPins.length >= 9) {
+      return // Pin limit reached
+    }
+
+    // Use provided position if available, otherwise find next available position
+    const usedPositions = new Set(currentPins.map(p => p.position))
+    let position = item.position
+    
+    // If no position provided or position is taken, find next available
+    if (position === undefined || usedPositions.has(position)) {
+      position = 0
+      while (usedPositions.has(position) && position < 9) {
+        position++
+      }
+    }
+
+    const newPin = {
+      type: item.type,
+      id: item.id,
+      name: item.name,
+      photoURL: item.photoURL || null,
+      position: position,
+      pinnedAt: new Date().toISOString(),
+    }
+
+    await setDoc(
+      doc(db, 'users', userId),
+      {
+        pinnedItems: [...currentPins, newPin],
+      },
+      { merge: true }
+    )
+  } catch (error) {
+    console.error('Error pinning item:', error)
+    throw error
+  }
+}
+
+/**
+ * Unpin an item
+ */
+export async function unpinItem(userId, itemType, itemId) {
+  if (!userId || !itemType || !itemId) return
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const userData = userDoc.data()
+    const currentPins = userData?.pinnedItems || []
+
+    const updatedPins = currentPins.filter(
+      p => !(p.type === itemType && p.id === itemId)
+    )
+
+    await setDoc(
+      doc(db, 'users', userId),
+      {
+        pinnedItems: updatedPins,
+      },
+      { merge: true }
+    )
+
+    console.log('📌 Unpinned item:', itemType, itemId)
+  } catch (error) {
+    console.error('Error unpinning item:', error)
+    throw error
+  }
+}
+
+/**
+ * Update pin position (for drag and drop reordering)
+ */
+export async function updatePinPosition(userId, itemType, itemId, newPosition) {
+  if (!userId || !itemType || !itemId || newPosition === undefined) return
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const userData = userDoc.data()
+    const currentPins = userData?.pinnedItems || []
+
+    // Swap positions if another pin is at the target position
+    const targetPin = currentPins.find(p => p.position === newPosition)
+    const movingPin = currentPins.find(p => p.type === itemType && p.id === itemId)
+
+    if (!movingPin) return
+
+    const oldPosition = movingPin.position
+
+    const updatedPins = currentPins.map(p => {
+      if (p.type === itemType && p.id === itemId) {
+        return { ...p, position: newPosition }
+      }
+      if (targetPin && p.type === targetPin.type && p.id === targetPin.id) {
+        return { ...p, position: oldPosition }
+      }
+      return p
+    })
+
+    await setDoc(
+      doc(db, 'users', userId),
+      {
+        pinnedItems: updatedPins,
+      },
+      { merge: true }
+    )
+
+    console.log('📌 Updated pin position:', itemType, itemId, 'to', newPosition)
+  } catch (error) {
+    console.error('Error updating pin position:', error)
+    throw error
+  }
+}
+
+/**
+ * Check if an item is pinned
+ */
+export function isItemPinned(pinnedItems, itemType, itemId) {
+  return pinnedItems.some(p => p.type === itemType && p.id === itemId)
+}
