@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
+import supabaseMCP from '../../lib/supabase-mcp-client.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
@@ -643,6 +644,47 @@ The user is REPLYING to this specific message. Their question/request is about T
     },
   })
 
+  // Add Supabase revenue/database query tool - allows AI to query business metrics
+  tools.push({
+    name: 'query_supabase_revenue',
+    description: `Query the Supabase database for business metrics like REVENUE, money made, earnings, sales, transactions, etc.
+
+USE THIS TOOL WHEN USER ASKS:
+- "What's our revenue today?" / "How much did we make today?"
+- "What's our revenue this week/month/year?"
+- "How much money did we make yesterday?"
+- "Show me MTD revenue" / "Month to date revenue"
+- Any question about revenue, income, money, earnings, sales numbers
+
+CRITICAL DATE/TIME INFO:
+- The database stores timestamps in UTC
+- For "today" in PST: use 08:00:00.000Z to next day 07:59:59.999Z
+- Timezone offset: PST is UTC-8 (so 8am UTC = midnight PST)
+
+The 'income' column is in DOLLARS (already in dollars, no conversion needed).
+Table: mv_all_payments_v2
+Key columns: income (dollars), datetime (timestamp)`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        timeRange: {
+          type: 'string',
+          enum: ['today', 'yesterday', 'this_week', 'last_week', 'mtd', 'last_month', 'ytd', 'custom'],
+          description: 'The time range for the revenue query',
+        },
+        startDate: {
+          type: 'string',
+          description: 'ISO timestamp for custom date range start (e.g., "2026-01-02T08:00:00.000Z"). Required if timeRange is "custom".',
+        },
+        endDate: {
+          type: 'string',
+          description: 'ISO timestamp for custom date range end (e.g., "2026-01-03T07:59:59.999Z"). Required if timeRange is "custom".',
+        },
+      },
+      required: ['timeRange'],
+    },
+  })
+
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -762,6 +804,8 @@ The user is REPLYING to this specific message. Their question/request is about T
         toolCategory = '🗳️  VOTES'
       } else if (toolUse.name === 'add_to_team_memory') {
         toolCategory = '🧠 MEMORY'
+      } else if (toolUse.name === 'query_supabase_revenue') {
+        toolCategory = '💰 SUPABASE'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -840,6 +884,157 @@ The user is REPLYING to this specific message. Their question/request is about T
           // Save the success message as fallback (Claude sometimes doesn't respond after tool use)
           if (result.success && result.message) {
             lastMemoryToolMessage = result.message
+          }
+        } else if (toolUse.name === 'query_supabase_revenue') {
+          // Handle Supabase revenue queries
+          console.log(`💰 SUPABASE: Querying revenue...`)
+          console.log(`💰 SUPABASE: Time range: ${toolUse.input.timeRange}`)
+          
+          try {
+            // Calculate date range based on timeRange
+            const now = new Date()
+            let startDate, endDate
+            
+            // Helper to get PST-aligned UTC timestamps
+            // PST is UTC-8, so midnight PST = 8:00 UTC
+            const getPSTDayStart = (date) => {
+              const d = new Date(date)
+              d.setUTCHours(8, 0, 0, 0)
+              return d.toISOString()
+            }
+            
+            const getPSTDayEnd = (date) => {
+              const d = new Date(date)
+              d.setDate(d.getDate() + 1)
+              d.setUTCHours(7, 59, 59, 999)
+              return d.toISOString()
+            }
+            
+            switch (toolUse.input.timeRange) {
+              case 'today':
+                startDate = getPSTDayStart(now)
+                endDate = getPSTDayEnd(now)
+                break
+                
+              case 'yesterday':
+                const yesterday = new Date(now)
+                yesterday.setDate(yesterday.getDate() - 1)
+                startDate = getPSTDayStart(yesterday)
+                endDate = getPSTDayEnd(yesterday)
+                break
+                
+              case 'this_week':
+                // Get Monday of current week (PST)
+                const monday = new Date(now)
+                const dayOfWeek = monday.getUTCDay()
+                const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+                monday.setDate(monday.getDate() - daysToMonday)
+                startDate = getPSTDayStart(monday)
+                endDate = getPSTDayEnd(now)
+                break
+                
+              case 'last_week':
+                const lastMonday = new Date(now)
+                const currentDayOfWeek = lastMonday.getUTCDay()
+                const daysToLastMonday = (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1) + 7
+                lastMonday.setDate(lastMonday.getDate() - daysToLastMonday)
+                const lastSunday = new Date(lastMonday)
+                lastSunday.setDate(lastSunday.getDate() + 6)
+                startDate = getPSTDayStart(lastMonday)
+                endDate = getPSTDayEnd(lastSunday)
+                break
+                
+              case 'mtd':
+                // Month to date
+                const monthStart = new Date(now.getUTCFullYear(), now.getUTCMonth(), 1)
+                startDate = getPSTDayStart(monthStart)
+                endDate = getPSTDayEnd(now)
+                break
+                
+              case 'last_month':
+                const lastMonthStart = new Date(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)
+                const lastMonthEnd = new Date(now.getUTCFullYear(), now.getUTCMonth(), 0)
+                startDate = getPSTDayStart(lastMonthStart)
+                endDate = getPSTDayEnd(lastMonthEnd)
+                break
+                
+              case 'ytd':
+                // Year to date
+                const yearStart = new Date(now.getUTCFullYear(), 0, 1)
+                startDate = getPSTDayStart(yearStart)
+                endDate = getPSTDayEnd(now)
+                break
+                
+              case 'custom':
+                startDate = toolUse.input.startDate
+                endDate = toolUse.input.endDate
+                break
+                
+              default:
+                throw new Error(`Unknown time range: ${toolUse.input.timeRange}`)
+            }
+            
+            console.log(`💰 SUPABASE: Date range: ${startDate} to ${endDate}`)
+            
+            // Build the SQL query
+            const query = `
+              SELECT 
+                SUM(income) as total_dollars,
+                COUNT(*) as transaction_count,
+                MIN(datetime) as first_transaction,
+                MAX(datetime) as last_transaction
+              FROM mv_all_payments_v2
+              WHERE datetime >= '${startDate}'
+                AND datetime <= '${endDate}'
+            `
+            
+            console.log(`💰 SUPABASE: Executing query...`)
+            const result = await supabaseMCP.executeQuery(query)
+            
+            // Parse the result
+            let revenueData = { total_dollars: 0, transaction_count: 0 }
+            if (result?.content?.[0]?.text) {
+              // Extract JSON from the response text
+              const textContent = result.content[0].text
+              const jsonMatch = textContent.match(/\[.*\]/s)
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0])
+                if (parsed[0]) {
+                  revenueData = parsed[0]
+                }
+              }
+            }
+            
+            // Income is already in dollars
+            const totalDollars = revenueData.total_dollars || 0
+            
+            toolResponse = {
+              content: {
+                success: true,
+                timeRange: toolUse.input.timeRange,
+                startDate,
+                endDate,
+                revenue: {
+                  totalDollars: totalDollars,
+                  formattedTotal: `$${totalDollars.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                },
+                transactionCount: revenueData.transaction_count || 0,
+                firstTransaction: revenueData.first_transaction,
+                lastTransaction: revenueData.last_transaction,
+              }
+            }
+            
+            console.log(`💰 SUPABASE: Revenue = $${totalDollars.toFixed(2)} from ${revenueData.transaction_count} transactions`)
+            
+          } catch (error) {
+            console.error(`💰 SUPABASE: Error querying revenue:`, error)
+            toolResponse = {
+              content: {
+                success: false,
+                error: error.message,
+                hint: 'The Supabase MCP connection may need to be configured. Check SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF.',
+              }
+            }
           }
         } else {
           // Call MCP tools with tracing
