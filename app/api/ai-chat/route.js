@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
-import supabaseMCP from '../../lib/supabase-mcp-client.js'
+import { queryRevenueSQL, isSupabaseConfigured } from '../../lib/supabase-query.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
@@ -664,23 +664,15 @@ The user is REPLYING to this specific message. Their question/request is about T
   // Add Supabase revenue/database query tool - allows AI to query business metrics
   tools.push({
     name: 'query_supabase_revenue',
-    description: `Query the Supabase database for business metrics like REVENUE, money made, earnings, sales, transactions, etc.
+    description: `Query revenue/earnings from the database.
 
-USE THIS TOOL WHEN USER ASKS:
-- "What's our revenue today?" / "How much did we make today?"
-- "What's our revenue this week/month/year?"
-- "How much money did we make yesterday?"
-- "Show me MTD revenue" / "Month to date revenue"
-- Any question about revenue, income, money, earnings, sales numbers
+USE THIS TOOL for questions about: revenue, money made, earnings, sales, income.
 
-CRITICAL DATE/TIME INFO:
-- The database stores timestamps in UTC
-- For "today" in PST: use 08:00:00.000Z to next day 07:59:59.999Z
-- Timezone offset: PST is UTC-8 (so 8am UTC = midnight PST)
-
-The 'income' column is in DOLLARS (already in dollars, no conversion needed).
-Table: mv_all_payments_v2
-Key columns: income (dollars), datetime (timestamp)`,
+RESPONSE STYLE:
+- Keep it SHORT and conversational (e.g., "We made $518K last month!")
+- DON'T mention transaction count unless specifically asked
+- Revenue is already formatted nicely (e.g., $518K, $1.2M)
+- Only share exact amounts if user asks for precision`,
     input_schema: {
       type: 'object',
       properties: {
@@ -917,7 +909,7 @@ Key columns: income (dollars), datetime (timestamp)`,
             lastMemoryToolMessage = result.message
           }
         } else if (toolUse.name === 'query_supabase_revenue') {
-          // Handle Supabase revenue queries
+          // Handle Supabase revenue queries using REST API (works in serverless!)
           console.log(`💰 SUPABASE: Querying revenue...`)
           console.log(`💰 SUPABASE: Time range: ${toolUse.input.timeRange}`)
 
@@ -1007,78 +999,37 @@ Key columns: income (dollars), datetime (timestamp)`,
 
             console.log(`💰 SUPABASE: Date range: ${startDate} to ${endDate}`)
 
-            // Build the SQL query
-            const query = `
-              SELECT 
-                SUM(income) as total_dollars,
-                COUNT(*) as transaction_count,
-                MIN(datetime) as first_transaction,
-                MAX(datetime) as last_transaction
-              FROM mv_all_payments_v2
-              WHERE datetime >= '${startDate}'
-                AND datetime <= '${endDate}'
-            `
+            // Use REST API instead of MCP (works in serverless environments!)
+            const revenueData = await queryRevenueSQL(startDate, endDate)
 
-            console.log(`💰 SUPABASE: Executing query...`)
-            const result = await supabaseMCP.executeQuery(query)
-
-            // Parse the result
-            let revenueData = { total_dollars: 0, transaction_count: 0 }
-            if (result?.content?.[0]?.text) {
-              // Extract JSON from the response text
-              // The response wraps data in <untrusted-data-xxx> tags
-              let textContent = result.content[0].text
-
-              // Unescape the string if it contains escaped quotes (from MCP serialization)
-              // Replace \" with " and \n with actual newlines to get valid JSON
-              const unescapedContent = textContent.replace(/\\"/g, '"').replace(/\\n/g, '\n')
-
-              console.log(`💰 SUPABASE: Looking for JSON in response...`)
-
-              // Try to find JSON array in the response
-              // Look for pattern like [{...}] which is the actual data
-              const jsonMatch = unescapedContent.match(/\[\s*\{[^[\]]*\}\s*\]/s)
-              if (jsonMatch) {
-                try {
-                  const parsed = JSON.parse(jsonMatch[0])
-                  if (parsed[0]) {
-                    revenueData = parsed[0]
-                    console.log(`💰 SUPABASE: Parsed data:`, revenueData)
-                  }
-                } catch (parseError) {
-                  console.error(`💰 SUPABASE: JSON parse error:`, parseError.message)
-                  console.log(`💰 SUPABASE: Attempted to parse:`, jsonMatch[0].substring(0, 200))
-                }
+            // Format revenue in human-readable way (e.g., $518K, $1.2M)
+            const formatRevenue = dollars => {
+              if (dollars >= 1000000) {
+                return `$${(dollars / 1000000).toFixed(1)}M`
+              } else if (dollars >= 1000) {
+                return `$${(dollars / 1000).toFixed(0)}K`
               } else {
-                console.log(`💰 SUPABASE: No JSON array found in response`)
+                return `$${dollars.toFixed(0)}`
               }
             }
-
-            // Income is already in dollars
-            const totalDollars = revenueData.total_dollars || 0
 
             toolResponse = {
               content: {
                 success: true,
                 timeRange: toolUse.input.timeRange,
-                startDate,
-                endDate,
-                revenue: {
-                  totalDollars: totalDollars,
-                  formattedTotal: `$${totalDollars.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`,
+                revenue: formatRevenue(revenueData.totalDollars),
+                // Only include details if needed for debugging
+                _details: {
+                  exactAmount: revenueData.totalDollars,
+                  transactionCount: revenueData.transactionCount,
+                  dateRange: { startDate, endDate },
                 },
-                transactionCount: revenueData.transaction_count || 0,
-                firstTransaction: revenueData.first_transaction,
-                lastTransaction: revenueData.last_transaction,
               },
             }
 
             console.log(
-              `💰 SUPABASE: Revenue = $${totalDollars.toFixed(2)} from ${
-                revenueData.transaction_count
+              `💰 SUPABASE: Revenue = $${revenueData.totalDollars.toFixed(2)} from ${
+                revenueData.transactionCount
               } transactions`
             )
           } catch (error) {
@@ -1087,7 +1038,7 @@ Key columns: income (dollars), datetime (timestamp)`,
               content: {
                 success: false,
                 error: error.message,
-                hint: 'The Supabase MCP connection may need to be configured. Check SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF.',
+                hint: 'Check SUPABASE_PROJECT_REF and SUPABASE_SERVICE_ROLE_KEY environment variables.',
               },
             }
           }
