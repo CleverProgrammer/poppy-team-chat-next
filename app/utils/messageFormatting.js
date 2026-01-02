@@ -5,8 +5,9 @@ import React, { useState } from 'react';
 // URL regex pattern used across the app
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-// Mindmap block pattern - matches ```mindmap ... ``` blocks
-export const mindmapBlockRegex = /```mindmap\s*\n([\s\S]*?)```/g;
+// Mindmap block pattern - matches ```mindmap ... ``` or ```mindmap ... </mindmap> blocks
+// Supports both proper markdown closing (```) and XML-style closing (</mindmap>)
+export const mindmapBlockRegex = /```mindmap\s*\n([\s\S]*?)(?:```|<\/mindmap>)/g;
 
 // Mention regex pattern - matches @Name (handles multi-word names like @John Doe)
 // This captures @poppy and @DisplayName patterns
@@ -304,21 +305,24 @@ export function getLoomEmbedUrl(url) {
  * Check if text contains a mindmap block
  * Mindmap blocks are formatted as: ```mindmap\n...content...\n```
  * or ```mindmap title="..."\n...content...\n```
+ * Also supports </mindmap> closing tag (some AI responses use this)
  */
 export function containsMindmap(text) {
   if (!text || typeof text !== 'string') return false;
   // Match ```mindmap optionally followed by title="..." then newline and content
-  return /```mindmap(?:\s+title="[^"]*")?\s*\n[\s\S]*?```/.test(text);
+  // Supports both ``` and </mindmap> as closing
+  return /```mindmap(?:\s+title="[^"]*")?\s*\n[\s\S]*?(?:```|<\/mindmap>)/.test(text);
 }
 
 /**
  * Extract mindmap content from a text block
  * Returns { markdown, title, remainingText } or null if no mindmap found
+ * Supports both ``` and </mindmap> as closing tags
  */
 export function extractMindmap(text) {
   if (!text || typeof text !== 'string') return null;
   
-  const match = text.match(/```mindmap(?:\s*title="([^"]*)")?\s*\n([\s\S]*?)```/);
+  const match = text.match(/```mindmap(?:\s*title="([^"]*)")?\s*\n([\s\S]*?)(?:```|<\/mindmap>)/);
   if (!match) return null;
   
   const title = match[1] || null;
@@ -331,13 +335,15 @@ export function extractMindmap(text) {
 /**
  * Split text into segments, separating mindmap blocks from regular text
  * Returns array of { type: 'text' | 'mindmap', content: string, title?: string }
+ * Supports both ``` and </mindmap> as closing tags
  */
 export function splitTextAndMindmaps(text) {
   if (!text || typeof text !== 'string') return [{ type: 'text', content: '' }];
   
   const segments = [];
-  // Match ```mindmap optionally followed by title="..." then whitespace/newline and content until closing ```
-  const regex = /```mindmap(?:\s+title="([^"]*)")?\s*\n([\s\S]*?)```/g;
+  // Match ```mindmap optionally followed by title="..." then whitespace/newline and content
+  // Supports both ``` and </mindmap> as closing
+  const regex = /```mindmap(?:\s+title="([^"]*)")?\s*\n([\s\S]*?)(?:```|<\/mindmap>)/g;
   let lastIndex = 0;
   let match;
   

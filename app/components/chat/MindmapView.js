@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
 
 /**
  * MindmapView - Renders markdown content as an interactive mindmap using Markmap
@@ -14,8 +14,12 @@ import { useEffect, useRef, useState, useCallback } from 'react'
  * - Point C
  * 
  * This gets transformed into a beautiful interactive mindmap!
+ * 
+ * IMPORTANT: This component is memoized to prevent re-renders when parent
+ * components update (e.g., when new messages arrive in chat). Only re-renders
+ * when markdown, title, or onUpdate props actually change.
  */
-export default function MindmapView({ markdown, title, onUpdate }) {
+function MindmapView({ markdown, title, onUpdate }) {
   const svgRef = useRef(null)
   const markmapRef = useRef(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -342,4 +346,8 @@ export default function MindmapView({ markdown, title, onUpdate }) {
     </div>
   )
 }
+
+// Memoize to prevent re-renders when chat updates with new messages
+// Only re-renders if markdown, title, or onUpdate props change
+export default memo(MindmapView)
 
