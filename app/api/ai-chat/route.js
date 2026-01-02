@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
+import browserBaseMCPClient from '../../lib/browserbase-mcp-client.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
@@ -386,6 +387,32 @@ WHAT NOT TO SAVE:
 ❌ Personal private info that shouldn't be shared
 ❌ Obvious/trivial things
 
+=== BROWSER AUTOMATION (browserbase_automate) ===
+
+USE browserbase_automate WHEN:
+- User asks you to fill out a form on a website
+- User asks you to submit something on a webpage
+- User asks you to click buttons or interact with a website
+- User asks you to extract information from a webpage
+- User says "can you fill out...", "please submit...", "go to [website] and..."
+- Any task that requires controlling a web browser
+
+HOW TO USE:
+1. You need a URL and a clear instruction of what to do
+2. Be SPECIFIC in your instruction - describe exactly what to fill, click, or extract
+3. Include all form field values the user provides
+4. The browser will navigate to the URL and perform the actions you describe
+
+EXAMPLES:
+- User: "Can you fill out the contact form on example.com with my name John and email john@test.com?"
+  → Use browserbase_automate with url="https://example.com/contact" and instruction="Fill out the contact form with name John and email john@test.com, then submit the form"
+
+- User: "Go to amazon.com and search for headphones"
+  → Use browserbase_automate with url="https://amazon.com" and instruction="Type 'headphones' into the search box and click the search button"
+
+- User: "Extract all the product prices from this page: example.com/products"
+  → Use browserbase_automate with url="https://example.com/products" and instruction="Extract all product names and their prices from this page"
+
 🔥 GOLDEN RULES 🔥
 1. NEVER say "I don't see that" without using search_chat_history first!
 2. NEVER say "I don't know" without at least 2-3 different search attempts!
@@ -627,6 +654,32 @@ WHAT NOT TO SAVE:
     },
   })
 
+  // Add BrowserBase automation tool - allows AI to control a browser for form filling, navigation, etc.
+  if (browserBaseMCPClient.isConfigured()) {
+    tools.push({
+      name: 'browserbase_automate',
+      description:
+        'Automate browser actions like filling out forms, clicking buttons, navigating websites, and extracting information from web pages. Use this when users ask you to fill out a form, submit something on a website, navigate to a page and do something, or extract information from a webpage. This tool controls a real browser and can interact with any website.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description:
+              'The URL of the webpage to interact with (e.g., "https://example.com/contact")',
+          },
+          instruction: {
+            type: 'string',
+            description:
+              'What to do on the page. Be specific! Examples: "Fill out the contact form with name John Doe, email john@example.com, and message Hello world, then click Submit", "Click the Sign Up button", "Extract all product names and prices from the page"',
+          },
+        },
+        required: ['url', 'instruction'],
+      },
+    })
+    console.log('🌐 BrowserBase: Browser automation tool added to available tools')
+  }
+
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -736,6 +789,8 @@ WHAT NOT TO SAVE:
         toolCategory = '🗳️  VOTES'
       } else if (toolUse.name === 'add_to_team_memory') {
         toolCategory = '🧠 MEMORY'
+      } else if (toolUse.name === 'browserbase_automate') {
+        toolCategory = '🌐 BROWSER'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -814,6 +869,28 @@ WHAT NOT TO SAVE:
           // Save the success message as fallback (Claude sometimes doesn't respond after tool use)
           if (result.success && result.message) {
             lastMemoryToolMessage = result.message
+          }
+        } else if (toolUse.name === 'browserbase_automate') {
+          // Handle browser automation
+          console.log(`🌐 BROWSER: Automating browser action...`)
+          console.log(`🌐 BROWSER: URL: ${toolUse.input.url}`)
+          console.log(`🌐 BROWSER: Instruction: "${toolUse.input.instruction?.substring(0, 100)}..."`)
+          
+          try {
+            const result = await browserBaseMCPClient.navigateAndAct(
+              toolUse.input.url,
+              toolUse.input.instruction
+            )
+            toolResponse = { content: result }
+            console.log(`🌐 BROWSER: ✅ Action completed successfully`)
+          } catch (browserError) {
+            console.error(`🌐 BROWSER: ❌ Error:`, browserError.message)
+            toolResponse = {
+              content: {
+                error: browserError.message,
+                hint: 'Make sure BrowserBase credentials are configured correctly'
+              }
+            }
           }
         } else {
           // Call MCP tools with tracing
