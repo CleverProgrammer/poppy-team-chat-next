@@ -185,6 +185,20 @@ export default function MindmapView({ markdown, title, onUpdate }) {
     }
   }, [isExpanded, isLoaded])
 
+  // Handle ESC key to close expanded view
+  useEffect(() => {
+    if (!isExpanded) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsExpanded(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isExpanded])
+
   if (error) {
     return (
       <div className="mindmap-error">
@@ -295,9 +309,17 @@ export default function MindmapView({ markdown, title, onUpdate }) {
             )}
             <svg
               ref={svgRef}
-              className="mindmap-svg"
+              className={`mindmap-svg ${isExpanded ? 'interactive' : 'static'}`}
               style={{ opacity: isLoaded ? 1 : 0 }}
             />
+            {/* Overlay to prevent scroll/zoom hijacking when not expanded */}
+            {!isExpanded && isLoaded && (
+              <div 
+                className="mindmap-overlay"
+                onClick={() => setIsExpanded(true)}
+                title="Click to expand and interact"
+              />
+            )}
           </>
         )}
       </div>
@@ -305,7 +327,10 @@ export default function MindmapView({ markdown, title, onUpdate }) {
       {/* Instructions */}
       <div className="mindmap-footer">
         <span className="mindmap-hint">
-          💡 Click nodes to expand/collapse • Drag to pan • Scroll to zoom
+          {isExpanded 
+            ? '💡 Click nodes to expand/collapse • Drag to pan • Scroll to zoom • Press ESC to close'
+            : '💡 Click to expand and interact with the mindmap'
+          }
         </span>
       </div>
     </div>

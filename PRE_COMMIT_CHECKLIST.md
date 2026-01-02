@@ -6,6 +6,8 @@
 
 ---
 
+Whenever we add a new type of feature like pdfs or images, etc... does RAGIE know about it? Does our AI know about it? Can we talk to it in threads? Can we add it to memory and refer from other places? If it's a mindmap we are adding does the AI know its called a mindmap for example? etc.
+
 ## 🔥 The Golden Rule
 
 **Every feature that works in one chat type MUST work in ALL chat types.**

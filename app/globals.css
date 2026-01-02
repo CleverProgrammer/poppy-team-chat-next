@@ -6691,6 +6691,53 @@ iframe[src*="vercel"] {
   transition: opacity 0.3s ease;
 }
 
+/* Static mode - no interactions allowed */
+.mindmap-svg.static {
+  pointer-events: none;
+}
+
+/* Interactive mode - full interactions enabled */
+.mindmap-svg.interactive {
+  pointer-events: auto;
+}
+
+/* Overlay to block scroll/zoom when not expanded */
+.mindmap-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  cursor: pointer;
+  z-index: 5;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.mindmap-overlay:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mindmap-overlay::after {
+  content: '🔍 Click to expand';
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.mindmap-overlay:hover::after {
+  opacity: 1;
+}
+
 /* Markmap node styling */
 .mindmap-svg .markmap-node {
   cursor: pointer;
