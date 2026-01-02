@@ -4,7 +4,7 @@ This project integrates **MCP (Model Context Protocol)** using the official Anth
 
 ## What is MCP?
 
-MCP is a standardized protocol that enables AI applications to securely connect to data sources and tools. Think of it as a universal adapter that lets your AI assistant talk to different services (Notion, Slack, GitHub, etc.) through a consistent API.
+MCP is a standardized protocol that enables AI applications to securely connect to data sources and tools. Think of it as a universal adapter that lets your AI assistant talk to different services (Notion, Slack, GitHub, Supabase, etc.) through a consistent API.
 
 ## Architecture
 
@@ -38,9 +38,10 @@ MCP is a standardized protocol that enables AI applications to securely connect 
 
 ### ✅ Already Configured
 - **Official TypeScript SDK** (`@modelcontextprotocol/sdk`) - 3.4M+ weekly downloads
-- **Unified API** - Single `/api/mcp` endpoint for all MCP servers
+- **Unified API** - Multiple endpoints for different MCP servers
 - **Notion MCP** - Pre-configured and ready to use
-- **Extensible Design** - Add new MCPs with 3 lines of code
+- **Supabase MCP** - Read-only database queries via natural language
+- **Extensible Design** - Add new MCPs easily
 
 ### 🎯 Supported Operations
 - **Tools**: `list_tools`, `call_tool`
@@ -173,6 +174,174 @@ const response = await fetch('/api/mcp', {
 
 const { result } = await response.json();
 console.log('Available resources:', result);
+```
+
+---
+
+## Supabase MCP (Read-Only Database Queries)
+
+The Supabase MCP integration allows you to query your Supabase database using natural language. Perfect for questions like:
+- "What's our revenue today?"
+- "How many users signed up yesterday?"
+- "Show me the top 10 orders by amount"
+
+### ⚠️ Security: READ-ONLY Mode
+
+This integration is configured with `read_only=true`, which means:
+- ✅ All SELECT queries work
+- ❌ INSERT, UPDATE, DELETE are blocked
+- ❌ DDL operations (CREATE, DROP, ALTER) are blocked
+
+This ensures your data is safe from accidental modifications.
+
+### Setup
+
+#### 1. Get Your Supabase Credentials
+
+1. Go to [https://supabase.com/dashboard](https://supabase.com/dashboard)
+2. Select your project
+3. Go to **Settings** → **API**
+4. Find your **Project Reference ID** (also visible in your project URL: `https://[PROJECT_REF].supabase.co`)
+5. Go to **Account** → **Access Tokens** to create a Personal Access Token
+
+#### 2. Add Environment Variables
+
+Edit `.env.local`:
+
+```bash
+# Supabase MCP Configuration
+SUPABASE_ACCESS_TOKEN=sbp_your_personal_access_token_here
+SUPABASE_PROJECT_REF=your_project_ref_here
+```
+
+#### 3. Test the Connection
+
+```bash
+# Check if Supabase MCP is configured
+curl http://localhost:3007/api/supabase-mcp
+
+# List available tools
+curl -X POST http://localhost:3007/api/supabase-mcp \
+  -H "Content-Type: application/json" \
+  -d '{"action": "list_tools"}'
+```
+
+### Usage Examples
+
+#### List Database Tables
+
+```javascript
+const response = await fetch('/api/supabase-mcp', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'list_tables'
+  })
+});
+
+const { result } = await response.json();
+console.log('Tables:', result);
+```
+
+#### Execute a SQL Query
+
+```javascript
+const response = await fetch('/api/supabase-mcp', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'execute_query',
+    params: {
+      query: "SELECT SUM(amount) as revenue FROM orders WHERE created_at >= CURRENT_DATE"
+    }
+  })
+});
+
+const { result } = await response.json();
+console.log('Today\'s revenue:', result);
+```
+
+#### Get Database Schema
+
+```javascript
+const response = await fetch('/api/supabase-mcp', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'get_schema'
+  })
+});
+
+const { result } = await response.json();
+console.log('Schema:', result);
+```
+
+#### Call Any Supabase MCP Tool
+
+```javascript
+const response = await fetch('/api/supabase-mcp', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'call_tool',
+    params: {
+      toolName: 'get_table_info',
+      args: { table_name: 'orders' }
+    }
+  })
+});
+
+const { result } = await response.json();
+console.log('Table info:', result);
+```
+
+### Available Actions
+
+| Action | Description | Required Params |
+|--------|-------------|-----------------|
+| `list_tools` | List available MCP tools | None |
+| `call_tool` | Execute any tool | `toolName`, `args` |
+| `execute_query` | Run a SQL SELECT query | `query` |
+| `get_schema` | Get database schema info | None |
+| `list_tables` | List all tables | None |
+| `list_resources` | List available resources | None |
+| `read_resource` | Read a specific resource | `uri` |
+
+### Integrating with Poppy AI
+
+You can enhance Poppy's AI to answer database questions:
+
+```javascript
+// In your AI chat handler
+const tools = [
+  {
+    name: 'query_database',
+    description: 'Query the Supabase database for business metrics like revenue, user counts, orders, etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { 
+          type: 'string', 
+          description: 'SQL SELECT query to execute' 
+        }
+      },
+      required: ['query']
+    }
+  }
+];
+
+// When Claude calls the tool
+if (toolCall.name === 'query_database') {
+  const result = await fetch('/api/supabase-mcp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'execute_query',
+      params: { query: toolCall.input.query }
+    })
+  });
+  // Return result to Claude for interpretation
+}
 ```
 
 ---
@@ -527,6 +696,8 @@ User question: ${userQuestion}
 - **TypeScript SDK**: [github.com/modelcontextprotocol/typescript-sdk](https://github.com/modelcontextprotocol/typescript-sdk)
 - **Notion MCP**: [github.com/makenotion/notion-mcp-server](https://github.com/makenotion/notion-mcp-server)
 - **Notion API Docs**: [developers.notion.com](https://developers.notion.com)
+- **Supabase MCP**: [github.com/supabase-community/supabase-mcp](https://github.com/supabase-community/supabase-mcp)
+- **Supabase MCP Docs**: [supabase.com/mcp](https://supabase.com/mcp)
 - **Find MCP Servers**: [github.com/topics/mcp-server](https://github.com/topics/mcp-server)
 
 ---
