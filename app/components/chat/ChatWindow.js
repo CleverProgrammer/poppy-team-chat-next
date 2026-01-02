@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Virtuoso } from 'react-virtuoso'
-import { Howl } from 'howler'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Capacitor } from '@capacitor/core'
 import Sidebar from '../layout/Sidebar'
 import CommandPalette from './CommandPalette'
@@ -50,8 +48,15 @@ import {
   subscribeToUserGroups,
   subscribeToGroupMessages,
   subscribeToGroupLastMessages,
-  subscribeToUnreadAnnouncements,
+  subscribeToUnreadAnnouncements
 } from '../../lib/firestore'
+import {
+  VirtuosoMessageList,
+  VirtuosoMessageListLicense
+} from '@virtuoso.dev/message-list'
+
+const licenseKey =
+  process.env.NEXT_PUBLIC_VIRTUOSO_MESSAGE_LIST_LICENSE_KEY || ''
 
 export default function ChatWindow() {
   const { user } = useAuth()
@@ -60,7 +65,11 @@ export default function ChatWindow() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false)
   const [unreadChats, setUnreadChats] = useState([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [lightboxData, setLightboxData] = useState({ open: false, images: [], startIndex: 0 })
+  const [lightboxData, setLightboxData] = useState({
+    open: false,
+    images: [],
+    startIndex: 0
+  })
   const [contextMenu, setContextMenu] = useState(null)
   const [editingMessage, setEditingMessage] = useState(null)
   const [replyingTo, setReplyingTo] = useState(null)
@@ -76,7 +85,10 @@ export default function ChatWindow() {
   const [videoUploadProgress, setVideoUploadProgress] = useState(null) // { percent, status } for upload indicator
   const [videoRecorderOpen, setVideoRecorderOpen] = useState(false) // Native video recorder (iOS)
   const [webVideoRecorderOpen, setWebVideoRecorderOpen] = useState(false) // Web video recorder (desktop)
-  const [threadView, setThreadView] = useState({ open: false, originalMessage: null }) // Thread view state
+  const [threadView, setThreadView] = useState({
+    open: false,
+    originalMessage: null
+  }) // Thread view state
   const [aiMode, setAiMode] = useState(false) // AI mode toggle for input
   const [privateMode, setPrivateMode] = useState(false) // Private messages (only visible to sender)
   const [groups, setGroups] = useState([]) // User's groups
@@ -91,7 +103,8 @@ export default function ChatWindow() {
   const isAutoScrollingRef = useRef(false) // Flag to prevent blur during programmatic scroll
   const isTouchingRef = useRef(false) // Track if user is actively touching the screen
   const shouldStayAtBottomRef = useRef(true) // Track if we should auto-scroll when content loads
-  const [firstItemIndex, setFirstItemIndex] = useState(10000) // Start from middle to allow scrolling up
+  const isOlderMessagesLoadingRef = useRef(false) // Prevent concurrent loads
+  const justPrependedRef = useRef(false) // Track when older messages are prepended to maintain scroll position
 
   // Load AI mode settings from localStorage
   useEffect(() => {
@@ -140,7 +153,7 @@ export default function ChatWindow() {
     const SWIPE_THRESHOLD = 80 // px to complete swipe
     const VERTICAL_LIMIT = 50 // max vertical movement
 
-    const handleTouchStart = e => {
+    const handleTouchStart = (e) => {
       const touch = e.touches[0]
       // Swipe from left edge to open, or anywhere to close when open
       if ((touch.clientX < EDGE_THRESHOLD && !isSidebarOpen) || isSidebarOpen) {
@@ -150,7 +163,7 @@ export default function ChatWindow() {
       }
     }
 
-    const handleTouchMove = e => {
+    const handleTouchMove = (e) => {
       if (!isSwiping.current) return
 
       const touch = e.touches[0]
@@ -169,7 +182,7 @@ export default function ChatWindow() {
       }
     }
 
-    const handleTouchEnd = e => {
+    const handleTouchEnd = (e) => {
       if (!isSwiping.current) return
 
       const touch = e.changedTouches[0]
@@ -211,13 +224,18 @@ export default function ChatWindow() {
     handleRemoveImageAtIndex,
     clearImage,
     dropzoneProps,
-    openFilePicker,
+    openFilePicker
   } = useImageUpload()
   const { getRootProps, getInputProps, isDragActive } = dropzoneProps
 
   // Reactions hook
-  const { topReactions, openEmojiPanel, handleAddReaction, toggleEmojiPanel, setOpenEmojiPanel } =
-    useReactions(user, currentChat)
+  const {
+    topReactions,
+    openEmojiPanel,
+    handleAddReaction,
+    toggleEmojiPanel,
+    setOpenEmojiPanel
+  } = useReactions(user, currentChat)
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -225,31 +243,32 @@ export default function ChatWindow() {
   const pendingVideoReplyRef = useRef(null) // Store the message we're replying to
 
   // Subscriptions hook (handles all Firebase subscriptions) - must be early for allUsers
-  const { allUsers, activeDMs, lastMessages, channelLastMessages, aiLastMessage, otherUserTyping } =
-    useSubscriptions({
-      user,
-      currentChat,
-      setCurrentChat,
-      setMessages,
-      messagesEndRef,
-      inputRef,
-    })
-
-  // AI hook (must be after virtuosoRef is defined)
-  const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } = useAI(
+  const {
+    allUsers,
+    activeDMs,
+    lastMessages,
+    channelLastMessages,
+    aiLastMessage,
+    otherUserTyping
+  } = useSubscriptions({
     user,
     currentChat,
-    messages,
+    setCurrentChat,
     setMessages,
-    virtuosoRef
-  )
+    messagesEndRef,
+    inputRef
+  })
+
+  // AI hook (must be after virtuosoRef is defined)
+  const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } =
+    useAI(user, currentChat, messages, setMessages, virtuosoRef)
 
   // Scroll to bottom helper (for mobile keyboard)
   const scrollToBottom = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({
       index: 'LAST',
       align: 'end',
-      behavior: 'smooth',
+      behavior: 'smooth'
     })
   }, [])
 
@@ -261,7 +280,7 @@ export default function ChatWindow() {
         virtuosoRef.current?.scrollToIndex({
           index: 'LAST',
           align: 'end',
-          behavior: 'smooth',
+          behavior: 'smooth'
         })
       }, 50)
     }
@@ -276,7 +295,7 @@ export default function ChatWindow() {
     sendVideoReply,
     updateTypingIndicator,
     clearTypingIndicator,
-    typingTimeoutRef,
+    typingTimeoutRef
   } = useMessageSending({
     user,
     currentChat,
@@ -299,7 +318,7 @@ export default function ChatWindow() {
     askPoppy,
     askPoppyDirectly,
     aiMode,
-    privateMode,
+    privateMode
   })
 
   // AI Modal helper (needed by useMentionMenu)
@@ -313,19 +332,19 @@ export default function ChatWindow() {
     handleTextareaChange,
     getMentionMenuItems,
     selectMentionItem,
-    handleMentionKeyDown,
+    handleMentionKeyDown
   } = useMentionMenu({
     inputRef,
     allUsers,
     user,
     updateTypingIndicator,
     setInsertPosition,
-    openAiModal,
+    openAiModal
   })
 
   const messageRefs = useRef({})
 
-  const handleKeyDown = e => {
+  const handleKeyDown = (e) => {
     // Let mention menu handle its keys first
     if (handleMentionKeyDown(e)) return
 
@@ -389,7 +408,7 @@ export default function ChatWindow() {
     textarea.dispatchEvent(event)
   }
 
-  const handleSelectChat = chat => {
+  const handleSelectChat = (chat) => {
     setCurrentChat(chat)
     setIsSidebarOpen(false) // Close sidebar on mobile after selecting chat
 
@@ -419,7 +438,10 @@ export default function ChatWindow() {
         type: currentChat.type,
         id: currentChat.id,
         // For DMs, also store the dmId format
-        dmId: currentChat.type === 'dm' && user ? getDMId(user.uid, currentChat.id) : null,
+        dmId:
+          currentChat.type === 'dm' && user
+            ? getDMId(user.uid, currentChat.id)
+            : null
       }
     }
     return () => {
@@ -432,8 +454,19 @@ export default function ChatWindow() {
   // Expose navigation function globally for push notification tap handling
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.__poppyNavigateToChat = (chatType, chatId, senderId, senderName) => {
-        console.log('🔔 [NAV] Navigating to chat:', chatType, chatId, senderId, senderName)
+      window.__poppyNavigateToChat = (
+        chatType,
+        chatId,
+        senderId,
+        senderName
+      ) => {
+        console.log(
+          '🔔 [NAV] Navigating to chat:',
+          chatType,
+          chatId,
+          senderId,
+          senderName
+        )
         let chat
         if (chatType === 'channel') {
           chat = { type: 'channel', id: chatId, name: chatId }
@@ -441,8 +474,9 @@ export default function ChatWindow() {
           // For DMs, we need the sender's user ID (who sent the message)
           const dmUserId = senderId || chatId
           // Look up user name from allUsers, fallback to senderName from notification
-          const dmUser = allUsers.find(u => u.uid === dmUserId)
-          const userName = dmUser?.displayName || dmUser?.email || senderName || 'Unknown'
+          const dmUser = allUsers.find((u) => u.uid === dmUserId)
+          const userName =
+            dmUser?.displayName || dmUser?.email || senderName || 'Unknown'
           chat = { type: 'dm', id: dmUserId, name: userName }
         }
 
@@ -469,7 +503,7 @@ export default function ChatWindow() {
   }, [user, allUsers])
 
   // Reply handlers
-  const startReply = target => {
+  const startReply = (target) => {
     // Accept either a full target object or individual parameters for backwards compatibility
     const replyData =
       typeof target === 'object' && target.msgId
@@ -477,7 +511,7 @@ export default function ChatWindow() {
         : {
             msgId: target,
             sender: arguments[1],
-            text: arguments[2] || '',
+            text: arguments[2] || ''
           }
     setReplyingTo({
       msgId: replyData.msgId,
@@ -487,7 +521,7 @@ export default function ChatWindow() {
       imageUrls: replyData.imageUrls || null,
       audioUrl: replyData.audioUrl || null,
       audioDuration: replyData.audioDuration || null,
-      muxPlaybackIds: replyData.muxPlaybackIds || null,
+      muxPlaybackIds: replyData.muxPlaybackIds || null
     })
     setContextMenu(null)
     inputRef.current?.focus()
@@ -513,7 +547,7 @@ export default function ChatWindow() {
   }
 
   // Handle when a video is selected for reply (from gallery picker)
-  const handleVideoReplySelect = async e => {
+  const handleVideoReplySelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file || !pendingVideoReplyRef.current) return
 
@@ -537,12 +571,13 @@ export default function ChatWindow() {
   }
 
   // Handle native video recorded (from VideoRecorder component)
-  const handleNativeVideoRecorded = async videoFilePath => {
+  const handleNativeVideoRecorded = async (videoFilePath) => {
     console.log('📹 Native video recorded:', videoFilePath)
     setVideoRecorderOpen(false)
 
     // Check if this is a standalone video (not a reply)
-    const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
+    const isStandalone =
+      !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
     // Store reply context locally and IMMEDIATELY clear the reply state
     // User has "replied" from their perspective the moment they hit Send
@@ -570,20 +605,20 @@ export default function ChatWindow() {
         serverUrl: uploadUrl,
         method: 'PUT',
         headers: {
-          'Content-Type': 'video/mp4',
+          'Content-Type': 'video/mp4'
         },
-        mimeType: 'video/mp4',
+        mimeType: 'video/mp4'
       })
       console.log('📹 Native upload started, task ID:', uploadTaskId)
 
       // Wait for upload to complete
       await new Promise((resolve, reject) => {
-        const listener = Uploader.addListener('events', event => {
+        const listener = Uploader.addListener('events', (event) => {
           console.log('📹 Upload event:', event.name, event.payload)
           if (event.name === 'uploading') {
             setVideoUploadProgress({
               percent: Math.round(event.payload.percent),
-              status: 'uploading',
+              status: 'uploading'
             })
           } else if (event.name === 'completed') {
             setVideoUploadProgress({ percent: 100, status: 'processing' })
@@ -602,7 +637,7 @@ export default function ChatWindow() {
       console.log('📹 Polling for playback ID...')
       let playbackId = null
       for (let i = 0; i < 60; i++) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        await new Promise((resolve) => setTimeout(resolve, 2000))
         const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
         const assetData = await assetResponse.json()
 
@@ -612,7 +647,12 @@ export default function ChatWindow() {
           console.log('📹 Got playback ID (asset ready):', playbackId)
           break
         }
-        console.log('📹 Waiting for asset to be ready, attempt', i + 1, 'status:', assetData.status)
+        console.log(
+          '📹 Waiting for asset to be ready, attempt',
+          i + 1,
+          'status:',
+          assetData.status
+        )
       }
 
       if (!playbackId) {
@@ -638,12 +678,13 @@ export default function ChatWindow() {
 
   // Handle web video recorded (from WebVideoRecorder component - desktop)
   // Now receives a video blob instead of playbackId - handles upload asynchronously like mobile
-  const handleWebVideoRecorded = async videoBlob => {
+  const handleWebVideoRecorded = async (videoBlob) => {
     console.log('📹 Web video recorded, blob size:', videoBlob.size)
     setWebVideoRecorderOpen(false)
 
     // Check if this is a standalone video (not a reply)
-    const isStandalone = !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
+    const isStandalone =
+      !pendingVideoReplyRef.current || pendingVideoReplyRef.current.standalone
 
     // Store reply context locally and IMMEDIATELY clear the reply state
     // User has "replied" from their perspective the moment they hit Send
@@ -666,7 +707,7 @@ export default function ChatWindow() {
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest()
 
-        xhr.upload.addEventListener('progress', event => {
+        xhr.upload.addEventListener('progress', (event) => {
           if (event.lengthComputable) {
             const percent = Math.round((event.loaded / event.total) * 100)
             setVideoUploadProgress({ percent, status: 'uploading' })
@@ -695,7 +736,7 @@ export default function ChatWindow() {
       console.log('📹 Polling for playback ID...')
       let playbackId = null
       for (let i = 0; i < 60; i++) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        await new Promise((resolve) => setTimeout(resolve, 2000))
         const assetResponse = await fetch(`/api/mux/asset?uploadId=${uploadId}`)
         const assetData = await assetResponse.json()
 
@@ -705,7 +746,12 @@ export default function ChatWindow() {
           console.log('📹 Got playback ID (asset ready):', playbackId)
           break
         }
-        console.log('📹 Waiting for asset to be ready, attempt', i + 1, 'status:', assetData.status)
+        console.log(
+          '📹 Waiting for asset to be ready, attempt',
+          i + 1,
+          'status:',
+          assetData.status
+        )
       }
 
       if (!playbackId) {
@@ -738,7 +784,7 @@ export default function ChatWindow() {
     }
   }, [autoSendPending, imageFiles.length, replyingTo, handleSend])
 
-  const handleMessagesAreaClick = e => {
+  const handleMessagesAreaClick = (e) => {
     // Cancel reply when clicking in the messages area
     // But don't cancel if clicking on interactive elements like buttons, emojis, etc.
     if (
@@ -752,7 +798,7 @@ export default function ChatWindow() {
     }
   }
 
-  const scrollToMessage = messageId => {
+  const scrollToMessage = (messageId) => {
     const msgEl = messageRefs.current[messageId]
     if (msgEl) {
       msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -784,7 +830,8 @@ export default function ChatWindow() {
     user,
     messages,
     lightboxOpen: lightboxData.open,
-    closeLightbox: () => setLightboxData({ open: false, images: [], startIndex: 0 }),
+    closeLightbox: () =>
+      setLightboxData({ open: false, images: [], startIndex: 0 }),
     replyingTo,
     editingMessage,
     isPaletteOpen,
@@ -792,13 +839,14 @@ export default function ChatWindow() {
     startReply,
     startEdit,
     cancelReply,
-    inputRef,
+    inputRef
   })
 
   // Delete handler
-  const handleDeleteMessage = async messageId => {
+  const handleDeleteMessage = async (messageId) => {
     const chatType = currentChat.type // 'channel', 'dm', or 'group'
-    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
+    const chatId =
+      chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
       await deleteMessage(chatId, messageId, chatType)
@@ -809,16 +857,19 @@ export default function ChatWindow() {
   }
 
   // Make private message public handler
-  const handleMakePublic = async messageId => {
+  const handleMakePublic = async (messageId) => {
     const chatType = currentChat.type // 'channel', 'dm', or 'group'
-    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
+    const chatId =
+      chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
       await toggleMessageVisibility(chatId, messageId, true, chatType)
       // Update local state immediately for responsiveness
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === messageId ? { ...msg, isPrivate: false, privateFor: null } : msg
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, isPrivate: false, privateFor: null }
+            : msg
         )
       )
     } catch (error) {
@@ -828,7 +879,7 @@ export default function ChatWindow() {
   }
 
   // Thread view handlers
-  const openThreadView = useCallback(originalMessage => {
+  const openThreadView = useCallback((originalMessage) => {
     setThreadView({ open: true, originalMessage })
   }, [])
 
@@ -839,7 +890,9 @@ export default function ChatWindow() {
   // Get thread messages for the currently open thread
   const getThreadMessages = useCallback(() => {
     if (!threadView.originalMessage) return []
-    return messages.filter(m => m.replyTo?.msgId === threadView.originalMessage.id)
+    return messages.filter(
+      (m) => m.replyTo?.msgId === threadView.originalMessage.id
+    )
   }, [messages, threadView.originalMessage])
 
   // Send a reply directly from the thread view
@@ -853,7 +906,13 @@ export default function ChatWindow() {
 
       try {
         if (isDM) {
-          await sendMessageDMWithReply(chatId, user, text, currentChat.id, replyTo)
+          await sendMessageDMWithReply(
+            chatId,
+            user,
+            text,
+            currentChat.id,
+            replyTo
+          )
         } else if (isGroup) {
           await sendGroupMessageWithReply(chatId, user, text, replyTo)
         } else {
@@ -868,8 +927,11 @@ export default function ChatWindow() {
   )
 
   // Promote message to post
-  const handlePromoteMessage = async messageId => {
-    const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
+  const handlePromoteMessage = async (messageId) => {
+    const chatId =
+      currentChat.type === 'dm'
+        ? getDMId(user.uid, currentChat.id)
+        : currentChat.id
 
     try {
       await promoteMessageToPost(currentChat.type, chatId, messageId)
@@ -880,8 +942,11 @@ export default function ChatWindow() {
   }
 
   // Demote post to message
-  const handleDemotePost = async postId => {
-    const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
+  const handleDemotePost = async (postId) => {
+    const chatId =
+      currentChat.type === 'dm'
+        ? getDMId(user.uid, currentChat.id)
+        : currentChat.id
 
     try {
       await demotePostToMessage(currentChat.type, chatId, postId)
@@ -893,10 +958,11 @@ export default function ChatWindow() {
 
   // Add message to Team AI Memory (globally accessible)
   // Supports both text and image messages (including multiple images)
-  const handleAddToTeamMemory = async message => {
+  const handleAddToTeamMemory = async (message) => {
     try {
       // Get all image URLs (support both single and multiple)
-      const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : [])
+      const imageUrls =
+        message.imageUrls || (message.imageUrl ? [message.imageUrl] : [])
 
       const response = await fetch('/api/ragie/team-memory', {
         method: 'POST',
@@ -909,8 +975,10 @@ export default function ChatWindow() {
           sender: message.sender,
           senderEmail: user.email,
           senderId: user.uid,
-          timestamp: message.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
-        }),
+          timestamp:
+            message.timestamp?.toDate?.()?.toISOString() ||
+            new Date().toISOString()
+        })
       })
 
       if (response.ok) {
@@ -921,7 +989,9 @@ export default function ChatWindow() {
         } else if (data.type === 'image' || data.type === 'images') {
           typeMsg = imageUrls.length > 1 ? 'images' : 'image'
         }
-        alert(`✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`)
+        alert(
+          `✅ Added ${typeMsg} to Team AI Memory! Everyone can now ask Poppy about this.`
+        )
       } else {
         throw new Error('Failed to add to team memory')
       }
@@ -935,14 +1005,15 @@ export default function ChatWindow() {
   const handleContextMenu = (e, message) => {
     e.preventDefault()
     // Get the message wrapper element - for right-click, find from target
-    const messageElement = e.messageElement || e.target.closest('.message-wrapper')
+    const messageElement =
+      e.messageElement || e.target.closest('.message-wrapper')
     contextMenuOpenTime.current = Date.now() // Track when menu opens to prevent immediate close
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       message,
       messageElement,
-      reactionsOnly: e.reactionsOnly || false, // Double-tap passes this flag
+      reactionsOnly: e.reactionsOnly || false // Double-tap passes this flag
     })
   }
 
@@ -951,7 +1022,7 @@ export default function ChatWindow() {
     if (!user) return
 
     let lastUnreadString = ''
-    const unsubscribe = subscribeToUnreadChats(user.uid, newUnreadChats => {
+    const unsubscribe = subscribeToUnreadChats(user.uid, (newUnreadChats) => {
       // Only update if unread chats actually changed (prevents unnecessary re-renders)
       const newUnreadString = JSON.stringify(newUnreadChats.sort())
       if (newUnreadString !== lastUnreadString) {
@@ -970,7 +1041,7 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!user) return
 
-    const unsubscribe = subscribeToUserGroups(user.uid, loadedGroups => {
+    const unsubscribe = subscribeToUserGroups(user.uid, (loadedGroups) => {
       setGroups(loadedGroups)
     })
 
@@ -984,8 +1055,12 @@ export default function ChatWindow() {
       return () => {}
     }
 
-    const groupIds = groups.map(g => g.id)
-    const unsubscribe = subscribeToGroupLastMessages(groupIds, setGroupLastMessages, user.uid)
+    const groupIds = groups.map((g) => g.id)
+    const unsubscribe = subscribeToGroupLastMessages(
+      groupIds,
+      setGroupLastMessages,
+      user.uid
+    )
 
     return () => unsubscribe()
   }, [user, groups])
@@ -994,11 +1069,18 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!currentChat) return
 
-    const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
+    const chatId =
+      currentChat.type === 'dm'
+        ? getDMId(user.uid, currentChat.id)
+        : currentChat.id
 
-    const unsubscribe = subscribeToPosts(currentChat.type, chatId, loadedPosts => {
-      setPosts(loadedPosts)
-    })
+    const unsubscribe = subscribeToPosts(
+      currentChat.type,
+      chatId,
+      (loadedPosts) => {
+        setPosts(loadedPosts)
+      }
+    )
 
     return () => unsubscribe()
   }, [currentChat, user])
@@ -1017,7 +1099,7 @@ export default function ChatWindow() {
       loadingOlder,
       hasMoreMessages,
       currentChat: currentChat?.id,
-      messagesCount: messages.length,
+      messagesCount: messages.length
     })
 
     if (loadingOlder || !hasMoreMessages || !currentChat || !user) {
@@ -1025,7 +1107,7 @@ export default function ChatWindow() {
         loadingOlder,
         hasMoreMessages,
         hasCurrentChat: !!currentChat,
-        hasUser: !!user,
+        hasUser: !!user
       })
       return
     }
@@ -1035,13 +1117,14 @@ export default function ChatWindow() {
 
     try {
       // Combine messages and posts to find the oldest item
-      const allItems = [...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
-        (a, b) => {
-          const aTime = a.timestamp?.seconds || 0
-          const bTime = b.timestamp?.seconds || 0
-          return aTime - bTime
-        }
-      )
+      const allItems = [
+        ...messages,
+        ...posts.map((post) => ({ ...post, isPost: true }))
+      ].sort((a, b) => {
+        const aTime = a.timestamp?.seconds || 0
+        const bTime = b.timestamp?.seconds || 0
+        return aTime - bTime
+      })
 
       const oldestItem = allItems[0]
       console.log('📜 Oldest item timestamp:', oldestItem?.timestamp)
@@ -1054,12 +1137,18 @@ export default function ChatWindow() {
 
       let olderMessages = []
       if (currentChat.type === 'channel') {
-        olderMessages = await loadOlderMessages(currentChat.id, oldestItem.timestamp)
+        olderMessages = await loadOlderMessages(
+          currentChat.id,
+          oldestItem.timestamp
+        )
       } else if (currentChat.type === 'dm') {
         const dmId = getDMId(user.uid, currentChat.id)
         olderMessages = await loadOlderMessagesDM(dmId, oldestItem.timestamp)
       } else if (currentChat.type === 'group') {
-        olderMessages = await loadOlderGroupMessages(currentChat.id, oldestItem.timestamp)
+        olderMessages = await loadOlderGroupMessages(
+          currentChat.id,
+          oldestItem.timestamp
+        )
       }
 
       console.log(`📜 Loaded ${olderMessages.length} older messages`)
@@ -1069,14 +1158,15 @@ export default function ChatWindow() {
         setHasMoreMessages(false)
       } else {
         // Prepend older messages
-        console.log(`📜 Prepending ${olderMessages.length} messages, updating firstItemIndex`)
-        setFirstItemIndex(prev => prev - olderMessages.length)
-        setMessages(prev => [...olderMessages, ...prev])
+        console.log(`📜 Prepending ${olderMessages.length} messages`)
+        justPrependedRef.current = true
+        setMessages((prev) => [...olderMessages, ...prev])
       }
     } catch (error) {
       console.error('📜 Error loading older messages:', error)
     } finally {
       setLoadingOlder(false)
+      isOlderMessagesLoadingRef.current = false
     }
   }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
 
@@ -1084,7 +1174,8 @@ export default function ChatWindow() {
   useEffect(() => {
     console.log('📜 Chat changed, resetting pagination state')
     setHasMoreMessages(true)
-    setFirstItemIndex(10000) // Reset to starting position
+    justPrependedRef.current = false
+    isOlderMessagesLoadingRef.current = false
     setLoadingOlder(false)
 
     // Scroll to bottom when switching chats
@@ -1092,7 +1183,7 @@ export default function ChatWindow() {
       virtuosoRef.current?.scrollToIndex({
         index: 'LAST',
         align: 'end',
-        behavior: 'auto',
+        behavior: 'auto'
       })
     }, 100)
   }, [currentChat])
@@ -1109,7 +1200,7 @@ export default function ChatWindow() {
       }
       setContextMenu(null)
     }
-    const handleEscape = e => {
+    const handleEscape = (e) => {
       if (e.key === 'Escape') {
         setContextMenu(null)
       }
@@ -1123,6 +1214,130 @@ export default function ChatWindow() {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [])
+
+  // 1. Create the Data Structure (Replacing your 'data' and 'sortedData')
+  const sortedData = useMemo(() => {
+    console.log(
+      '[SortedData] Recomputing sorted data... sorted Data Length is : ',
+      ' length of messages:',
+      messages.length
+    )
+    const sortedItems = [...messages].sort((a, b) => {
+      const aTime = a.timestamp?.seconds || 0
+      const bTime = b.timestamp?.seconds || 0
+      return aTime - bTime
+    })
+
+    // Determine scroll behavior based on whether we just prepended messages
+    const scrollModifier = justPrependedRef.current
+      ? 'prepend' // Maintain scroll position when loading older messages
+      : {
+          type: 'item-location',
+          location: { index: 'LAST', align: 'end' }
+        }
+
+    console.log('[SortedData] justPrependedRef:', justPrependedRef.current)
+
+    console.log(
+      '[SortedData] Final Sorted Items:',
+      sortedItems,
+      ' Scroll Modifier:',
+      scrollModifier
+    )
+
+    return {
+      data: sortedItems,
+      scrollModifier: scrollModifier
+    }
+  }, [messages])
+
+  useEffect(() => {
+    // Reset the flag after Virtuoso has finished adjusting scroll position
+    if (justPrependedRef.current) {
+      // Use a small delay to ensure Virtuoso completes its scroll adjustment
+      const timer = setTimeout(() => {
+        justPrependedRef.current = false
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [sortedData])
+
+  // 2. Memoize the Item Content Renderer
+  // Note: 'VirtuosoMessageList' passes an object { data } to the renderer
+  const ItemContent = useCallback(
+    ({ data: item }) => {
+      if (item.isPost) {
+        return (
+          <div className="w-full flex flex-col">
+            <PostPreview
+              key={`post-${item.id}`}
+              post={item}
+              onClick={() => {
+                setSelectedPost(item)
+                setViewMode('posts')
+              }}
+              onContextMenu={handleContextMenu}
+            />
+          </div>
+        )
+      } else {
+        // We calculate index relative to the full message list if needed
+        const msgIndex = messages.findIndex((m) => m.id === item.id)
+
+        return (
+          <div className="w-full flex flex-col">
+            <MessageItem
+              key={item.id}
+              msg={item}
+              index={msgIndex}
+              messages={messages}
+              totalMessages={messages.length}
+              user={user}
+              currentChat={currentChat}
+              allUsers={allUsers}
+              replyingTo={replyingTo}
+              topReactions={topReactions}
+              onReply={startReply}
+              onVideoReply={startVideoReply}
+              onEdit={startEdit}
+              onDelete={handleDeleteMessage}
+              onPromote={handlePromoteMessage}
+              onAddToTeamMemory={handleAddToTeamMemory}
+              onAddReaction={handleAddReaction}
+              onImageClick={(images, startIndex) =>
+                setLightboxData({ open: true, images, startIndex })
+              }
+              onScrollToMessage={scrollToMessage}
+              messageRef={(el) => (messageRefs.current[item.id] = el)}
+              onOpenThread={openThreadView}
+              onMakePublic={handleMakePublic}
+            />
+          </div>
+        )
+      }
+    },
+    [messages, user, currentChat, allUsers, replyingTo, topReactions]
+  )
+
+  // This function is used to generate key properties for the message list items based on the data rendered.
+  // use a stable identifier to avoid unnecessary re-mounts when the message list data changes.
+  const computeItemKey = ({ data }) => {
+    return data.id
+  }
+
+  const onScroll = useCallback(
+    (location) => {
+      // offset is 0 at the top, -totalScrollSize + viewportHeight at the bottom
+      if (location.listOffset > -100 && messages !== null && messages.length) {
+        if (!isOlderMessagesLoadingRef.current) {
+          console.log('Need to load older messages...')
+          isOlderMessagesLoadingRef.current = true
+          loadOlder()
+        }
+      }
+    },
+    [loadOlder, messages]
+  )
 
   // Wait for currentChat to be loaded from cache/Firestore
   // Return null instead of loading text to avoid hydration mismatch
@@ -1144,7 +1359,9 @@ export default function ChatWindow() {
       <ImageLightbox
         images={lightboxData.images}
         open={lightboxData.open}
-        onClose={() => setLightboxData({ open: false, images: [], startIndex: 0 })}
+        onClose={() =>
+          setLightboxData({ open: false, images: [], startIndex: 0 })
+        }
         startIndex={lightboxData.startIndex}
       />
 
@@ -1180,7 +1397,7 @@ export default function ChatWindow() {
               type: 'group',
               id: groupData.id,
               name: groupData.memberNames?.join(', ') || 'Group Chat',
-              group: groupData,
+              group: groupData
             })
           }}
         />
@@ -1224,7 +1441,9 @@ export default function ChatWindow() {
         onPromote={handlePromoteMessage}
         onAddToTeamMemory={handleAddToTeamMemory}
         onAddReaction={handleAddReaction}
-        onImageClick={(images, startIndex) => setLightboxData({ open: true, images, startIndex })}
+        onImageClick={(images, startIndex) =>
+          setLightboxData({ open: true, images, startIndex })
+        }
         onScrollToMessage={scrollToMessage}
         onSendThreadReply={sendThreadReply}
       />
@@ -1251,7 +1470,7 @@ export default function ChatWindow() {
             gap: '12px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             zIndex: 10001,
-            minWidth: '200px',
+            minWidth: '200px'
           }}
         >
           {/* Icon/Spinner */}
@@ -1263,7 +1482,7 @@ export default function ChatWindow() {
                 border: '2px solid rgba(255,255,255,0.3)',
                 borderTopColor: '#fff',
                 borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite',
+                animation: 'spin 0.8s linear infinite'
               }}
             />
           )}
@@ -1275,23 +1494,23 @@ export default function ChatWindow() {
                 border: '2px solid rgba(255,255,255,0.3)',
                 borderTopColor: '#7c3aed',
                 borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite',
+                animation: 'spin 0.8s linear infinite'
               }}
             />
           )}
           {videoUploadProgress.status === 'sending' && (
-            <svg width='20' height='20' viewBox='0 0 24 24' fill='#7c3aed'>
-              <path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#7c3aed">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
           )}
           {videoUploadProgress.status === 'done' && (
-            <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
-              <path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
             </svg>
           )}
           {videoUploadProgress.status === 'error' && (
-            <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
-              <path d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
             </svg>
           )}
 
@@ -1300,7 +1519,8 @@ export default function ChatWindow() {
             <div style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>
               {videoUploadProgress.status === 'uploading' &&
                 `Uploading... ${videoUploadProgress.percent}%`}
-              {videoUploadProgress.status === 'processing' && 'Processing video...'}
+              {videoUploadProgress.status === 'processing' &&
+                'Processing video...'}
               {videoUploadProgress.status === 'sending' && 'Sending...'}
               {videoUploadProgress.status === 'done' && 'Video sent! ✨'}
               {videoUploadProgress.status === 'error' && 'Upload failed'}
@@ -1318,7 +1538,7 @@ export default function ChatWindow() {
                 height: '3px',
                 background: 'rgba(255,255,255,0.2)',
                 borderRadius: '0 0 24px 24px',
-                overflow: 'hidden',
+                overflow: 'hidden'
               }}
             >
               <div
@@ -1326,7 +1546,7 @@ export default function ChatWindow() {
                   height: '100%',
                   width: `${videoUploadProgress.percent}%`,
                   background: '#7c3aed',
-                  transition: 'width 0.2s ease',
+                  transition: 'width 0.2s ease'
                 }}
               />
             </div>
@@ -1342,10 +1562,13 @@ export default function ChatWindow() {
         }
       `}</style>
 
-      <div className='app-container'>
+      <div className="app-container">
         {/* Mobile Backdrop */}
         {isSidebarOpen && (
-          <div className='sidebar-backdrop' onClick={() => setIsSidebarOpen(false)} />
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
 
         {/* Sidebar */}
@@ -1369,7 +1592,7 @@ export default function ChatWindow() {
         />
 
         {/* Chat Container */}
-        <div className='chat-container'>
+        <div className="chat-container">
           <ChatHeader
             currentChat={currentChat}
             isSidebarOpen={isSidebarOpen}
@@ -1385,7 +1608,11 @@ export default function ChatWindow() {
           />
 
           {viewMode === 'posts' ? (
-            <PostsView user={user} currentChat={currentChat} onViewModeChange={setViewMode} />
+            <PostsView
+              user={user}
+              currentChat={currentChat}
+              onViewModeChange={setViewMode}
+            />
           ) : (
             <>
               {/* Messages Area */}
@@ -1404,126 +1631,120 @@ export default function ChatWindow() {
                 {/* Hidden input for video replies - opens camera directly */}
                 <input
                   ref={videoReplyInputRef}
-                  type='file'
-                  accept='video/*'
-                  capture='user'
+                  type="file"
+                  accept="video/*"
+                  capture="user"
                   onChange={handleVideoReplySelect}
                   style={{ display: 'none' }}
                 />
                 {isDragActive && (
-                  <div className='drag-overlay'>
-                    <div className='drag-overlay-content'>📎 Drop image or video here</div>
+                  <div className="drag-overlay">
+                    <div className="drag-overlay-content">
+                      📎 Drop image or video here
+                    </div>
                   </div>
                 )}
                 {messages.length === 0 && posts.length === 0 ? (
-                  <div className='empty-state'>
+                  <div className="empty-state">
                     <p>Welcome to the chat! Start a conversation. 😱</p>
                   </div>
                 ) : (
-                  <Virtuoso
-                    ref={virtuosoRef}
-                    style={{ height: '100%' }}
-                    data={[...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
-                      (a, b) => {
-                        const aTime = a.timestamp?.seconds || 0
-                        const bTime = b.timestamp?.seconds || 0
-                        return aTime - bTime
-                      }
-                    )}
-                    firstItemIndex={firstItemIndex}
-                    initialTopMostItemIndex={999999}
-                    alignToBottom={true}
-                    followOutput={isAtBottom => {
-                      // Auto-scroll to bottom when new messages arrive if user is at bottom
-                      if (shouldStayAtBottomRef.current || isAtBottom) {
-                        return 'smooth'
-                      }
-                      return false
-                    }}
-                    atBottomStateChange={atBottom => {
-                      // Track if user is at bottom to know if we should auto-scroll on media load
-                      shouldStayAtBottomRef.current = atBottom
-                    }}
-                    atBottomThreshold={150}
-                    startReached={loadOlder}
-                    // Keep all 50 messages rendered to prevent image re-rendering jitter
-                    overscan={{ main: 2000, reverse: 2000 }}
-                    increaseViewportBy={{ top: 1500, bottom: 1500 }}
-                    // Add spacer at bottom for keyboard + extra padding on mobile for read receipts
-                    components={{
-                      Header: () => {
+                  <VirtuosoMessageListLicense
+                    licenseKey={
+                      '1033201233240843534ecd083e83e692TzoxNzc7RToxNzk4MjQzMjc4NjI5'
+                    }
+                  >
+                    <VirtuosoMessageList
+                      style={{ height: '100%' }}
+                      data={sortedData}
+                      ItemContent={ItemContent}
+                      computeItemKey={computeItemKey}
+                      onScroll={onScroll}
+                      enforceStickyFooterAtBottom={true}
+                      shortSizeAlign={'bottom'}
+                      Header={() => {
                         // Show tasks section at the top of the chat (DMs only for now)
-                        if (currentChat?.type !== 'dm') return null;
-                        const dmId = getDMId(user.uid, currentChat.id);
+                        if (currentChat?.type !== 'dm') return null
+                        const dmId = getDMId(user.uid, currentChat.id)
                         return (
                           <TasksSection
                             chatId={dmId}
                             chatType="dm"
                             user={user}
                           />
-                        );
-                      },
-                      Footer: () => {
+                        )
+                      }}
+                      Footer={() => {
                         // On mobile (native), always add base padding for read receipts to not overlap input
                         // When keyboard is open, add keyboard height on top of that
-                        const basePadding = Capacitor.isNativePlatform() ? 60 : 0
+                        const basePadding = Capacitor.isNativePlatform()
+                          ? 60
+                          : 0
                         const totalHeight =
-                          keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
+                          keyboardHeight > 0
+                            ? keyboardHeight + basePadding
+                            : basePadding
 
                         // Get other user for DM typing indicator
-                        const otherUser = currentChat?.type === 'dm' 
-                          ? allUsers.find(u => u.uid === currentChat.id)
-                          : null
+                        const otherUser =
+                          currentChat?.type === 'dm'
+                            ? allUsers.find((u) => u.uid === currentChat.id)
+                            : null
 
                         return (
                           <>
                             {/* DM Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
-                            {otherUserTyping && currentChat?.type === 'dm' && otherUser && (
-                              <div className='message-wrapper received typing-message'>
-                                <img
-                                  src={otherUser.photoURL || ''}
-                                  alt={otherUser.displayName || 'User'}
-                                  className='message-avatar'
-                                />
-                                <div className='message-content-wrapper'>
-                                  <div className='message typing-bubble'>
-                                    <div className='typing-dots'>
-                                      <span></span>
-                                      <span></span>
-                                      <span></span>
+                            {otherUserTyping &&
+                              currentChat?.type === 'dm' &&
+                              otherUser && (
+                                <div className="message-wrapper received typing-message">
+                                  <img
+                                    src={otherUser.photoURL || ''}
+                                    alt={otherUser.displayName || 'User'}
+                                    className="message-avatar"
+                                  />
+                                  <div className="message-content-wrapper">
+                                    <div className="message typing-bubble">
+                                      <div className="typing-dots">
+                                        <span></span>
+                                        <span></span>
+                                        <span></span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
 
                             {/* AI Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
                             {aiTyping && (
-                              <div className='message-wrapper received ai-message typing-message'>
+                              <div className="message-wrapper received ai-message typing-message">
                                 <div
-                                  className='message-avatar'
+                                  className="message-avatar"
                                   style={{
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    background:
+                                      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
+                                    justifyContent: 'center'
                                   }}
                                 >
                                   <img
-                                    src='/poppy-icon.png'
-                                    alt='Poppy'
+                                    src="/poppy-icon.png"
+                                    alt="Poppy"
                                     style={{ width: '20px', height: '20px' }}
                                   />
                                 </div>
-                                <div className='message-content-wrapper'>
-                                  <div className='message typing-bubble'>
-                                    <div className='typing-dots'>
+                                <div className="message-content-wrapper">
+                                  <div className="message typing-bubble">
+                                    <div className="typing-dots">
                                       <span></span>
                                       <span></span>
                                       <span></span>
                                     </div>
                                     {aiTypingStatus && (
-                                      <span className='typing-status'>{aiTypingStatus}</span>
+                                      <span className="typing-status">
+                                        {aiTypingStatus}
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -1532,95 +1753,18 @@ export default function ChatWindow() {
 
                             {/* Keyboard spacer */}
                             {totalHeight > 0 && (
-                              <div style={{ height: totalHeight, background: 'transparent' }} />
+                              <div
+                                style={{
+                                  height: totalHeight,
+                                  background: 'transparent'
+                                }}
+                              />
                             )}
                           </>
                         )
-                      },
-                    }}
-                    atTopStateChange={atTop => {
-                      console.log('📜 atTopStateChange:', atTop)
-                      if (atTop) {
-                        loadOlder()
-                      }
-                    }}
-                    scrollerRef={scroller => {
-                      scrollerRef.current = scroller
-                      // Add touch event listeners to track when user is actually touching
-                      if (scroller && Capacitor.isNativePlatform()) {
-                        scroller.ontouchstart = () => {
-                          isTouchingRef.current = true
-                        }
-                        scroller.ontouchend = () => {
-                          // Small delay to catch the final scroll events from the touch
-                          setTimeout(() => {
-                            isTouchingRef.current = false
-                          }, 100)
-                        }
-                      }
-                    }}
-                    onScroll={e => {
-                      const currentScrollTop = e.target.scrollTop
-                      // Blur on upward scroll ONLY when user is actively touching (dragging)
-                      // This prevents keyboard from closing when new messages arrive and auto-scroll
-                      // ONLY on mobile - desktop should never lose focus from scrolling
-                      if (
-                        Capacitor.isNativePlatform() &&
-                        isTouchingRef.current && // Only blur if user is touching the screen
-                        !isAutoScrollingRef.current &&
-                        currentScrollTop < lastScrollTopRef.current - 5 &&
-                        inputRef.current
-                      ) {
-                        inputRef.current.blur()
-                      }
-                      lastScrollTopRef.current = currentScrollTop
-                    }}
-                    itemContent={(index, item) => {
-                      if (item.isPost) {
-                        return (
-                          <PostPreview
-                            key={`post-${item.id}`}
-                            post={item}
-                            onClick={() => {
-                              setSelectedPost(item)
-                              setViewMode('posts')
-                            }}
-                            onContextMenu={handleContextMenu}
-                          />
-                        )
-                      } else {
-                        const msgIndex = messages.findIndex(m => m.id === item.id)
-                        return (
-                          <MessageItem
-                            key={item.id}
-                            msg={item}
-                            index={msgIndex}
-                            messages={messages}
-                            totalMessages={messages.length}
-                            user={user}
-                            currentChat={currentChat}
-                            allUsers={allUsers}
-                            replyingTo={replyingTo}
-                            topReactions={topReactions}
-                            onReply={startReply}
-                            onVideoReply={startVideoReply}
-                            onEdit={startEdit}
-                            onDelete={handleDeleteMessage}
-                            onPromote={handlePromoteMessage}
-                            onAddToTeamMemory={handleAddToTeamMemory}
-                            onAddReaction={handleAddReaction}
-                            onImageClick={(images, startIndex) =>
-                              setLightboxData({ open: true, images, startIndex })
-                            }
-                            onScrollToMessage={scrollToMessage}
-                            messageRef={el => (messageRefs.current[item.id] = el)}
-                            onOpenThread={openThreadView}
-                            onMakePublic={handleMakePublic}
-                          />
-                        )
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                  </VirtuosoMessageListLicense>
                 )}
               </div>
 
