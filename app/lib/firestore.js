@@ -1748,6 +1748,23 @@ export async function updateMessageMediaDimensions(
 }
 
 /**
+ * Validates that a string is a valid HTTP/HTTPS URL
+ */
+function isValidUrl(string) {
+  if (!string || typeof string !== 'string') return false
+  
+  const trimmed = string.trim()
+  if (!trimmed) return false
+  
+  try {
+    const url = new URL(trimmed)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/**
  * Fetch link preview data from the API.
  * Used when sending a message with a URL.
  *
@@ -1755,6 +1772,11 @@ export async function updateMessageMediaDimensions(
  * @returns {Promise<object|null>} - Link preview data or null
  */
 export async function fetchLinkPreview(url) {
+  // Validate URL before making API call
+  if (!isValidUrl(url)) {
+    return null
+  }
+
   try {
     const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
 

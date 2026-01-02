@@ -12,6 +12,23 @@ const DEFAULT_OG_WIDTH = 1200
 const DEFAULT_OG_HEIGHT = 630
 const MAX_PREVIEW_IMAGE_WIDTH = 320
 
+/**
+ * Validates that a string is a valid HTTP/HTTPS URL
+ */
+function isValidUrl(string) {
+  if (!string || typeof string !== 'string') return false
+  
+  const trimmed = string.trim()
+  if (!trimmed) return false
+  
+  try {
+    const url = new URL(trimmed)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export default function LinkPreview({ 
   url, 
   isSent = false,
@@ -34,7 +51,8 @@ export default function LinkPreview({
       return
     }
 
-    if (!url) {
+    // Validate URL before making API call
+    if (!url || !isValidUrl(url)) {
       setLoading(false)
       return
     }
