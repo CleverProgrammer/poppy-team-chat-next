@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
       }
     : {
         // Local development - your Mac's IP (iPhone must be on same WiFi)
-        url: 'http://192.168.1.252:3007',
+        url: 'http://192.168.50.22:3007',
         cleartext: true,
       },
   ios: {

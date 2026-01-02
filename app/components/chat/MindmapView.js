@@ -178,10 +178,22 @@ export default function MindmapView({ markdown, title, onUpdate }) {
 
   // Handle resize when expanded/collapsed
   useEffect(() => {
-    if (markmapRef.current && isLoaded) {
-      setTimeout(() => {
-        markmapRef.current.fit()
-      }, 300) // Wait for CSS transition
+    if (markmapRef.current && isLoaded && svgRef.current) {
+      // Update SVG dimensions to match new container size
+      const updateDimensions = () => {
+        const container = svgRef.current?.parentElement
+        if (container) {
+          const rect = container.getBoundingClientRect()
+          svgRef.current.setAttribute('width', rect.width || 600)
+          svgRef.current.setAttribute('height', rect.height || 300)
+        }
+        markmapRef.current?.fit()
+      }
+      
+      // Wait for CSS transition, then update
+      setTimeout(updateDimensions, 350)
+      // On mobile, do another fit after a longer delay for layout stability
+      setTimeout(updateDimensions, 600)
     }
   }, [isExpanded, isLoaded])
 
