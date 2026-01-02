@@ -217,6 +217,7 @@ MINDMAP RULES:
 - The title="..." is optional but helpful
 - ONLY use this format when specifically asked for a mindmap
 - You can add regular text before/after the mindmap block to explain things
+- ⚠️ CRITICAL: ALWAYS close with \`\`\` (three backticks) - NEVER use </mindmap> or any XML tags!
 
 WHEN TO USE MINDMAPS:
 - "make a mindmap of our discussion"
