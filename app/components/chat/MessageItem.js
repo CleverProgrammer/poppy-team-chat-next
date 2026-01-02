@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react'
 import MessageTimestamp from './MessageTimestamp'
 import MessageActionSheet from './MessageActionSheet'
 import StoriesViewer from './StoriesViewer'
@@ -9,6 +9,7 @@ import VoiceMessage from './VoiceMessage'
 import SkeletonView from './SkeletonView'
 import {
   linkifyText,
+  linkifyAIText,
   isSingleEmoji,
   isLoomUrl,
   getLoomEmbedUrl,
@@ -108,11 +109,14 @@ function ImageWithSkeleton({
   )
 }
 
-export default function MessageItem({
+function MessageItem({
   msg,
   index,
   messages,
   totalMessages,
+  replyCount,
+  isLastMessageFromSender,
+  userMap,
   user,
   currentChat,
   allUsers,
@@ -527,6 +531,28 @@ export default function MessageItem({
   // Desktop uses right-click only (no long-press)
   // Long-press is only for mobile touch interactions
 
+  const isSent = msg.senderId === user?.uid
+  const reactions = msg.reactions || {}
+
+  // Memoize reaction aggregates to avoid recomputing per render
+  const { reactionCounts, userReactedWith } = useMemo(() => {
+    const counts = {}
+    const mine = {}
+    Object.entries(reactions).forEach(([userId, emoji]) => {
+      if (!counts[emoji]) {
+        counts[emoji] = { count: 0, userIds: [] }
+      }
+      counts[emoji].count++
+      counts[emoji].userIds.push(userId)
+      if (userId === user?.uid) {
+        mine[emoji] = true
+      }
+    })
+    return { reactionCounts: counts, userReactedWith: mine }
+  }, [reactions, user?.uid])
+  const hasImages = msg.imageUrl || (msg.imageUrls && msg.imageUrls.length > 0)
+  const isJumboEmoji = msg.text && !hasImages && isSingleEmoji(msg.text)
+
   // Handle AI typing indicator
   if (msg.isTyping) {
     return (
@@ -546,41 +572,23 @@ export default function MessageItem({
     )
   }
 
-  const isSent = msg.senderId === user?.uid
-  const reactions = msg.reactions || {}
-  const reactionCounts = {}
-  const userReactedWith = {}
-  const hasImages = msg.imageUrl || (msg.imageUrls && msg.imageUrls.length > 0)
-  const isJumboEmoji = msg.text && !hasImages && isSingleEmoji(msg.text)
-
-  // Count reactions
-  Object.entries(reactions).forEach(([userId, emoji]) => {
-    if (!reactionCounts[emoji]) {
-      reactionCounts[emoji] = { count: 0, userIds: [] }
-    }
-    reactionCounts[emoji].count++
-    reactionCounts[emoji].userIds.push(userId)
-    if (userId === user?.uid) {
-      userReactedWith[emoji] = true
-    }
-  })
-
-  // Count replies to this message
-  // If this message is an original (not a reply), count messages that reply to it
-  // If this message is a reply, count total replies to the same original message
+  // Use precomputed reply counts when provided to avoid O(n^2) scans
   const originalMsgId = msg.replyTo?.msgId || msg.id
-  const replyCount = messages.filter(m => m.replyTo?.msgId === originalMsgId).length
-  
+  const replyCountValue = typeof replyCount === 'number'
+    ? replyCount
+    : messages.filter(m => m.replyTo?.msgId === originalMsgId).length
 
   const isReplyTarget = replyingTo?.msgId === msg.id
-  const isLastMessage = index === totalMessages - 1
 
-  // Find the last message from this specific sender
-  let isLastMessageFromSender = true
-  for (let i = index + 1; i < totalMessages; i++) {
-    if (messages[i].senderId === msg.senderId) {
-      isLastMessageFromSender = false
-      break
+  // Use precomputed sender-tail flag when provided to avoid scanning forward each render
+  let isLastMessageFromSenderValue = isLastMessageFromSender
+  if (typeof isLastMessageFromSenderValue !== 'boolean') {
+    isLastMessageFromSenderValue = true
+    for (let i = index + 1; i < totalMessages; i++) {
+      if (messages[i].senderId === msg.senderId) {
+        isLastMessageFromSenderValue = false
+        break
+      }
     }
   }
 
@@ -715,8 +723,9 @@ export default function MessageItem({
         msg.senderId !== 'ai' &&
         !msg.replyTo &&
         (() => {
-          const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
-          const initial = (msg.sender || '?')[0].toUpperCase()
+          const senderUser = userMap?.[msg.senderId]
+          const photoURL = msg.photoURL || senderUser?.photoURL
+          const initial = (msg.sender || senderUser?.displayName || '?')[0].toUpperCase()
           return photoURL ? (
             <img src={photoURL} alt={msg.sender} className='message-avatar' />
           ) : (
@@ -760,7 +769,7 @@ export default function MessageItem({
             }}
           >
             {(() => {
-              const replyUser = allUsers.find(
+              const replyUser = userMap?.[msg.replyTo.senderId] || allUsers.find(
                 u => u.displayName === msg.replyTo.sender || u.email === msg.replyTo.sender
               )
               return replyUser?.photoURL ? (
@@ -850,7 +859,7 @@ export default function MessageItem({
           </div>
         )})()}
         {/* Reply count - outside and underneath the reply quote bubble */}
-        {msg.replyTo && !isInThreadView && replyCount > 0 && (
+        {msg.replyTo && !isInThreadView && replyCountValue > 0 && (
           <div 
             className={`reply-count-indicator ${isSent ? 'sent' : 'received'}`}
             onClick={(e) => {
@@ -861,7 +870,7 @@ export default function MessageItem({
               }
             }}
           >
-            {replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
+            {replyCountValue} {replyCountValue === 1 ? 'Reply' : 'Replies'}
           </div>
         )}
         {!isSent && (
@@ -874,7 +883,9 @@ export default function MessageItem({
                 style={{ width: '24px', height: '24px', maxWidth: '24px', maxHeight: '24px' }}
               />
             )}
-            {msg.senderId === 'ai' ? msg.sender?.replace('🤖 ', '').replace('🤖', '') : msg.sender}
+            {msg.senderId === 'ai'
+              ? msg.sender?.replace('🤖 ', '').replace('🤖', '')
+              : userMap?.[msg.senderId]?.displayName || msg.sender}
             <MessageTimestamp timestamp={msg.timestamp} />
             {/* For AI messages: show combined cost breakdown (response + tagging) */}
             {msg.senderId === 'ai' && (msg.costBreakdown || msg.aiTags?._cost) && (
@@ -1092,14 +1103,20 @@ export default function MessageItem({
                     />
                   ) : (
                     <div key={`text-${idx}`} className='text'>
-                      {linkifyText(segment.content, onImageClick, allUsers, user)}
+                      {msg.senderId === 'ai' ?
+                        linkifyAIText(segment.content, onImageClick, allUsers, user) :
+                        linkifyText(segment.content, onImageClick, allUsers, user)
+                      }
                     </div>
                   )
                 ))
               ) : (
                 // Regular text rendering
                 <div className='text'>
-                  {linkifyText(msg.text, onImageClick, allUsers, user)}
+                  {msg.senderId === 'ai' ?
+                    linkifyAIText(msg.text, onImageClick, allUsers, user) :
+                    linkifyText(msg.text, onImageClick, allUsers, user)
+                  }
                   {msg.edited && <span className='edited-indicator'> (edited)</span>}
                   {msg.isPrivate && (
                     <span className='private-indicator' title='Only you can see this'>
@@ -1158,7 +1175,7 @@ export default function MessageItem({
           <div className='reactions-display'>
             {Object.entries(reactionCounts).map(([emoji, data]) => {
               const reactedUsers = data.userIds
-                .map(uid => allUsers.find(u => u.uid === uid))
+                .map(uid => userMap?.[uid])
                 .filter(Boolean)
 
               return (
@@ -1211,9 +1228,9 @@ export default function MessageItem({
           currentChat.type === 'dm' &&
           msg.readBy &&
           msg.readBy[currentChat.id] &&
-          isLastMessageFromSender &&
+          isLastMessageFromSenderValue &&
           (() => {
-            const otherUser = allUsers.find(u => u.uid === currentChat.id)
+            const otherUser = userMap?.[currentChat.id] || allUsers.find(u => u.uid === currentChat.id)
             return (
               <div className='read-receipt'>
                 <span className='read-text'>
@@ -1280,3 +1297,22 @@ export default function MessageItem({
     </div>
   )
 }
+
+const areEqual = (prev, next) => {
+  // Skip re-render when message reference and key props are unchanged
+  if (
+    prev.msg === next.msg &&
+    prev.replyCount === next.replyCount &&
+    prev.isLastMessageFromSender === next.isLastMessageFromSender &&
+    prev.replyingTo?.msgId === next.replyingTo?.msgId &&
+    prev.topReactions === next.topReactions &&
+    prev.currentChat?.id === next.currentChat?.id &&
+    prev.currentChat?.type === next.currentChat?.type &&
+    prev.user?.uid === next.user?.uid
+  ) {
+    return true
+  }
+  return false
+}
+
+export default memo(MessageItem, areEqual)

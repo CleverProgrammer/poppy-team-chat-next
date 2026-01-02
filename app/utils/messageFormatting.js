@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // URL regex pattern used across the app
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -230,6 +232,76 @@ function processMentions(text, allUsers, currentUser, keyPrefix = '') {
   }
   
   return result.length > 0 ? result : text;
+}
+
+export function linkifyAIText(text, onImageClick = null, allUsers = [], currentUser = null) {
+  if (!text) return null;
+
+  const renderMentions = value => processMentions(value, allUsers, currentUser, 'md-');
+
+  return (
+    <div className="markdown-ai">
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Links
+          a: ({ href, children }) => {
+            if (href && isFirebaseImageUrl(href)) {
+              return <InlineImage src={href} onImageClick={onImageClick} />;
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="message-link"
+                onClick={e => e.stopPropagation()}
+              >
+                {href}
+              </a>
+            );
+          },
+          // Headings with tight spacing
+          h1: ({ children }) => <h1 className="m-0 mb-1 text-xl font-semibold">{children}</h1>,
+          h2: ({ children }) => <h2 className="m-0 mb-1 text-lg font-semibold">{children}</h2>,
+          h3: ({ children }) => <h3 className="m-0 mb-1 text-base font-semibold">{children}</h3>,
+          h4: ({ children }) => <h4 className="m-0 mb-1 text-base font-medium">{children}</h4>,
+          // Paragraphs
+          p: ({ children }) => <p className="m-0 mb-1 leading-relaxed">{children}</p>,
+          // Lists
+          ul: ({ children }) => <ul className="m-0 mb-1 space-y-0.5">{children}</ul>,
+          ol: ({ children }) => <ol className="m-0 mb-1 space-y-0.5">{children}</ol>,
+          li: ({ children }) => <li className="m-0 leading-relaxed">{children}</li>,
+          // Blockquote
+          blockquote: ({ children }) => (
+            <blockquote className="m-0 mb-1 border-l-2 border-white/20 pl-3 leading-relaxed text-white/90">
+              {children}
+            </blockquote>
+          ),
+          // Code
+          code: ({ inline, className, children }) =>
+            inline ? (
+              <code className={`inline-code ${className || ''}`.trim()}>{children}</code>
+            ) : (
+              <pre className={`m-0 mb-1 rounded-lg bg-black/40 p-3 text-sm overflow-x-auto ${className || ''}`.trim()}>
+                <code>{children}</code>
+              </pre>
+            ),
+          // Horizontal rule
+          hr: () => <hr className="my-2 border-white/10" />,
+          // Images
+          img: ({ src, alt }) => <InlineImage src={src} onImageClick={onImageClick} alt={alt || 'Shared image'} />,
+          // Text node: process mentions
+          text: ({ children }) => {
+            const content = Array.isArray(children) ? children.join('') : children;
+            return <>{renderMentions(content)}</>;
+          },
+        }}
+      >
+        {text}
+      </Markdown>
+    </div>
+  );
 }
 
 export function linkifyText(text, onImageClick = null, allUsers = [], currentUser = null) {

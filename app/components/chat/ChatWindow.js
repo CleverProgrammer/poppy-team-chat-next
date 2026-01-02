@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import { Howl } from 'howler'
 import { Capacitor } from '@capacitor/core'
@@ -325,6 +325,63 @@ export default function ChatWindow() {
 
   const messageRefs = useRef({})
 
+  // Precompute frequently reused derived data to avoid O(n^2) work in row renders
+  const combinedFeed = useMemo(() => {
+    const feed = [...messages, ...posts.map(post => ({ ...post, isPost: true }))]
+    return feed.sort((a, b) => {
+      const aTime = a.timestamp?.seconds || 0
+      const bTime = b.timestamp?.seconds || 0
+      return aTime - bTime
+    })
+  }, [messages, posts])
+
+  const messageIndexById = useMemo(() => {
+    const map = {}
+    messages.forEach((m, idx) => {
+      if (m?.id) map[m.id] = idx
+    })
+    return map
+  }, [messages])
+
+  const replyCountByOriginalId = useMemo(() => {
+    const counts = {}
+    messages.forEach(m => {
+      const targetId = m.replyTo?.msgId
+      if (targetId) {
+        counts[targetId] = (counts[targetId] || 0) + 1
+      }
+    })
+    return counts
+  }, [messages])
+
+  const isLastFromSenderById = useMemo(() => {
+    const seenSender = {}
+    const result = {}
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (!m) continue
+      if (!seenSender[m.senderId]) {
+        seenSender[m.senderId] = true
+        result[m.id] = true
+      } else {
+        result[m.id] = false
+      }
+    }
+    return result
+  }, [messages])
+
+  const userMapById = useMemo(() => {
+    const map = {}
+    allUsers.forEach(u => {
+      if (u?.uid) map[u.uid] = u
+    })
+    return map
+  }, [allUsers])
+
+  const handleOpenLightbox = useCallback((images, startIndex) => {
+    setLightboxData({ open: true, images, startIndex })
+  }, [])
+
   const handleKeyDown = e => {
     // Let mention menu handle its keys first
     if (handleMentionKeyDown(e)) return
@@ -473,7 +530,7 @@ export default function ChatWindow() {
   }, [user, allUsers])
 
   // Reply handlers
-  const startReply = target => {
+  const startReply = useCallback(target => {
     // Accept either a full target object or individual parameters for backwards compatibility
     const replyData =
       typeof target === 'object' && target.msgId
@@ -495,14 +552,14 @@ export default function ChatWindow() {
     })
     setContextMenu(null)
     inputRef.current?.focus()
-  }
+  }, [])
 
   const cancelReply = () => {
     setReplyingTo(null)
   }
 
   // Video reply - uses native camera on iOS, webcam recorder on desktop
-  const startVideoReply = async (messageId, sender, text) => {
+  const startVideoReply = useCallback(async (messageId, sender, text) => {
     // Store the reply info for when video is selected
     pendingVideoReplyRef.current = { msgId: messageId, sender, text }
     setContextMenu(null)
@@ -514,7 +571,7 @@ export default function ChatWindow() {
       // Use webcam recorder on desktop
       setWebVideoRecorderOpen(true)
     }
-  }
+  }, [])
 
   // Handle when a video is selected for reply (from gallery picker)
   const handleVideoReplySelect = async e => {
@@ -742,7 +799,7 @@ export default function ChatWindow() {
     }
   }, [autoSendPending, imageFiles.length, replyingTo, handleSend])
 
-  const handleMessagesAreaClick = e => {
+  const handleMessagesAreaClick = useCallback(e => {
     // Cancel reply when clicking in the messages area
     // But don't cancel if clicking on interactive elements like buttons, emojis, etc.
     if (
@@ -754,9 +811,9 @@ export default function ChatWindow() {
     ) {
       cancelReply()
     }
-  }
+  }, [replyingTo])
 
-  const scrollToMessage = messageId => {
+  const scrollToMessage = useCallback(messageId => {
     const msgEl = messageRefs.current[messageId]
     if (msgEl) {
       msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -765,23 +822,23 @@ export default function ChatWindow() {
         msgEl.style.animation = 'highlight-msg 1s ease-out'
       }, 10)
     }
-  }
+  }, [])
 
   // Edit handlers
-  const startEdit = (messageId, currentText) => {
+  const startEdit = useCallback((messageId, currentText) => {
     setEditingMessage({ id: messageId, text: currentText })
     if (inputRef.current) {
       inputRef.current.value = currentText
     }
     inputRef.current?.focus()
-  }
+  }, [])
 
-  const cancelEdit = () => {
+  const cancelEdit = useCallback(() => {
     setEditingMessage(null)
     if (inputRef.current) {
       inputRef.current.value = ''
     }
-  }
+  }, [])
 
   // Global keyboard shortcuts (must be after startReply, startEdit, cancelReply are defined)
   useKeyboardShortcuts({
@@ -800,7 +857,7 @@ export default function ChatWindow() {
   })
 
   // Delete handler
-  const handleDeleteMessage = async messageId => {
+  const handleDeleteMessage = useCallback(async messageId => {
     const chatType = currentChat.type // 'channel', 'dm', or 'group'
     const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
@@ -810,10 +867,10 @@ export default function ChatWindow() {
       console.error('Error deleting message:', error)
       alert('Failed to delete message. Please try again.')
     }
-  }
+  }, [currentChat, user])
 
   // Make private message public handler
-  const handleMakePublic = async messageId => {
+  const handleMakePublic = useCallback(async messageId => {
     const chatType = currentChat.type // 'channel', 'dm', or 'group'
     const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
@@ -829,7 +886,7 @@ export default function ChatWindow() {
       console.error('Error making message public:', error)
       alert('Failed to make message public. Please try again.')
     }
-  }
+  }, [currentChat, user])
 
   // Thread view handlers
   const openThreadView = useCallback(originalMessage => {
@@ -872,7 +929,7 @@ export default function ChatWindow() {
   )
 
   // Promote message to post
-  const handlePromoteMessage = async messageId => {
+  const handlePromoteMessage = useCallback(async messageId => {
     const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
@@ -881,10 +938,10 @@ export default function ChatWindow() {
       console.error('Error promoting message to post:', error)
       alert('Failed to promote message. Please try again.')
     }
-  }
+  }, [currentChat, user])
 
   // Demote post to message
-  const handleDemotePost = async postId => {
+  const handleDemotePost = useCallback(async postId => {
     const chatId = currentChat.type === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
 
     try {
@@ -893,11 +950,11 @@ export default function ChatWindow() {
       console.error('Error demoting post to message:', error)
       alert('Failed to demote post. Please try again.')
     }
-  }
+  }, [currentChat, user])
 
   // Add message to Team AI Memory (globally accessible)
   // Supports both text and image messages (including multiple images)
-  const handleAddToTeamMemory = async message => {
+  const handleAddToTeamMemory = useCallback(async message => {
     try {
       // Get all image URLs (support both single and multiple)
       const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : [])
@@ -933,10 +990,10 @@ export default function ChatWindow() {
       console.error('Error adding to team memory:', error)
       alert('Failed to add to Team AI Memory. Please try again.')
     }
-  }
+  }, [user])
 
   // Context menu handler
-  const handleContextMenu = (e, message) => {
+  const handleContextMenu = useCallback((e, message) => {
     e.preventDefault()
     // Get the message wrapper element - for right-click, find from target
     const messageElement = e.messageElement || e.target.closest('.message-wrapper')
@@ -948,7 +1005,7 @@ export default function ChatWindow() {
       messageElement,
       reactionsOnly: e.reactionsOnly || false, // Double-tap passes this flag
     })
-  }
+  }, [])
 
   // Subscribe to unread chats
   useEffect(() => {
@@ -1083,6 +1140,83 @@ export default function ChatWindow() {
       setLoadingOlder(false)
     }
   }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
+
+  // Stable renderer for Virtuoso items to avoid inline re-creations
+  const renderItem = useCallback(
+    (index, item) => {
+      if (item.isPost) {
+        return (
+          <PostPreview
+            key={`post-${item.id}`}
+            post={item}
+            onClick={() => {
+              setSelectedPost(item)
+              setViewMode('posts')
+            }}
+            onContextMenu={handleContextMenu}
+          />
+        )
+      }
+
+      const msgIndex = messageIndexById[item.id] ?? index
+
+      return (
+        <MessageItem
+          key={item.id}
+          msg={item}
+          index={msgIndex}
+          messages={messages}
+          totalMessages={messages.length}
+          replyCount={replyCountByOriginalId[item.replyTo?.msgId || item.id] || 0}
+          isLastMessageFromSender={!!isLastFromSenderById[item.id]}
+          userMap={userMapById}
+          user={user}
+          currentChat={currentChat}
+          allUsers={allUsers}
+          replyingTo={replyingTo}
+          topReactions={topReactions}
+          onReply={startReply}
+          onVideoReply={startVideoReply}
+          onEdit={startEdit}
+          onDelete={handleDeleteMessage}
+          onPromote={handlePromoteMessage}
+          onAddToTeamMemory={handleAddToTeamMemory}
+          onAddReaction={handleAddReaction}
+          onImageClick={handleOpenLightbox}
+          onScrollToMessage={scrollToMessage}
+          messageRef={el => (messageRefs.current[item.id] = el)}
+          onOpenThread={openThreadView}
+          onMakePublic={handleMakePublic}
+        />
+      )
+    },
+    [
+      allUsers,
+      currentChat,
+      handleAddReaction,
+      handleAddToTeamMemory,
+      handleContextMenu,
+      handleDeleteMessage,
+      handleMakePublic,
+      handleOpenLightbox,
+      handlePromoteMessage,
+      messageIndexById,
+      messages,
+      openThreadView,
+      replyingTo,
+      replyCountByOriginalId,
+      scrollToMessage,
+      setSelectedPost,
+      setViewMode,
+      startEdit,
+      startReply,
+      startVideoReply,
+      topReactions,
+      user,
+      isLastFromSenderById,
+      userMapById
+    ]
+  )
 
   // Reset hasMoreMessages and firstItemIndex when switching chats
   useEffect(() => {
@@ -1429,13 +1563,7 @@ export default function ChatWindow() {
                   <Virtuoso
                     ref={virtuosoRef}
                     style={{ height: '100%' }}
-                    data={[...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
-                      (a, b) => {
-                        const aTime = a.timestamp?.seconds || 0
-                        const bTime = b.timestamp?.seconds || 0
-                        return aTime - bTime
-                      }
-                    )}
+                    data={combinedFeed}
                     firstItemIndex={firstItemIndex}
                     initialTopMostItemIndex={999999}
                     alignToBottom={true}
@@ -1452,9 +1580,9 @@ export default function ChatWindow() {
                     }}
                     atBottomThreshold={150}
                     startReached={loadOlder}
-                    // Keep all 50 messages rendered to prevent image re-rendering jitter
-                    overscan={{ main: 2000, reverse: 2000 }}
-                    increaseViewportBy={{ top: 1500, bottom: 1500 }}
+                    // Keep moderate overscan to balance smoothness and DOM weight
+                    overscan={{ main: 800, reverse: 800 }}
+                    increaseViewportBy={{ top: 600, bottom: 600 }}
                     // Add spacer at bottom for keyboard + extra padding on mobile for read receipts
                     components={{
                       Header: () => {
@@ -1581,51 +1709,7 @@ export default function ChatWindow() {
                       }
                       lastScrollTopRef.current = currentScrollTop
                     }}
-                    itemContent={(index, item) => {
-                      if (item.isPost) {
-                        return (
-                          <PostPreview
-                            key={`post-${item.id}`}
-                            post={item}
-                            onClick={() => {
-                              setSelectedPost(item)
-                              setViewMode('posts')
-                            }}
-                            onContextMenu={handleContextMenu}
-                          />
-                        )
-                      } else {
-                        const msgIndex = messages.findIndex(m => m.id === item.id)
-                        return (
-                          <MessageItem
-                            key={item.id}
-                            msg={item}
-                            index={msgIndex}
-                            messages={messages}
-                            totalMessages={messages.length}
-                            user={user}
-                            currentChat={currentChat}
-                            allUsers={allUsers}
-                            replyingTo={replyingTo}
-                            topReactions={topReactions}
-                            onReply={startReply}
-                            onVideoReply={startVideoReply}
-                            onEdit={startEdit}
-                            onDelete={handleDeleteMessage}
-                            onPromote={handlePromoteMessage}
-                            onAddToTeamMemory={handleAddToTeamMemory}
-                            onAddReaction={handleAddReaction}
-                            onImageClick={(images, startIndex) =>
-                              setLightboxData({ open: true, images, startIndex })
-                            }
-                            onScrollToMessage={scrollToMessage}
-                            messageRef={el => (messageRefs.current[item.id] = el)}
-                            onOpenThread={openThreadView}
-                            onMakePublic={handleMakePublic}
-                          />
-                        )
-                      }
-                    }}
+                    itemContent={renderItem}
                   />
                 )}
               </div>
