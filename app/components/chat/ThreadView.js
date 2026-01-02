@@ -29,12 +29,17 @@ export default function ThreadView({
   onImageClick,
   onScrollToMessage,
   onSendThreadReply, // Function to send a reply directly from thread view
+  // AI props
+  onAskPoppyInThread, // Function to ask Poppy with thread context
+  aiTyping = false,
+  aiTypingStatus = '',
 }) {
   const [mounted, setMounted] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [aiMode, setAiMode] = useState(false) // AI mode toggle for thread input
   const threadContainerRef = useRef(null)
   const inputRef = useRef(null)
   const messageRefs = useRef({})
@@ -100,26 +105,45 @@ export default function ThreadView({
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || sending || !onSendThreadReply) return
     
+    const text = replyText.trim()
+    
+    // Check for @poppy mention or if AI mode is active
+    const poppyMention = text.match(/@poppy\s*(.*)/i)
+    const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null
+    const shouldTriggerAI = aiMode || !!aiQuestion
+    const actualAiQuestion = aiMode ? text : aiQuestion
+    
     setSending(true)
     try {
-      await onSendThreadReply(replyText.trim(), {
+      // Send the user's message as a reply
+      await onSendThreadReply(text, {
         msgId: originalMessage.id,
         sender: originalMessage.sender,
         text: originalMessage.text || originalMessage.content || ''
       })
       setReplyText('')
+      
       // Scroll to bottom after sending
       setTimeout(() => {
         if (threadContainerRef.current) {
           threadContainerRef.current.scrollTop = threadContainerRef.current.scrollHeight
         }
       }, 100)
+      
+      // Trigger AI response in thread context
+      if (shouldTriggerAI && actualAiQuestion && onAskPoppyInThread) {
+        const threadContext = {
+          originalMessage,
+          threadMessages: threadMessages || []
+        }
+        onAskPoppyInThread(actualAiQuestion, threadContext, { isPrivate: false })
+      }
     } catch (error) {
       console.error('Error sending thread reply:', error)
     } finally {
       setSending(false)
     }
-  }, [replyText, sending, onSendThreadReply, originalMessage])
+  }, [replyText, sending, onSendThreadReply, originalMessage, threadMessages, aiMode, onAskPoppyInThread])
 
   // Handle Enter key to send (desktop)
   const handleInputKeyDown = useCallback((e) => {
@@ -218,6 +242,17 @@ export default function ThreadView({
           ))}
         </div>
 
+        {/* AI Typing Indicator */}
+        {aiTyping && (
+          <div className="thread-view-ai-typing">
+            <img src="/poppy-icon.png" alt="Poppy" className="thread-ai-typing-icon" />
+            <span className="thread-ai-typing-text">{aiTypingStatus || 'Thinking...'}</span>
+            <div className="thread-ai-typing-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        )}
+
         {/* Reply input at bottom */}
         <div className="thread-view-reply-area">
           {isMobile ? (
@@ -228,33 +263,51 @@ export default function ThreadView({
               </div>
             </div>
           ) : (
-            // Desktop: real input field
-            <div className="thread-view-reply-input-container">
-              <textarea
-                ref={inputRef}
-                className="thread-view-reply-input"
-                placeholder="Reply to thread..."
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                rows={1}
-                disabled={sending}
-              />
-              <button
-                className={`thread-view-send-btn ${replyText.trim() ? 'active' : ''}`}
-                onClick={handleSendReply}
-                disabled={!replyText.trim() || sending}
-                aria-label="Send reply"
-              >
-                {sending ? (
-                  <div className="thread-view-sending-spinner" />
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                  </svg>
-                )}
-              </button>
-            </div>
+            // Desktop: real input field with AI mode toggle
+            <>
+              {/* AI Mode Indicator */}
+              {aiMode && (
+                <div className="thread-view-ai-mode-indicator">
+                  <span className="thread-ai-mode-emoji">✨</span>
+                  <span className="thread-ai-mode-label">Chatting with Poppy</span>
+                </div>
+              )}
+              <div className="thread-view-reply-input-container">
+                {/* Poppy AI Toggle Button */}
+                <button
+                  className={`thread-view-poppy-btn ${aiMode ? 'active' : ''}`}
+                  onClick={() => setAiMode(!aiMode)}
+                  aria-label={aiMode ? 'Disable AI mode' : 'Enable AI mode'}
+                  title={aiMode ? 'Chatting with Poppy ✨' : 'Click to chat with Poppy'}
+                >
+                  <img src="/poppy-icon.png" alt="Poppy AI" className="thread-poppy-icon" />
+                </button>
+                <textarea
+                  ref={inputRef}
+                  className={`thread-view-reply-input ${aiMode ? 'ai-active' : ''}`}
+                  placeholder={aiMode ? 'Ask Poppy about this thread... ✨' : 'Reply to thread...'}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={handleInputKeyDown}
+                  rows={1}
+                  disabled={sending}
+                />
+                <button
+                  className={`thread-view-send-btn ${replyText.trim() ? 'active' : ''}`}
+                  onClick={handleSendReply}
+                  disabled={!replyText.trim() || sending}
+                  aria-label="Send reply"
+                >
+                  {sending ? (
+                    <div className="thread-view-sending-spinner" />
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

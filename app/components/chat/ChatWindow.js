@@ -236,7 +236,7 @@ export default function ChatWindow() {
     })
 
   // AI hook (must be after virtuosoRef is defined)
-  const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly } = useAI(
+  const { aiProcessing, aiTyping, aiTypingStatus, askPoppy, askPoppyDirectly, askPoppyInThread } = useAI(
     user,
     currentChat,
     messages,
@@ -1227,6 +1227,9 @@ export default function ChatWindow() {
         onImageClick={(images, startIndex) => setLightboxData({ open: true, images, startIndex })}
         onScrollToMessage={scrollToMessage}
         onSendThreadReply={sendThreadReply}
+        onAskPoppyInThread={askPoppyInThread}
+        aiTyping={aiTyping}
+        aiTypingStatus={aiTypingStatus}
       />
 
       {/* Video Upload Progress Toast */}

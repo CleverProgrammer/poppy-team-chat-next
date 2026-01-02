@@ -5892,6 +5892,126 @@ iframe[src*="vercel"] {
   to { transform: rotate(360deg); }
 }
 
+/* Thread View AI Mode Styles */
+.thread-view-poppy-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-hover);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.thread-view-poppy-btn:hover {
+  background: var(--bg-tertiary);
+  transform: scale(1.05);
+}
+
+.thread-view-poppy-btn.active {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+}
+
+.thread-poppy-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.thread-view-reply-input.ai-active {
+  border-color: #FF6B6B;
+  background: linear-gradient(to right, rgba(255, 107, 107, 0.05), rgba(255, 142, 83, 0.05));
+}
+
+.thread-view-reply-input.ai-active:focus {
+  border-color: #FF6B6B;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
+}
+
+.thread-view-ai-mode-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(255, 142, 83, 0.1) 100%);
+  border-radius: 20px;
+  margin: 8px 16px 0;
+}
+
+.thread-ai-mode-emoji {
+  font-size: 14px;
+}
+
+.thread-ai-mode-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #FF6B6B;
+}
+
+/* Thread AI Typing Indicator */
+.thread-view-ai-typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.08) 0%, rgba(255, 142, 83, 0.08) 100%);
+  border-top: 1px solid rgba(255, 107, 107, 0.2);
+}
+
+.thread-ai-typing-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.95); }
+}
+
+.thread-ai-typing-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.thread-ai-typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.thread-ai-typing-dots span {
+  width: 6px;
+  height: 6px;
+  background: #FF6B6B;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.thread-ai-typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.thread-ai-typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
 /* Reply count indicator - iMessage style (simple text, no background) */
 .reply-count-indicator {
   font-size: 11px;

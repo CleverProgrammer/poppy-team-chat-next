@@ -5,6 +5,9 @@ import {
   sendMessage,
   sendMessageDM,
   sendGroupMessage,
+  sendMessageWithReply,
+  sendMessageDMWithReply,
+  sendGroupMessageWithReply,
   getDMId,
   sendAIMessage,
   markChatAsUnread,
@@ -258,11 +261,205 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
     [user, messages, setMessages, virtuosoRef, callAI]
   )
 
+  // Ask Poppy in a thread (posts response as a reply in the thread)
+  // threadContext: { originalMessage, threadMessages } - the full thread context
+  // options.imageUrls: optional array of image URLs to send for AI vision
+  const askPoppyInThread = useCallback(
+    async (userQuestion, threadContext, options = {}) => {
+      const { isPrivate = false, privateFor = null, imageUrls = null } = options
+      
+      // Generate unique request ID for tracing
+      const requestId = `req-thread-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      
+      if (!currentChat || !threadContext?.originalMessage) return
+
+      console.log(`🧵 [${requestId}] Starting thread AI: "${userQuestion.substring(0, 40)}..."`)
+
+      setAiProcessing(true)
+      setAiTyping(true)
+      setAiTypingStatus('Thinking...')
+
+      try {
+        console.log(`📡 [${requestId}] Thread API call started`)
+
+        const onStatus = status => {
+          console.log(`🔄 [${requestId}] Status: ${status}`)
+          setAiTypingStatus(status)
+        }
+
+        // Build thread context for AI - include original message + all replies
+        const { originalMessage, threadMessages = [] } = threadContext
+        
+        // Format thread messages for AI context
+        const threadChatHistory = [originalMessage, ...threadMessages]
+          .sort((a, b) => {
+            const aTime = a.timestamp?.seconds || 0
+            const bTime = b.timestamp?.seconds || 0
+            return aTime - bTime
+          })
+          .map(msg => {
+            // Build message object with all media info
+            const formattedMsg = {
+              sender: msg.sender || msg.senderName || 'Unknown',
+              senderId: msg.senderId,
+              text: msg.text || msg.content || '',
+              timestamp: msg.timestamp,
+            }
+            
+            // Include image info
+            if (msg.imageUrl || msg.imageUrls?.length) {
+              formattedMsg.imageUrls = msg.imageUrls || (msg.imageUrl ? [msg.imageUrl] : [])
+              if (msg.imageAnalysis) {
+                formattedMsg.imageAnalysis = msg.imageAnalysis
+              }
+            }
+            
+            // Include video info
+            if (msg.muxPlaybackIds?.length) {
+              formattedMsg.muxPlaybackIds = msg.muxPlaybackIds
+            }
+            
+            // Include audio/voice message info
+            if (msg.audioUrl) {
+              formattedMsg.audioUrl = msg.audioUrl
+              formattedMsg.audioDuration = msg.audioDuration
+              if (msg.transcription) {
+                formattedMsg.transcription = msg.transcription
+              }
+            }
+            
+            return formattedMsg
+          })
+
+        // Call AI with thread context
+        const response = await fetch('/api/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userQuestion,
+            chatHistory: threadChatHistory,
+            isThreadContext: true, // Flag to indicate this is thread context
+            stream: true,
+            imageUrls: imageUrls,
+            user: user
+              ? {
+                  id: user.uid,
+                  email: user.email,
+                  name: user.displayName,
+                }
+              : null,
+            currentChat: currentChat
+              ? {
+                  type: currentChat.type,
+                  id: currentChat.id,
+                }
+              : null,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
+        }
+
+        // Handle streaming response
+        let aiResponse = ''
+        if (response.headers.get('content-type')?.includes('text/event-stream')) {
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            const chunk = decoder.decode(value)
+            const lines = chunk.split('\n')
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = JSON.parse(line.slice(6))
+                if (data.status) {
+                  onStatus(data.status)
+                } else if (data.response) {
+                  aiResponse = data.response
+                } else if (data.error) {
+                  throw new Error(data.error)
+                }
+              }
+            }
+          }
+        } else {
+          const data = await response.json()
+          aiResponse = data.response
+        }
+
+        console.log(`✅ [${requestId}] Thread API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+
+        setAiTyping(false)
+
+        // Post AI response as a reply in the thread (replying to original message)
+        const replyTo = {
+          msgId: originalMessage.id,
+          sender: originalMessage.sender,
+          text: originalMessage.text || originalMessage.content || '',
+          imageUrl: originalMessage.imageUrl || null,
+          imageUrls: originalMessage.imageUrls || null,
+          audioUrl: originalMessage.audioUrl || null,
+          audioDuration: originalMessage.audioDuration || null,
+          muxPlaybackIds: originalMessage.muxPlaybackIds || null,
+        }
+        const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
+        
+        if (currentChat.type === 'channel') {
+          await sendMessageWithReply(currentChat.id, AI_USER, aiResponse, replyTo, null, messageOptions)
+        } else if (currentChat.type === 'group') {
+          await sendGroupMessageWithReply(currentChat.id, AI_USER, aiResponse, replyTo, null, messageOptions)
+        } else {
+          // DM
+          const dmId = getDMId(user.uid, currentChat.id)
+          await sendMessageDMWithReply(dmId, AI_USER, aiResponse, currentChat.id, replyTo, null, null, messageOptions)
+        }
+
+        console.log(`📤 [${requestId}] Thread AI response posted`)
+      } catch (error) {
+        console.error(`❌ [${requestId}] Thread AI Error:`, error)
+        setAiTyping(false)
+
+        // Post error message as thread reply
+        const errorMsg = `Sorry, I had a problem: ${error.message}. Try again!`
+        const errorReplyTo = {
+          msgId: threadContext.originalMessage.id,
+          sender: threadContext.originalMessage.sender,
+          text: threadContext.originalMessage.text || '',
+          imageUrl: threadContext.originalMessage.imageUrl || null,
+          imageUrls: threadContext.originalMessage.imageUrls || null,
+          audioUrl: threadContext.originalMessage.audioUrl || null,
+          audioDuration: threadContext.originalMessage.audioDuration || null,
+          muxPlaybackIds: threadContext.originalMessage.muxPlaybackIds || null,
+        }
+        const errorOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
+        
+        if (currentChat.type === 'channel') {
+          await sendMessageWithReply(currentChat.id, AI_USER, errorMsg, errorReplyTo, null, errorOptions)
+        } else if (currentChat.type === 'group') {
+          await sendGroupMessageWithReply(currentChat.id, AI_USER, errorMsg, errorReplyTo, null, errorOptions)
+        } else {
+          const dmId = getDMId(user.uid, currentChat.id)
+          await sendMessageDMWithReply(dmId, AI_USER, errorMsg, currentChat.id, errorReplyTo, null, null, errorOptions)
+        }
+      } finally {
+        setAiProcessing(false)
+        console.log(`🏁 [${requestId}] Thread request complete`)
+      }
+    },
+    [currentChat, user, callAI]
+  )
+
   return {
     aiProcessing,
     aiTyping,
     aiTypingStatus,
     askPoppy,
     askPoppyDirectly,
+    askPoppyInThread,
   }
 }

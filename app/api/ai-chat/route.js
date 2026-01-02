@@ -125,7 +125,8 @@ async function processAIRequest(
   controller = null,
   encoder = null,
   workflowId = null,
-  imageUrls = null // Direct image URLs for AI vision
+  imageUrls = null, // Direct image URLs for AI vision
+  isThreadContext = false // Flag to indicate this is thread context (not general chat history)
 ) {
   // Build system prompt with user context and current time
   const now = new Date()
@@ -403,14 +404,27 @@ WHAT NOT TO SAVE:
   if (chatHistory && chatHistory.length > 0) {
     const recentHistory = chatHistory.slice(-50)
 
-    // Collect all messages into a single context block for clarity
-    let historyBlock = `═══ CHAT HISTORY (${recentHistory.length} messages) ═══\n`
-    historyBlock += `Note: [${currentUserName}] = the person you're talking to. "I/me" in their questions refers to [${currentUserName}].\n\n`
+    // Build appropriate header based on context type
+    let historyBlock
+    if (isThreadContext) {
+      // Thread context - format as a focused thread conversation
+      historyBlock = `═══ THREAD CONTEXT (${recentHistory.length} messages) ═══\n`
+      historyBlock += `You are responding to a THREAD. The first message is the original post, followed by replies.\n`
+      historyBlock += `Your response will be posted as a reply in this thread.\n`
+      historyBlock += `Note: [${currentUserName}] = the person asking you the question. "I/me" refers to [${currentUserName}].\n\n`
+    } else {
+      // Regular chat history
+      historyBlock = `═══ CHAT HISTORY (${recentHistory.length} messages) ═══\n`
+      historyBlock += `Note: [${currentUserName}] = the person you're talking to. "I/me" in their questions refers to [${currentUserName}].\n\n`
+    }
 
-    recentHistory.forEach(msg => {
+    recentHistory.forEach((msg, index) => {
       if (msg.sender) {
         const isCurrentUser = msg.senderId === user?.id
         const marker = isCurrentUser ? ' ← THIS IS YOUR CONVERSATION PARTNER' : ''
+        
+        // For thread context, mark the original message
+        const threadMarker = isThreadContext && index === 0 ? ' [ORIGINAL POST]' : ''
 
         // Build message content
         let msgContent = ''
@@ -443,21 +457,25 @@ WHAT NOT TO SAVE:
           }]`
         }
 
-        // Add voice message indicator if present
+        // Add voice message indicator and transcription if present
         if (msg.audioUrl) {
           msgContent += msgContent ? '\n' : ''
           msgContent += `[🎤 Voice message (${
             msg.audioDuration ? Math.round(msg.audioDuration) + 's' : 'audio'
           })]`
+          // Include transcription if available
+          if (msg.transcription) {
+            msgContent += `\n[Transcription: "${msg.transcription}"]`
+          }
         }
 
         if (msgContent) {
-          historyBlock += `[${msg.sender}]${marker}: ${msgContent}\n`
+          historyBlock += `[${msg.sender}]${threadMarker}${marker}: ${msgContent}\n`
         }
       }
     })
 
-    historyBlock += `\n═══ END OF HISTORY ═══`
+    historyBlock += isThreadContext ? `\n═══ END OF THREAD ═══` : `\n═══ END OF HISTORY ═══`
 
     messages.push({
       role: 'user',
@@ -977,7 +995,7 @@ WHAT NOT TO SAVE:
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user, currentChat, imageUrls } = await request.json()
+    const { message, chatHistory, stream, user, currentChat, imageUrls, isThreadContext } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -1028,7 +1046,8 @@ export async function POST(request) {
                   controller,
                   encoder,
                   workflowId,
-                  imageUrls
+                  imageUrls,
+                  isThreadContext
                 )
               }
             )
@@ -1075,7 +1094,8 @@ export async function POST(request) {
           null,
           null,
           workflowId,
-          imageUrls
+          imageUrls,
+          isThreadContext
         )
       }
     )
