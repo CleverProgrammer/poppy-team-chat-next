@@ -2,6 +2,25 @@ import { getLinkPreview } from 'link-preview-js'
 import { NextResponse } from 'next/server'
 
 /**
+ * Validates that a string is a valid HTTP/HTTPS URL
+ */
+function isValidUrl(string) {
+  if (!string || typeof string !== 'string') return false
+  
+  // Trim whitespace
+  const trimmed = string.trim()
+  if (!trimmed) return false
+  
+  try {
+    const url = new URL(trimmed)
+    // Only allow http and https protocols
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/**
  * Fetches image dimensions from a URL
  * Returns { width, height } or null if unable to determine
  */
@@ -33,6 +52,11 @@ export async function GET(request) {
 
   if (!url) {
     return NextResponse.json({ error: 'URL is required' }, { status: 400 })
+  }
+
+  // Validate URL format before processing
+  if (!isValidUrl(url)) {
+    return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
   }
 
   try {
