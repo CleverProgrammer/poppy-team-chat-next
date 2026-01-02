@@ -23,8 +23,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   const [aiTypingStatus, setAiTypingStatus] = useState('')
 
   // Call AI API with streaming support
+  // imageUrls: optional array of image URLs to send directly to AI (for vision)
   const callAI = useCallback(
-    async (question, chatHistory, onStatus = null) => {
+    async (question, chatHistory, onStatus = null, imageUrls = null) => {
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,6 +33,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           message: question,
           chatHistory,
           stream: !!onStatus, // Enable streaming if onStatus callback is provided
+          imageUrls: imageUrls, // Direct image URLs for AI vision
           user: user
             ? {
                 id: user.uid,
@@ -91,9 +93,10 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   )
 
   // Ask Poppy in channel/DM (posts response as message)
+  // options.imageUrls: optional array of image URLs to send for AI vision
   const askPoppy = useCallback(
     async (userQuestion, options = {}) => {
-      const { isPrivate = false, privateFor = null } = options
+      const { isPrivate = false, privateFor = null, imageUrls = null } = options
       
       // Generate unique request ID for tracing concurrent requests
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -125,9 +128,13 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           setAiTypingStatus(status)
         }
 
-        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
+        // Pass imageUrls to AI for vision support
+        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+        if (imageUrls?.length) {
+          console.log(`🖼️ [${requestId}] Sent ${imageUrls.length} image(s) to AI for vision`)
+        }
 
         // Remove typing indicator
         setAiTyping(false)
@@ -180,8 +187,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   )
 
   // Direct chat with Poppy (for AI chat type - saves to Firestore)
+  // imageUrls: optional array of image URLs to send for AI vision
   const askPoppyDirectly = useCallback(
-    async userQuestion => {
+    async (userQuestion, imageUrls = null) => {
       // Generate unique request ID for tracing concurrent requests
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       
@@ -213,9 +221,13 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         }
 
         // Pass raw messages (same format as askPoppy) - API handles formatting
-        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus)
+        // Pass imageUrls to AI for vision support
+        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+        if (imageUrls?.length) {
+          console.log(`🖼️ [${requestId}] Sent ${imageUrls.length} image(s) to AI for vision`)
+        }
 
         // Remove typing indicator
         setAiTyping(false)

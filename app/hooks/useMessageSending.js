@@ -283,11 +283,11 @@ export function useMessageSending({
       const privateOptions = { isPrivate, privateFor: user.uid };
 
       if (currentChat.type === 'ai') {
-        // Send user message to Firestore
-        await sendAIMessage(user.uid, messageText, false, user);
+        // Send user message to Firestore (with images if present)
+        await sendAIMessage(user.uid, messageText, false, user, imageUrls.length > 0 ? imageUrls : null);
 
-        // Get AI response (fire and forget - don't block message sending)
-        askPoppyDirectly(messageText);
+        // Get AI response with images for vision (fire and forget - don't block message sending)
+        askPoppyDirectly(messageText, imageUrls.length > 0 ? imageUrls : null);
       } else if (currentChat.type === 'channel') {
         // Send message with optional media, reply, and link preview
         if (hasMedia) {
@@ -461,8 +461,13 @@ export function useMessageSending({
       setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
 
       // Trigger AI response if @poppy was mentioned or AI mode is active
+      // Pass uploaded image URLs to AI for vision analysis
       if (shouldTriggerAI && actualAiQuestion) {
-        askPoppy(actualAiQuestion, { isPrivate, privateFor: user.uid });
+        askPoppy(actualAiQuestion, { 
+          isPrivate, 
+          privateFor: user.uid,
+          imageUrls: imageUrls.length > 0 ? imageUrls : null 
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);

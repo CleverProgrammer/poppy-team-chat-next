@@ -2106,17 +2106,28 @@ export async function markDMMessagesAsRead(dmId, userId, messageIds) {
 }
 
 // AI Chat functions
-export async function sendAIMessage(userId, text, isAI = false, user = null) {
-  if (!userId || !text.trim()) return
+export async function sendAIMessage(userId, text, isAI = false, user = null, imageUrls = null) {
+  // Allow empty text if images are present
+  if (!userId || (!text.trim() && (!imageUrls || imageUrls.length === 0))) return
 
   try {
     const messagesRef = collection(db, 'aiChats', userId, 'messages')
-    const docRef = await addDoc(messagesRef, {
+    
+    // Build message data with optional images
+    const messageData = {
       text: text,
       sender: isAI ? 'Poppy AI' : null,
       senderId: isAI ? 'ai' : userId,
       timestamp: serverTimestamp(),
-    })
+    }
+    
+    // Add image URLs if present
+    if (imageUrls && imageUrls.length > 0) {
+      messageData.imageUrls = imageUrls
+      messageData.imageUrl = imageUrls[0] // For backwards compatibility
+    }
+    
+    const docRef = await addDoc(messagesRef, messageData)
 
     // Tag and index to Ragie (fire and forget, don't block send)
     fetch('/api/tag', {
@@ -2131,6 +2142,7 @@ export async function sendAIMessage(userId, text, isAI = false, user = null) {
         senderEmail: isAI ? 'ai@poppy.chat' : user?.email || null,
         senderId: isAI ? 'ai' : userId,
         timestamp: getPacificTimestamp(),
+        imageUrls: imageUrls || null,
       }),
     })
       .then(res => res.json())

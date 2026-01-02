@@ -124,7 +124,8 @@ async function processAIRequest(
   sendStatus = null,
   controller = null,
   encoder = null,
-  workflowId = null
+  workflowId = null,
+  imageUrls = null // Direct image URLs for AI vision
 ) {
   // Build system prompt with user context and current time
   const now = new Date()
@@ -465,10 +466,40 @@ WHAT NOT TO SAVE:
   }
 
   // Add the current user message WITH their name clearly marked
-  messages.push({
-    role: 'user',
-    content: `═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}`,
-  })
+  // Support image URLs for Claude vision - use content array format
+  if (imageUrls && imageUrls.length > 0) {
+    console.log(`🖼️ AI Chat: User sent ${imageUrls.length} image(s) for vision analysis`)
+    
+    // Build content array with images first, then text
+    const contentArray = []
+    
+    // Add each image
+    for (const url of imageUrls) {
+      contentArray.push({
+        type: 'image',
+        source: {
+          type: 'url',
+          url: url,
+        },
+      })
+    }
+    
+    // Add the text message
+    contentArray.push({
+      type: 'text',
+      text: `═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}\n\n[User attached ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
+    })
+    
+    messages.push({
+      role: 'user',
+      content: contentArray,
+    })
+  } else {
+    messages.push({
+      role: 'user',
+      content: `═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}`,
+    })
+  }
 
   // Get available MCP tools for this specific user (per-user strata)
   const userId = user?.id || 'anonymous'
@@ -946,7 +977,7 @@ WHAT NOT TO SAVE:
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user, currentChat } = await request.json()
+    const { message, chatHistory, stream, user, currentChat, imageUrls } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -983,6 +1014,7 @@ export async function POST(request) {
                   user_id: user?.id || 'anonymous',
                   user_name: user?.name || 'Anonymous',
                   stream: true,
+                  has_images: imageUrls?.length > 0,
                 },
               },
               async () => {
@@ -995,7 +1027,8 @@ export async function POST(request) {
                   sendStatus,
                   controller,
                   encoder,
-                  workflowId
+                  workflowId,
+                  imageUrls
                 )
               }
             )
@@ -1028,6 +1061,7 @@ export async function POST(request) {
           user_id: user?.id || 'anonymous',
           user_name: user?.name || 'Anonymous',
           stream: false,
+          has_images: imageUrls?.length > 0,
         },
       },
       async () => {
@@ -1040,7 +1074,8 @@ export async function POST(request) {
           null,
           null,
           null,
-          workflowId
+          workflowId,
+          imageUrls
         )
       }
     )
