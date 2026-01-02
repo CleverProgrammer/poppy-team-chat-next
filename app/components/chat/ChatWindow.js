@@ -1214,6 +1214,7 @@ export default function ChatWindow() {
       topReactions,
       user,
       isLastFromSenderById,
+      userMapById
     ]
   )
 
