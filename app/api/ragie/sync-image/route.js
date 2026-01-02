@@ -86,25 +86,24 @@ ${uploaderStatement}${
 1. What ${
     imageCount > 1 ? 'are these images' : 'is this image'
   } showing? Describe in plain language.
-2. Any text visible - quote it exactly (OCR).
-3. People, objects, locations, brands, logos, or notable items.
-4. If ${
+2. People, objects, locations, brands, logos, or notable items.
+3. If ${
     imageCount > 1 ? "they're screenshots" : "it's a screenshot"
   }, what app/website and what's happening?
-5. If ${
+4. If ${
     imageCount > 1 ? "they're charts/graphs" : "it's a chart/graph"
   }, what are the key takeaways?
-6. ${
+5. ${
     imageCount > 1
       ? 'How do these images relate to each other?'
       : 'Any context that would help a teammate understand this.'
   }
 
-Speak in plain, natural language. Keep it short and punchy - ${
+Speak in plain, natural language. Keep the summary short and punchy - ${
     imageCount > 1 ? '4-6' : '3-5'
   } sentences max. Format as plain text, not markdown.
 
-At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. 
+At the end of your summary, always include a fun, casual one-line TLDR. Talk like a fucking HOMIE - like you're ON THE TEAM. 
 
 **CRITICAL FOR TLDR:** Always mention the uploader by name when describing who shared the image. ${uploaderName ? `The uploader is ${uploaderName} - use their name!` : ''} Examples:
 - "tldr: ${uploaderName || 'Mohamed'} just shared his 1-year anniversary with Poppy, absolute legend 🔥"
@@ -113,7 +112,44 @@ At the end, always include a fun, casual one-line TLDR. Talk like a fucking HOMI
 - "tldr: ${uploaderName || 'Someone'} shared before/after of the homepage - night and day difference 🔥"
 - "tldr: Just a cute dog pic from ${uploaderName || 'the team'}, nothing work-related here 🐕"
 
-Be personal. Use the uploader's actual name. Talk like a team member, not a robot.${chatContext}`
+Be personal. Use the uploader's actual name. Talk like a team member, not a robot.
+
+---
+
+=== COMPLETE TEXT EXTRACTION (OCR) ===
+
+After your summary and TLDR, you MUST include a complete text extraction section.
+
+**Extract EVERY SINGLE character of text visible in the image.** This includes:
+- ALL text messages, chat bubbles, or conversation text
+- ALL UI labels, buttons, menus, headers, footers
+- ALL usernames, timestamps, dates
+- ALL numbers, prices, stats, metrics
+- ALL captions, watermarks, logos with text
+- ALL email content, subject lines, sender/recipient info
+- ALL fine print, disclaimers, small text
+- EVERYTHING. Miss nothing.
+
+Format as:
+---
+[OCR - FULL TEXT EXTRACTION]
+(paste every single piece of text you can see, preserving structure where possible)
+---
+
+If there are multiple text regions (like a chat screenshot), preserve the conversation structure:
+[Person 1]: message text here
+[Person 2]: their reply here
+
+If it's an email, preserve the email structure:
+From: ...
+To: ...
+Subject: ...
+Body: ...
+
+If it's a document or form, extract line by line.
+If there's literally no text in the image, write: "[No text detected in image]"
+
+DO NOT summarize or paraphrase the text. Extract it VERBATIM, character for character.${chatContext}`
 
   const analysisPrompt = accompanyingText
     ? `${basePrompt}
