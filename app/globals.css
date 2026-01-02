@@ -6602,3 +6602,283 @@ iframe[src*="vercel"] {
   height: auto !important;
   flex-shrink: 0;
 }
+
+/* ============================================
+   MINDMAP VISUALIZATION STYLES
+   ============================================ */
+
+.mindmap-container {
+  background: linear-gradient(135deg, #1e1e2f 0%, #252538 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin: 12px 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.mindmap-container.expanded {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  margin: 0;
+  border-radius: 20px;
+}
+
+.mindmap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mindmap-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mindmap-icon {
+  font-size: 18px;
+}
+
+.mindmap-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.mindmap-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mindmap-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+.mindmap-content {
+  position: relative;
+  height: 300px;
+  overflow: hidden;
+}
+
+.mindmap-container.expanded .mindmap-content {
+  height: calc(100% - 100px);
+}
+
+.mindmap-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transition: opacity 0.3s ease;
+}
+
+/* Markmap node styling */
+.mindmap-svg .markmap-node {
+  cursor: pointer;
+}
+
+.mindmap-svg .markmap-node circle {
+  stroke-width: 2px;
+}
+
+.mindmap-svg .markmap-node-text {
+  fill: #ffffff !important;
+  font-size: 13px !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  font-weight: 500;
+}
+
+.mindmap-svg .markmap-node foreignObject {
+  overflow: visible;
+}
+
+.mindmap-svg .markmap-node foreignObject div {
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  background: transparent !important;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.mindmap-svg .markmap-link {
+  fill: none;
+  stroke-opacity: 0.6;
+}
+
+.mindmap-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.mindmap-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #ff6b6b;
+  border-radius: 50%;
+  animation: mindmap-spin 0.8s linear infinite;
+}
+
+@keyframes mindmap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mindmap-footer {
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mindmap-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mindmap-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 12px;
+  color: #ff6b6b;
+  font-size: 13px;
+  margin: 12px 0;
+}
+
+.mindmap-error-icon {
+  font-size: 16px;
+}
+
+/* Fullscreen overlay when expanded */
+.mindmap-container.expanded::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: -1;
+}
+
+/* Active edit button */
+.mindmap-action-btn.active {
+  background: rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+}
+
+/* Edit Mode Styles */
+.mindmap-edit-mode {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px;
+  gap: 12px;
+}
+
+.mindmap-editor {
+  flex: 1;
+  min-height: 200px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 12px;
+  color: #e0e0e0;
+  font-family: 'SF Mono', 'Fira Code', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.mindmap-editor:focus {
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+.mindmap-editor::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.mindmap-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mindmap-edit-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mindmap-edit-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+}
+
+.mindmap-edit-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+.mindmap-edit-apply {
+  background: linear-gradient(135deg, #2ed573 0%, #1e90ff 100%);
+  color: white;
+}
+
+.mindmap-edit-apply:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 213, 115, 0.3);
+}
+
+.mindmap-edit-help {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.mindmap-edit-help strong {
+  color: var(--text-secondary);
+}

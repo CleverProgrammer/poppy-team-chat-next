@@ -5,6 +5,9 @@ import React, { useState } from 'react';
 // URL regex pattern used across the app
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
 
+// Mindmap block pattern - matches ```mindmap ... ``` blocks
+export const mindmapBlockRegex = /```mindmap\s*\n([\s\S]*?)```/g;
+
 // Mention regex pattern - matches @Name (handles multi-word names like @John Doe)
 // This captures @poppy and @DisplayName patterns
 export const mentionRegex = /@(\S+(?:\s+\S+)?)/g;
@@ -295,4 +298,80 @@ export function isLoomUrl(url) {
 export function getLoomEmbedUrl(url) {
   const match = url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
   return match ? `https://www.loom.com/embed/${match[1]}` : null;
+}
+
+/**
+ * Check if text contains a mindmap block
+ * Mindmap blocks are formatted as: ```mindmap\n...content...\n```
+ * or ```mindmap title="..."\n...content...\n```
+ */
+export function containsMindmap(text) {
+  if (!text || typeof text !== 'string') return false;
+  // Match ```mindmap optionally followed by title="..." then newline and content
+  return /```mindmap(?:\s+title="[^"]*")?\s*\n[\s\S]*?```/.test(text);
+}
+
+/**
+ * Extract mindmap content from a text block
+ * Returns { markdown, title, remainingText } or null if no mindmap found
+ */
+export function extractMindmap(text) {
+  if (!text || typeof text !== 'string') return null;
+  
+  const match = text.match(/```mindmap(?:\s*title="([^"]*)")?\s*\n([\s\S]*?)```/);
+  if (!match) return null;
+  
+  const title = match[1] || null;
+  const markdown = match[2].trim();
+  const remainingText = text.replace(match[0], '').trim();
+  
+  return { markdown, title, remainingText };
+}
+
+/**
+ * Split text into segments, separating mindmap blocks from regular text
+ * Returns array of { type: 'text' | 'mindmap', content: string, title?: string }
+ */
+export function splitTextAndMindmaps(text) {
+  if (!text || typeof text !== 'string') return [{ type: 'text', content: '' }];
+  
+  const segments = [];
+  // Match ```mindmap optionally followed by title="..." then whitespace/newline and content until closing ```
+  const regex = /```mindmap(?:\s+title="([^"]*)")?\s*\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before the mindmap
+    if (match.index > lastIndex) {
+      const textBefore = text.slice(lastIndex, match.index).trim();
+      if (textBefore) {
+        segments.push({ type: 'text', content: textBefore });
+      }
+    }
+    
+    // Add the mindmap
+    segments.push({
+      type: 'mindmap',
+      content: match[2].trim(),
+      title: match[1] || null,
+    });
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after last mindmap
+  if (lastIndex < text.length) {
+    const remainingText = text.slice(lastIndex).trim();
+    if (remainingText) {
+      segments.push({ type: 'text', content: remainingText });
+    }
+  }
+  
+  // If no mindmaps found, return original text
+  if (segments.length === 0) {
+    return [{ type: 'text', content: text }];
+  }
+  
+  return segments;
 }
