@@ -27,8 +27,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
   // Call AI API with streaming support
   // imageUrls: optional array of image URLs to send directly to AI (for vision)
+  // targetedMessage: message being replied to (AI should focus on this message)
   const callAI = useCallback(
-    async (question, chatHistory, onStatus = null, imageUrls = null) => {
+    async (question, chatHistory, onStatus = null, imageUrls = null, targetedMessage = null) => {
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -37,6 +38,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           chatHistory,
           stream: !!onStatus, // Enable streaming if onStatus callback is provided
           imageUrls: imageUrls, // Direct image URLs for AI vision
+          targetedMessage: targetedMessage, // Message being replied to (AI focus)
           user: user
             ? {
                 id: user.uid,
@@ -62,6 +64,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let finalResponse = ''
+        let costBreakdown = null
 
         while (true) {
           const { done, value } = await reader.read()
@@ -72,34 +75,40 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = JSON.parse(line.slice(6))
+              try {
+                const data = JSON.parse(line.slice(6))
 
-              if (data.status) {
-                onStatus(data.status)
+                if (data.status) {
+                  onStatus(data.status)
               } else if (data.response) {
                 finalResponse = data.response
+                costBreakdown = data.costBreakdown || null
               } else if (data.error) {
-                throw new Error(data.error)
+                  throw new Error(data.error)
+                }
+              } catch {
+                // Ignore parsing errors for incomplete SSE lines
               }
             }
           }
         }
 
-        return finalResponse
+        return { response: finalResponse, costBreakdown }
       }
 
       // Non-streaming fallback
       const data = await response.json()
-      return data.response
+      return { response: data.response, costBreakdown: data.costBreakdown }
     },
     [user, currentChat]
   )
 
   // Ask Poppy in channel/DM (posts response as message)
   // options.imageUrls: optional array of image URLs to send for AI vision
+  // options.targetedMessage: message being replied to (for AI to focus on)
   const askPoppy = useCallback(
     async (userQuestion, options = {}) => {
-      const { isPrivate = false, privateFor = null, imageUrls = null } = options
+      const { isPrivate = false, privateFor = null, imageUrls = null, targetedMessage = null } = options
       
       // Generate unique request ID for tracing concurrent requests
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -124,6 +133,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
       try {
         console.log(`📡 [${requestId}] API call started`)
+        if (targetedMessage) {
+          console.log(`🎯 [${requestId}] Targeting message: "${targetedMessage.text?.substring(0, 30)}..." by ${targetedMessage.sender}`)
+        }
 
         // Update typing indicator with status updates
         const onStatus = status => {
@@ -131,10 +143,15 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           setAiTypingStatus(status)
         }
 
-        // Pass imageUrls to AI for vision support
-        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
+        // Pass imageUrls and targetedMessage to AI for context
+        const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls, targetedMessage)
+        const aiResponse = aiResult.response
+        const costBreakdown = aiResult.costBreakdown
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+        if (costBreakdown) {
+          console.log(`💰 [${requestId}] Cost: $${costBreakdown.totalCost?.toFixed(6)} (${costBreakdown.toolsUsed?.length || 0} tools)`)
+        }
         if (imageUrls?.length) {
           console.log(`🖼️ [${requestId}] Sent ${imageUrls.length} image(s) to AI for vision`)
         }
@@ -143,7 +160,10 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         setAiTyping(false)
 
         // Post AI response as a real message (with same privacy as the question)
-        const messageOptions = isPrivate ? { isPrivate: true, privateFor: privateFor || user?.uid } : {}
+        // Include cost breakdown for dev mode display
+        const messageOptions = isPrivate 
+          ? { isPrivate: true, privateFor: privateFor || user?.uid, costBreakdown } 
+          : { costBreakdown }
         
         if (currentChat.type === 'channel') {
           // sendMessage signature: (channelId, user, text, linkPreview, options)
@@ -225,9 +245,14 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
         // Pass raw messages (same format as askPoppy) - API handles formatting
         // Pass imageUrls to AI for vision support
-        const aiResponse = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
+        const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
+        const aiResponse = aiResult.response
+        const costBreakdown = aiResult.costBreakdown
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+        if (costBreakdown) {
+          console.log(`💰 [${requestId}] Cost: $${costBreakdown.totalCost?.toFixed(6)} (${costBreakdown.toolsUsed?.length || 0} tools)`)
+        }
         if (imageUrls?.length) {
           console.log(`🖼️ [${requestId}] Sent ${imageUrls.length} image(s) to AI for vision`)
         }
@@ -235,8 +260,8 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Remove typing indicator
         setAiTyping(false)
 
-        // Save AI response to Firestore
-        await sendAIMessage(user.uid, aiResponse, true)
+        // Save AI response to Firestore (with cost breakdown for dev mode)
+        await sendAIMessage(user.uid, aiResponse, true, null, null, costBreakdown)
 
         // Mark AI chat as unread for the user
         markChatAsUnread(user.uid, 'ai', 'poppy-ai')

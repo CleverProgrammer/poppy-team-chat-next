@@ -1,54 +1,6 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { adminDb } from '../../../lib/firebase-admin.js'
-
-/**
- * Track AI usage to Firestore for analytics and cost monitoring
- */
-async function trackAIUsage({
-  type,
-  model,
-  inputTokens,
-  outputTokens,
-  totalCost,
-  userId,
-  userEmail,
-  userName,
-  messageId,
-}) {
-  try {
-    const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'gold', 'cyan']
-    const animals = ['panda', 'tiger', 'wolf', 'eagle', 'shark', 'fox', 'hawk', 'bear']
-    const color = colors[Math.floor(Math.random() * colors.length)]
-    const animal = animals[Math.floor(Math.random() * animals.length)]
-    const shortId = Math.random().toString(36).substring(2, 7)
-    const nameSlug = (userName || 'unknown')
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
-    const docId = `${nameSlug}_${color}_${animal}_${shortId}`
-
-    await adminDb
-      .collection('ai_usage')
-      .doc(docId)
-      .set({
-        timestamp: new Date().toISOString(),
-        type,
-        model,
-        inputTokens,
-        outputTokens,
-        inputCost: (inputTokens / 1_000_000) * 3,
-        outputCost: (outputTokens / 1_000_000) * 15,
-        totalCost,
-        userId: userId || null,
-        userEmail: userEmail || null,
-        userName: userName || null,
-        messageId: messageId || null,
-      })
-  } catch (error) {
-    console.error('⚠️ Failed to track AI usage:', error.message)
-  }
-}
+import { trackClaudeUsage, calculateClaudeCost } from '../../../lib/ai-usage-tracker.js'
 
 /**
  * Fetch image and convert to base64
@@ -189,20 +141,17 @@ Use that context to help explain what this image is about and why ${sender || 't
     // Get token usage and calculate cost (Sonnet 4.5: $3/1M input, $15/1M output)
     const inputTokens = response.usage?.input_tokens || 0
     const outputTokens = response.usage?.output_tokens || 0
-    const inputCost = (inputTokens / 1_000_000) * 3
-    const outputCost = (outputTokens / 1_000_000) * 15
-    const totalCost = inputCost + outputCost
+    const { totalCost } = calculateClaudeCost(inputTokens, outputTokens)
 
     console.log(`✅ Claude Vision: Analyzed image(s) for ${messageId}`)
     console.log(`💰 Tokens: ${inputTokens} in / ${outputTokens} out = $${totalCost.toFixed(6)}`)
 
-    // Track usage to our Firestore
-    trackAIUsage({
+    // Track usage to Firestore
+    trackClaudeUsage({
       type: 'image_analysis',
       model: 'claude-sonnet-4-5-20250929',
       inputTokens,
       outputTokens,
-      totalCost,
       userId: senderId,
       userEmail: senderEmail,
       userName: sender,

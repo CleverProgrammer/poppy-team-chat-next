@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import ragie from '../../lib/ragie-client.js'
 import { adminDb } from '../../lib/firebase-admin.js'
+import { trackClaudeUsage, calculateClaudeCost } from '../../lib/ai-usage-tracker.js'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -25,61 +26,6 @@ function getPacificTimestamp() {
 // Format: Map<canonical_tag, { type, count, lastSeen, summary }>
 const canonicalTagsCache = new Map()
 
-/**
- * Track AI usage to Firestore for analytics and cost monitoring
- */
-async function trackAIUsage({
-  type,
-  model,
-  inputTokens,
-  outputTokens,
-  inputCost,
-  outputCost,
-  totalCost,
-  userId,
-  userEmail,
-  userName,
-  messageId,
-  chatId,
-  chatType,
-}) {
-  try {
-    // Create fun readable doc ID: userName_color_animal_shortId (e.g., "rafeh_qazi_red_panda_abc12")
-    const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'gold', 'cyan']
-    const animals = ['panda', 'tiger', 'wolf', 'eagle', 'shark', 'fox', 'hawk', 'bear']
-    const color = colors[Math.floor(Math.random() * colors.length)]
-    const animal = animals[Math.floor(Math.random() * animals.length)]
-    const shortId = Math.random().toString(36).substring(2, 7)
-    const nameSlug = (userName || 'unknown')
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
-    const docId = `${nameSlug}_${color}_${animal}_${shortId}`
-
-    await adminDb
-      .collection('ai_usage')
-      .doc(docId)
-      .set({
-        timestamp: getPacificTimestamp(),
-        type,
-        model,
-        inputTokens,
-        outputTokens,
-        inputCost,
-        outputCost,
-        totalCost,
-        userId: userId || null,
-        userEmail: userEmail || null,
-        userName: userName || null,
-        messageId: messageId || null,
-        chatId: chatId || null,
-        chatType: chatType || null,
-      })
-  } catch (error) {
-    // Don't fail the request if tracking fails - just log it
-    console.error('⚠️ Failed to track AI usage:', error.message)
-  }
-}
 
 /**
  * Persist canonical_tag to Firestore and handle vote tracking
@@ -870,9 +816,7 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     // Calculate cost (Claude Sonnet 4 pricing: $3/1M input, $15/1M output)
     const inputTokens = response.usage?.input_tokens || 0
     const outputTokens = response.usage?.output_tokens || 0
-    const inputCost = (inputTokens / 1_000_000) * 3
-    const outputCost = (outputTokens / 1_000_000) * 15
-    const totalCost = inputCost + outputCost
+    const { inputCost, outputCost, totalCost } = calculateClaudeCost(inputTokens, outputTokens)
 
     // Parse tags JSON
     const tagsText = response.content[0].text
@@ -948,14 +892,11 @@ Return ONLY valid JSON. No explanation, no markdown code blocks, just the raw JS
     console.log(`${'═'.repeat(70)}\n`)
 
     // Track AI usage to Firestore (async, don't await to avoid blocking response)
-    trackAIUsage({
+    trackClaudeUsage({
       type: 'tagging',
       model: MODEL,
       inputTokens,
       outputTokens,
-      inputCost,
-      outputCost,
-      totalCost,
       userId: senderId,
       userEmail: senderEmail,
       userName: sender,

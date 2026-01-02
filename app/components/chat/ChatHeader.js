@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import ChannelStoryRing from './ChannelStoryRing'
 import DMStoryRing from './DMStoryRing'
 import TasksModal from './TasksModal'
@@ -17,12 +17,12 @@ export default function ChatHeader({
   allUsers,
   currentUserId, // Current logged-in user's ID for DM stories
   currentUser = null, // Current user object for story view tracking
-  messages = [], // Messages for cost calculation
   onOpenGroupInfo, // Callback to open GroupInfoModal
 }) {
   const { isDevMode } = useDevMode()
   const [showTasksModal, setShowTasksModal] = useState(false)
   const [hasUnviewedTasks, setHasUnviewedTasks] = useState(false)
+  const [lifetimeCost, setLifetimeCost] = useState(0)
 
   // Subscribe to check for unviewed tasks
   useEffect(() => {
@@ -43,6 +43,25 @@ export default function ChatHeader({
     return () => unsubscribe()
   }, [currentChat, currentUserId])
 
+  // Fetch lifetime AI cost from Firestore via API (non-blocking)
+  useEffect(() => {
+    if (!isDevMode || !currentChat || !currentUserId) return
+
+    // Reset to 0 immediately when switching chats so old value doesn't linger
+    setLifetimeCost(0)
+
+    const chatId =
+      currentChat.type === 'dm' ? getDMId(currentUserId, currentChat.id) : currentChat.id
+
+    // Fire the request without blocking - UI renders immediately
+    fetch(`/api/ai-usage/lifetime?chatId=${encodeURIComponent(chatId)}&chatType=${currentChat.type}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) setLifetimeCost(data.totalCost || 0)
+      })
+      .catch(() => {}) // Silently fail - it's just dev info
+  }, [currentChat?.id, currentChat?.type, currentUserId, isDevMode])
+
   // Handle opening tasks modal - mark as viewed BEFORE opening to prevent flash
   const handleOpenTasks = () => {
     if (currentChat && currentUserId && currentChat.type !== 'ai') {
@@ -55,23 +74,6 @@ export default function ChatHeader({
     }
     setShowTasksModal(true)
   }
-
-  // Calculate today's tagging cost from messages
-  const todayCost = useMemo(() => {
-    if (!isDevMode) return 0
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayStart = today.getTime() / 1000 // Firestore timestamp in seconds
-
-    return messages.reduce((total, msg) => {
-      const msgTime = msg.timestamp?.seconds || 0
-      if (msgTime >= todayStart && msg.aiTags?._cost) {
-        return total + msg.aiTags._cost
-      }
-      return total
-    }, 0)
-  }, [messages, isDevMode])
 
   const getSubtitle = () => {
     if (currentChat.type === 'channel') return 'Team chat'
@@ -267,10 +269,10 @@ export default function ChatHeader({
     <>
       {/* Desktop Header - thin bar with floating avatar below */}
       <div className='chat-header'>
-        {/* Left side - dev cost (only show pill when there's content) */}
-        {isDevMode && todayCost > 0 ? (
+        {/* Left side - lifetime AI cost (only show when there's content) */}
+        {isDevMode && lifetimeCost > 0 ? (
           <div className='chat-header-left'>
-            <span className='font-mono'>${todayCost.toFixed(3)}</span>
+            <span className='text-[10px] font-mono text-gray-500'>${lifetimeCost.toFixed(2)}</span>
           </div>
         ) : (
           <div /> /* Empty spacer for flex layout */
