@@ -1096,7 +1096,7 @@ export default function ChatWindow() {
 
     try {
       // Combine messages and posts to find the oldest item
-      const allItems = [...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
+      const sortedMessages = [...messages].sort(
         (a, b) => {
           const aTime = a.timestamp?.seconds || 0
           const bTime = b.timestamp?.seconds || 0
@@ -1104,8 +1104,8 @@ export default function ChatWindow() {
         }
       )
 
-      const oldestItem = allItems[0]
-      console.log('📜 Oldest item timestamp:', oldestItem?.timestamp)
+      const oldestItem = sortedMessages[0]
+      console.log('📜 Oldest item timestamp:', oldestItem?.timestamp?.toDate?.()?.toISOString())
 
       if (!oldestItem || !oldestItem.timestamp) {
         console.log('📜 No oldest item found')
