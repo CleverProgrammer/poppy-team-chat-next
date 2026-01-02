@@ -9,6 +9,7 @@ import VoiceMessage from './VoiceMessage'
 import SkeletonView from './SkeletonView'
 import {
   linkifyText,
+  linkifyAIText,
   isSingleEmoji,
   isLoomUrl,
   getLoomEmbedUrl,
@@ -1102,14 +1103,20 @@ function MessageItem({
                     />
                   ) : (
                     <div key={`text-${idx}`} className='text'>
-                      {linkifyText(segment.content, onImageClick, allUsers, user)}
+                      {msg.senderId === 'ai' ?
+                        linkifyAIText(segment.content, onImageClick, allUsers, user) :
+                        linkifyText(segment.content, onImageClick, allUsers, user)
+                      }
                     </div>
                   )
                 ))
               ) : (
                 // Regular text rendering
                 <div className='text'>
-                  {linkifyText(msg.text, onImageClick, allUsers, user)}
+                  {msg.senderId === 'ai' ?
+                    linkifyAIText(msg.text, onImageClick, allUsers, user) :
+                    linkifyText(msg.text, onImageClick, allUsers, user)
+                  }
                   {msg.edited && <span className='edited-indicator'> (edited)</span>}
                   {msg.isPrivate && (
                     <span className='private-indicator' title='Only you can see this'>
