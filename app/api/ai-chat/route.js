@@ -3,63 +3,7 @@ import mcpManager from '../../lib/mcp-client.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
-import { adminDb } from '../../lib/firebase-admin.js'
-
-/**
- * Track AI usage to Firestore for analytics and cost monitoring
- */
-async function trackAIUsage({
-  type,
-  model,
-  inputTokens,
-  outputTokens,
-  inputCost,
-  outputCost,
-  totalCost,
-  userId,
-  userEmail,
-  userName,
-  chatId,
-  chatType,
-  toolsUsed,
-}) {
-  try {
-    // Create fun readable doc ID: userName_color_animal_shortId (e.g., "rafeh_qazi_red_panda_abc12")
-    const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'gold', 'cyan']
-    const animals = ['panda', 'tiger', 'wolf', 'eagle', 'shark', 'fox', 'hawk', 'bear']
-    const color = colors[Math.floor(Math.random() * colors.length)]
-    const animal = animals[Math.floor(Math.random() * animals.length)]
-    const shortId = Math.random().toString(36).substring(2, 7)
-    const nameSlug = (userName || 'unknown')
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
-    const docId = `${nameSlug}_${color}_${animal}_${shortId}`
-
-    await adminDb
-      .collection('ai_usage')
-      .doc(docId)
-      .set({
-        timestamp: new Date().toISOString(),
-        type,
-        model,
-        inputTokens,
-        outputTokens,
-        inputCost,
-        outputCost,
-        totalCost,
-        userId: userId || null,
-        userEmail: userEmail || null,
-        userName: userName || null,
-        chatId: chatId || null,
-        chatType: chatType || null,
-        toolsUsed: toolsUsed || [],
-      })
-  } catch (error) {
-    // Don't fail the request if tracking fails - just log it
-    console.error('⚠️ Failed to track AI usage:', error.message)
-  }
-}
+import { trackClaudeUsage, calculateClaudeCost } from '../../lib/ai-usage-tracker.js'
 
 // Initialize Keywords AI Telemetry with manual instrumentation
 const keywordsAi = new KeywordsAITelemetry({
@@ -126,7 +70,8 @@ async function processAIRequest(
   encoder = null,
   workflowId = null,
   imageUrls = null, // Direct image URLs for AI vision
-  isThreadContext = false // Flag to indicate this is thread context (not general chat history)
+  isThreadContext = false, // Flag to indicate this is thread context (not general chat history)
+  targetedMessage = null // Message the user is replying to (AI should focus on this)
 ) {
   // Build system prompt with user context and current time
   const now = new Date()
@@ -523,6 +468,37 @@ WHAT NOT TO SAVE:
     })
   }
 
+  // Build targeted message context if user is replying to a specific message
+  let targetedMessageContext = ''
+  if (targetedMessage) {
+    console.log(`🎯 AI Chat: User is targeting message from ${targetedMessage.sender}: "${targetedMessage.text?.substring(0, 50)}..."`)
+    
+    // Build a clear context block for the targeted message
+    const targetSender = targetedMessage.sender || 'Unknown'
+    const targetText = targetedMessage.text || ''
+    const targetImages = targetedMessage.imageUrls || (targetedMessage.imageUrl ? [targetedMessage.imageUrl] : [])
+    const targetAudio = targetedMessage.audioUrl ? `[🎤 Voice message${targetedMessage.audioDuration ? ` (${Math.round(targetedMessage.audioDuration)}s)` : ''}]` : ''
+    const targetVideo = targetedMessage.muxPlaybackIds?.length ? `[🎥 ${targetedMessage.muxPlaybackIds.length} video(s)]` : ''
+    
+    targetedMessageContext = `
+╔══════════════════════════════════════════════════════════════════╗
+║  🎯 TARGETED MESSAGE (User is specifically asking about THIS!)   ║
+╚══════════════════════════════════════════════════════════════════╝
+The user is REPLYING to this specific message. Their question/request is about THIS message:
+
+[${targetSender}]: ${targetText}${targetAudio}${targetVideo}${targetImages.length > 0 ? `\n[📷 ${targetImages.length} image(s): ${targetImages.join(', ')}]` : ''}
+
+⚠️ CRITICAL: Focus your response on THIS targeted message!
+- The user selected THIS message by replying to it
+- Answer questions ABOUT this message
+- If they ask "what does this mean?" - explain THIS message
+- If they ask "summarize" - summarize THIS message
+- Treat this as the PRIMARY context for their question
+═══════════════════════════════════════════════════════════════════
+
+`
+  }
+
   // Add the current user message WITH their name clearly marked
   // Support image URLs for Claude vision - use content array format
   if (imageUrls && imageUrls.length > 0) {
@@ -542,10 +518,10 @@ WHAT NOT TO SAVE:
       })
     }
     
-    // Add the text message
+    // Add the text message with targeted context if present
     contentArray.push({
       type: 'text',
-      text: `═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}\n\n[User attached ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
+      text: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}\n\n[User attached ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
     })
     
     messages.push({
@@ -555,7 +531,7 @@ WHAT NOT TO SAVE:
   } else {
     messages.push({
       role: 'user',
-      content: `═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}`,
+      content: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}`,
     })
   }
 
@@ -753,6 +729,16 @@ WHAT NOT TO SAVE:
   let totalInputTokens = data.usage?.input_tokens || 0
   let totalOutputTokens = data.usage?.output_tokens || 0
   const toolsUsedList = []
+  
+  // Track per-API-call breakdown for cost transparency
+  const apiCalls = [{
+    type: 'initial',
+    inputTokens: data.usage?.input_tokens || 0,
+    outputTokens: data.usage?.output_tokens || 0,
+    toolsRequested: data.stop_reason === 'tool_use' 
+      ? data.content.filter(b => b.type === 'tool_use').map(b => b.name) 
+      : [],
+  }]
 
   // Handle tool use loop
   let lastMemoryToolMessage = null // Track memory tool success message as fallback
@@ -976,28 +962,50 @@ WHAT NOT TO SAVE:
     })
     console.log('🤖 Poppy AI: Got response after tool use')
 
-    // Accumulate tokens from this API call
-    totalInputTokens += data.usage?.input_tokens || 0
-    totalOutputTokens += data.usage?.output_tokens || 0
+    // Track this API call's usage
+    const callInputTokens = data.usage?.input_tokens || 0
+    const callOutputTokens = data.usage?.output_tokens || 0
+    totalInputTokens += callInputTokens
+    totalOutputTokens += callOutputTokens
+    
+    // Add to breakdown
+    apiCalls.push({
+      type: 'tool_response',
+      inputTokens: callInputTokens,
+      outputTokens: callOutputTokens,
+      toolsRequested: data.stop_reason === 'tool_use' 
+        ? data.content.filter(b => b.type === 'tool_use').map(b => b.name) 
+        : [],
+    })
   }
 
-  // Calculate cost and track usage (Claude Sonnet 4 pricing: $3/1M input, $15/1M output)
-  const inputCost = (totalInputTokens / 1_000_000) * 3
-  const outputCost = (totalOutputTokens / 1_000_000) * 15
-  const totalCost = inputCost + outputCost
+  // Calculate cost (Claude Sonnet 4.5: $3/1M input, $15/1M output)
+  const { inputCost, outputCost, totalCost } = calculateClaudeCost(totalInputTokens, totalOutputTokens)
 
   console.log(`💰 AI Chat Tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
   console.log(`💵 AI Chat Cost: $${totalCost.toFixed(6)}`)
 
+  // Build cost breakdown for transparency
+  const costBreakdown = {
+    totalCost,
+    inputCost,
+    outputCost,
+    totalInputTokens,
+    totalOutputTokens,
+    model: 'claude-sonnet-4-5-20250929',
+    apiCalls: apiCalls.map(call => ({
+      ...call,
+      cost: calculateClaudeCost(call.inputTokens, call.outputTokens).totalCost,
+    })),
+    toolsUsed: toolsUsedList,
+  }
+
   // Track AI usage to Firestore (async, don't await to avoid blocking response)
-  trackAIUsage({
+  trackClaudeUsage({
     type: 'ai_chat',
     model: 'claude-sonnet-4-5-20250929',
     inputTokens: totalInputTokens,
     outputTokens: totalOutputTokens,
-    inputCost,
-    outputCost,
-    totalCost,
     userId: user?.id,
     userEmail: user?.email,
     userName: user?.name,
@@ -1012,10 +1020,10 @@ WHAT NOT TO SAVE:
     const aiResponse = 'Sorry, I got a weird response. Try again!'
 
     if (controller && encoder) {
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`))
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`))
     }
 
-    return aiResponse
+    return { response: aiResponse, costBreakdown }
   }
 
   const textBlock = data.content.find(block => block.type === 'text')
@@ -1025,17 +1033,17 @@ WHAT NOT TO SAVE:
 
   if (sendStatus) sendStatus('Done!')
 
-  // If streaming, send the final response
+  // If streaming, send the final response with cost breakdown
   if (controller && encoder) {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse })}\n\n`))
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`))
   }
 
-  return aiResponse
+  return { response: aiResponse, costBreakdown }
 }
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user, currentChat, imageUrls, isThreadContext } = await request.json()
+    const { message, chatHistory, stream, user, currentChat, imageUrls, isThreadContext, targetedMessage } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -1087,7 +1095,8 @@ export async function POST(request) {
                   encoder,
                   workflowId,
                   imageUrls,
-                  isThreadContext
+                  isThreadContext,
+                  targetedMessage
                 )
               }
             )
@@ -1112,7 +1121,7 @@ export async function POST(request) {
     }
 
     // Non-streaming mode - wrap in workflow for tracing
-    const aiResponse = await keywordsAi.withWorkflow(
+    const result = await keywordsAi.withWorkflow(
       {
         name: 'poppy_ai_chat',
         metadata: {
@@ -1135,11 +1144,12 @@ export async function POST(request) {
           null,
           workflowId,
           imageUrls,
-          isThreadContext
+          isThreadContext,
+          targetedMessage
         )
       }
     )
-    return NextResponse.json({ response: aiResponse })
+    return NextResponse.json({ response: result.response, costBreakdown: result.costBreakdown })
   } catch (error) {
     console.error('Error in AI chat route:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -462,11 +462,13 @@ export function useMessageSending({
 
       // Trigger AI response if @poppy was mentioned or AI mode is active
       // Pass uploaded image URLs to AI for vision analysis
+      // If replying to a message, pass it as targetedMessage so AI knows what we're referring to
       if (shouldTriggerAI && actualAiQuestion) {
         askPoppy(actualAiQuestion, { 
           isPrivate, 
           privateFor: user.uid,
-          imageUrls: imageUrls.length > 0 ? imageUrls : null 
+          imageUrls: imageUrls.length > 0 ? imageUrls : null,
+          targetedMessage: currentReplyingTo || null, // Pass the message being replied to
         });
       }
     } catch (error) {

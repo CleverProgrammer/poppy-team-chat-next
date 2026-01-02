@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import assemblyai from '../../../lib/assemblyai-client.js'
-import { adminDb } from '../../../lib/firebase-admin.js'
+import { trackAudioTranscription, calculateClaudeCost } from '../../../lib/ai-usage-tracker.js'
 
 /**
- * AssemblyAI Pricing (as of 2024):
+ * AssemblyAI Pricing (as of 2025):
  * - Best/Universal model: $0.00025/second (~$0.90/hour)
  * - Speaker diarization: included
  */
@@ -21,7 +21,7 @@ async function generateTLDR(transcriptionText, sender) {
     })
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 100,
       messages: [
         {
@@ -43,7 +43,7 @@ Examples:
     })
 
     const tldr = response.content[0]?.text?.trim() || null
-    
+
     // Return TLDR and token usage for cost tracking
     return {
       tldr,
@@ -53,50 +53,6 @@ Examples:
   } catch (error) {
     console.error('⚠️ Failed to generate TLDR:', error.message)
     return { tldr: null, inputTokens: 0, outputTokens: 0 }
-  }
-}
-
-/**
- * Track AI usage to Firestore for analytics and cost monitoring
- */
-async function trackAIUsage({
-  type,
-  model,
-  audioDurationSeconds,
-  totalCost,
-  userId,
-  userEmail,
-  userName,
-  messageId,
-}) {
-  try {
-    const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'gold', 'cyan']
-    const animals = ['panda', 'tiger', 'wolf', 'eagle', 'shark', 'fox', 'hawk', 'bear']
-    const color = colors[Math.floor(Math.random() * colors.length)]
-    const animal = animals[Math.floor(Math.random() * animals.length)]
-    const shortId = Math.random().toString(36).substring(2, 7)
-    const nameSlug = (userName || 'unknown')
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
-    const docId = `${nameSlug}_${color}_${animal}_${shortId}`
-
-    await adminDb
-      .collection('ai_usage')
-      .doc(docId)
-      .set({
-        timestamp: new Date().toISOString(),
-        type,
-        model,
-        audioDurationSeconds,
-        totalCost,
-        userId: userId || null,
-        userEmail: userEmail || null,
-        userName: userName || null,
-        messageId: messageId || null,
-      })
-  } catch (error) {
-    console.error('⚠️ Failed to track AI usage:', error.message)
   }
 }
 
@@ -159,22 +115,10 @@ export async function POST(request) {
 
     const processingTime = ((Date.now() - startTime) / 1000).toFixed(1)
     const audioDuration = transcript.audio_duration || 0
-    const totalCost = audioDuration * COST_PER_SECOND
+    const transcriptionCost = audioDuration * COST_PER_SECOND
 
     console.log(`✅ AssemblyAI: Transcribed ${audioDuration}s audio in ${processingTime}s`)
-    console.log(`💰 Cost: $${totalCost.toFixed(6)} (${audioDuration}s × $${COST_PER_SECOND}/s)`)
-
-    // Track usage to Firestore
-    trackAIUsage({
-      type: 'audio_transcription',
-      model: 'assemblyai-best',
-      audioDurationSeconds: audioDuration,
-      totalCost,
-      userId: senderId,
-      userEmail: senderEmail,
-      userName: sender,
-      messageId,
-    })
+    console.log(`💰 Transcription Cost: $${transcriptionCost.toFixed(6)} (${audioDuration}s × $${COST_PER_SECOND}/s)`)
 
     // Format speaker-labeled transcription if available
     let formattedTranscript = transcript.text
@@ -197,16 +141,33 @@ export async function POST(request) {
 
     // Generate AI TLDR from transcription
     let tldr = null
+    let tldrInputTokens = 0
+    let tldrOutputTokens = 0
     let tldrCost = 0
     if (transcript.text && transcript.text.length > 0) {
       const tldrResult = await generateTLDR(transcript.text, sender)
       tldr = tldrResult.tldr
-      // Calculate TLDR cost (Claude Sonnet: $3/1M input, $15/1M output)
-      tldrCost = (tldrResult.inputTokens / 1_000_000) * 3 + (tldrResult.outputTokens / 1_000_000) * 15
+      tldrInputTokens = tldrResult.inputTokens
+      tldrOutputTokens = tldrResult.outputTokens
+      // Calculate TLDR cost (Claude Sonnet 4.5: $3/1M input, $15/1M output)
+      const { totalCost: tldrTotalCost } = calculateClaudeCost(tldrInputTokens, tldrOutputTokens)
+      tldrCost = tldrTotalCost
       console.log(`✨ TLDR generated: "${tldr}" (cost: $${tldrCost.toFixed(6)})`)
     }
 
-    const finalCost = totalCost + tldrCost
+    const finalCost = transcriptionCost + tldrCost
+    console.log(`💵 Total Cost: $${finalCost.toFixed(6)} (transcription + TLDR)`)
+
+    // Track COMPLETE usage to Firestore (transcription + TLDR cost together!)
+    trackAudioTranscription({
+      audioDurationSeconds: audioDuration,
+      userId: senderId,
+      userEmail: senderEmail,
+      userName: sender,
+      messageId,
+      tldrInputTokens,
+      tldrOutputTokens,
+    })
 
     // Build response
     const response = {
@@ -228,7 +189,7 @@ export async function POST(request) {
       },
       cost: {
         amount: finalCost,
-        transcriptionCost: totalCost,
+        transcriptionCost,
         tldrCost,
         breakdown: `${audioDuration}s × $${COST_PER_SECOND}/s + TLDR`,
       },

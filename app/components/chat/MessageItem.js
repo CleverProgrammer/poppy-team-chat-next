@@ -22,6 +22,7 @@ import LinkPreview from './LinkPreview'
 import { useDevMode } from '../../contexts/DevModeContext'
 import { hapticHeavy, hapticLight, hapticSuccess } from '../../utils/haptics'
 import DevTagInfo from './DevTagInfo'
+import AICostBreakdown from './AICostBreakdown'
 import { cn } from '../../utils/cn'
 
 // Maximum dimensions for single images/videos
@@ -885,7 +886,12 @@ function MessageItem({
               ? msg.sender?.replace('🤖 ', '').replace('🤖', '')
               : userMap?.[msg.senderId]?.displayName || msg.sender}
             <MessageTimestamp timestamp={msg.timestamp} />
-            {isDevMode && msg.aiTags && <DevTagInfo aiTags={msg.aiTags} />}
+            {/* For AI messages: show combined cost breakdown (response + tagging) */}
+            {msg.senderId === 'ai' && (msg.costBreakdown || msg.aiTags?._cost) && (
+              <AICostBreakdown costBreakdown={msg.costBreakdown} aiTags={msg.aiTags} />
+            )}
+            {/* For non-AI messages: show tagging info separately */}
+            {msg.senderId !== 'ai' && isDevMode && msg.aiTags && <DevTagInfo aiTags={msg.aiTags} />}
           </div>
         )}
         {/* Video replies - render OUTSIDE the message bubble for proper positioning */}

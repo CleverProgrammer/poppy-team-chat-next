@@ -199,7 +199,7 @@ function getChannelName(channelId) {
 export async function sendMessage(channelId, user, text, linkPreview = null, options = {}) {
   if (!user || !text.trim()) return
 
-  const { isPrivate = false, privateFor = null } = options
+  const { isPrivate = false, privateFor = null, costBreakdown = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -221,6 +221,11 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
       messageData.isPrivate = true
       // Use explicitly passed privateFor, or fall back to sender's uid
       messageData.privateFor = privateFor || user.uid
+    }
+
+    // Add cost breakdown for AI responses (dev mode display)
+    if (costBreakdown) {
+      messageData.costBreakdown = costBreakdown
     }
 
     const docRef = await addDoc(messagesRef, messageData)
@@ -356,7 +361,7 @@ export async function sendMessageDM(
 ) {
   if (!user || !text.trim()) return
 
-  const { isPrivate = false, privateFor = null } = options
+  const { isPrivate = false, privateFor = null, costBreakdown = null } = options
 
   console.log('═══════════════════════════════════════════════════════════')
   console.log('📤 [SEND DM] SENDING MESSAGE')
@@ -389,6 +394,11 @@ export async function sendMessageDM(
     if (isPrivate) {
       messageData.isPrivate = true
       messageData.privateFor = privateFor || user.uid
+    }
+
+    // Add cost breakdown for AI responses (dev mode display)
+    if (costBreakdown) {
+      messageData.costBreakdown = costBreakdown
     }
 
     const docRef = await addDoc(messagesRef, messageData)
@@ -2106,7 +2116,7 @@ export async function markDMMessagesAsRead(dmId, userId, messageIds) {
 }
 
 // AI Chat functions
-export async function sendAIMessage(userId, text, isAI = false, user = null, imageUrls = null) {
+export async function sendAIMessage(userId, text, isAI = false, user = null, imageUrls = null, costBreakdown = null) {
   // Allow empty text if images are present
   if (!userId || (!text.trim() && (!imageUrls || imageUrls.length === 0))) return
 
@@ -2125,6 +2135,11 @@ export async function sendAIMessage(userId, text, isAI = false, user = null, ima
     if (imageUrls && imageUrls.length > 0) {
       messageData.imageUrls = imageUrls
       messageData.imageUrl = imageUrls[0] // For backwards compatibility
+    }
+    
+    // Add cost breakdown for AI responses (dev mode display)
+    if (costBreakdown && isAI) {
+      messageData.costBreakdown = costBreakdown
     }
     
     const docRef = await addDoc(messagesRef, messageData)
@@ -3743,7 +3758,7 @@ export async function loadOlderGroupMessages(groupId, oldestTimestamp, messageLi
 export async function sendGroupMessage(groupId, user, text, linkPreview = null, options = {}) {
   if (!user || !text.trim() || !groupId) return
 
-  const { isPrivate = false, privateFor = null } = options
+  const { isPrivate = false, privateFor = null, costBreakdown = null } = options
 
   try {
     const messagesRef = collection(db, 'groups', groupId, 'messages')
@@ -3763,6 +3778,11 @@ export async function sendGroupMessage(groupId, user, text, linkPreview = null, 
     if (isPrivate) {
       messageData.isPrivate = true
       messageData.privateFor = privateFor || user.uid
+    }
+
+    // Add cost breakdown for AI responses (dev mode display)
+    if (costBreakdown) {
+      messageData.costBreakdown = costBreakdown
     }
 
     const docRef = await addDoc(messagesRef, messageData)
