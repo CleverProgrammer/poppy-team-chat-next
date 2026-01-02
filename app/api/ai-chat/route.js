@@ -408,7 +408,7 @@ WHAT NOT TO SAVE:
       if (msg.sender) {
         const isCurrentUser = msg.senderId === user?.id
         const marker = isCurrentUser ? ' ← THIS IS YOUR CONVERSATION PARTNER' : ''
-        
+
         // For thread context, mark the original message
         const threadMarker = isThreadContext && index === 0 ? ' [ORIGINAL POST]' : ''
 
@@ -472,22 +472,37 @@ WHAT NOT TO SAVE:
   // Build targeted message context if user is replying to a specific message
   let targetedMessageContext = ''
   if (targetedMessage) {
-    console.log(`🎯 AI Chat: User is targeting message from ${targetedMessage.sender}: "${targetedMessage.text?.substring(0, 50)}..."`)
-    
+    console.log(
+      `🎯 AI Chat: User is targeting message from ${
+        targetedMessage.sender
+      }: "${targetedMessage.text?.substring(0, 50)}..."`
+    )
+
     // Build a clear context block for the targeted message
     const targetSender = targetedMessage.sender || 'Unknown'
     const targetText = targetedMessage.text || ''
-    const targetImages = targetedMessage.imageUrls || (targetedMessage.imageUrl ? [targetedMessage.imageUrl] : [])
-    const targetAudio = targetedMessage.audioUrl ? `[🎤 Voice message${targetedMessage.audioDuration ? ` (${Math.round(targetedMessage.audioDuration)}s)` : ''}]` : ''
-    const targetVideo = targetedMessage.muxPlaybackIds?.length ? `[🎥 ${targetedMessage.muxPlaybackIds.length} video(s)]` : ''
-    
+    const targetImages =
+      targetedMessage.imageUrls || (targetedMessage.imageUrl ? [targetedMessage.imageUrl] : [])
+    const targetAudio = targetedMessage.audioUrl
+      ? `[🎤 Voice message${
+          targetedMessage.audioDuration ? ` (${Math.round(targetedMessage.audioDuration)}s)` : ''
+        }]`
+      : ''
+    const targetVideo = targetedMessage.muxPlaybackIds?.length
+      ? `[🎥 ${targetedMessage.muxPlaybackIds.length} video(s)]`
+      : ''
+
     targetedMessageContext = `
 ╔══════════════════════════════════════════════════════════════════╗
 ║  🎯 TARGETED MESSAGE (User is specifically asking about THIS!)   ║
 ╚══════════════════════════════════════════════════════════════════╝
 The user is REPLYING to this specific message. Their question/request is about THIS message:
 
-[${targetSender}]: ${targetText}${targetAudio}${targetVideo}${targetImages.length > 0 ? `\n[📷 ${targetImages.length} image(s): ${targetImages.join(', ')}]` : ''}
+[${targetSender}]: ${targetText}${targetAudio}${targetVideo}${
+      targetImages.length > 0
+        ? `\n[📷 ${targetImages.length} image(s): ${targetImages.join(', ')}]`
+        : ''
+    }
 
 ⚠️ CRITICAL: Focus your response on THIS targeted message!
 - The user selected THIS message by replying to it
@@ -504,10 +519,10 @@ The user is REPLYING to this specific message. Their question/request is about T
   // Support image URLs for Claude vision - use content array format
   if (imageUrls && imageUrls.length > 0) {
     console.log(`🖼️ AI Chat: User sent ${imageUrls.length} image(s) for vision analysis`)
-    
+
     // Build content array with images first, then text
     const contentArray = []
-    
+
     // Add each image
     for (const url of imageUrls) {
       contentArray.push({
@@ -518,13 +533,15 @@ The user is REPLYING to this specific message. Their question/request is about T
         },
       })
     }
-    
+
     // Add the text message with targeted context if present
     contentArray.push({
       type: 'text',
-      text: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}\n\n[User attached ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
+      text: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}\n\n[User attached ${
+        imageUrls.length
+      } image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
     })
-    
+
     messages.push({
       role: 'user',
       content: contentArray,
@@ -669,16 +686,27 @@ Key columns: income (dollars), datetime (timestamp)`,
       properties: {
         timeRange: {
           type: 'string',
-          enum: ['today', 'yesterday', 'this_week', 'last_week', 'mtd', 'last_month', 'ytd', 'custom'],
+          enum: [
+            'today',
+            'yesterday',
+            'this_week',
+            'last_week',
+            'mtd',
+            'last_month',
+            'ytd',
+            'custom',
+          ],
           description: 'The time range for the revenue query',
         },
         startDate: {
           type: 'string',
-          description: 'ISO timestamp for custom date range start (e.g., "2026-01-02T08:00:00.000Z"). Required if timeRange is "custom".',
+          description:
+            'ISO timestamp for custom date range start (e.g., "2026-01-02T08:00:00.000Z"). Required if timeRange is "custom".',
         },
         endDate: {
           type: 'string',
-          description: 'ISO timestamp for custom date range end (e.g., "2026-01-03T07:59:59.999Z"). Required if timeRange is "custom".',
+          description:
+            'ISO timestamp for custom date range end (e.g., "2026-01-03T07:59:59.999Z"). Required if timeRange is "custom".',
         },
       },
       required: ['timeRange'],
@@ -771,16 +799,19 @@ Key columns: income (dollars), datetime (timestamp)`,
   let totalInputTokens = data.usage?.input_tokens || 0
   let totalOutputTokens = data.usage?.output_tokens || 0
   const toolsUsedList = []
-  
+
   // Track per-API-call breakdown for cost transparency
-  const apiCalls = [{
-    type: 'initial',
-    inputTokens: data.usage?.input_tokens || 0,
-    outputTokens: data.usage?.output_tokens || 0,
-    toolsRequested: data.stop_reason === 'tool_use' 
-      ? data.content.filter(b => b.type === 'tool_use').map(b => b.name) 
-      : [],
-  }]
+  const apiCalls = [
+    {
+      type: 'initial',
+      inputTokens: data.usage?.input_tokens || 0,
+      outputTokens: data.usage?.output_tokens || 0,
+      toolsRequested:
+        data.stop_reason === 'tool_use'
+          ? data.content.filter(b => b.type === 'tool_use').map(b => b.name)
+          : [],
+    },
+  ]
 
   // Handle tool use loop
   let lastMemoryToolMessage = null // Track memory tool success message as fallback
@@ -889,40 +920,40 @@ Key columns: income (dollars), datetime (timestamp)`,
           // Handle Supabase revenue queries
           console.log(`💰 SUPABASE: Querying revenue...`)
           console.log(`💰 SUPABASE: Time range: ${toolUse.input.timeRange}`)
-          
+
           try {
             // Calculate date range based on timeRange
             const now = new Date()
             let startDate, endDate
-            
+
             // Helper to get PST-aligned UTC timestamps
             // PST is UTC-8, so midnight PST = 8:00 UTC
-            const getPSTDayStart = (date) => {
+            const getPSTDayStart = date => {
               const d = new Date(date)
               d.setUTCHours(8, 0, 0, 0)
               return d.toISOString()
             }
-            
-            const getPSTDayEnd = (date) => {
+
+            const getPSTDayEnd = date => {
               const d = new Date(date)
               d.setDate(d.getDate() + 1)
               d.setUTCHours(7, 59, 59, 999)
               return d.toISOString()
             }
-            
+
             switch (toolUse.input.timeRange) {
               case 'today':
                 startDate = getPSTDayStart(now)
                 endDate = getPSTDayEnd(now)
                 break
-                
+
               case 'yesterday':
                 const yesterday = new Date(now)
                 yesterday.setDate(yesterday.getDate() - 1)
                 startDate = getPSTDayStart(yesterday)
                 endDate = getPSTDayEnd(yesterday)
                 break
-                
+
               case 'this_week':
                 // Get Monday of current week (PST)
                 const monday = new Date(now)
@@ -932,7 +963,7 @@ Key columns: income (dollars), datetime (timestamp)`,
                 startDate = getPSTDayStart(monday)
                 endDate = getPSTDayEnd(now)
                 break
-                
+
               case 'last_week':
                 const lastMonday = new Date(now)
                 const currentDayOfWeek = lastMonday.getUTCDay()
@@ -943,39 +974,39 @@ Key columns: income (dollars), datetime (timestamp)`,
                 startDate = getPSTDayStart(lastMonday)
                 endDate = getPSTDayEnd(lastSunday)
                 break
-                
+
               case 'mtd':
                 // Month to date
                 const monthStart = new Date(now.getUTCFullYear(), now.getUTCMonth(), 1)
                 startDate = getPSTDayStart(monthStart)
                 endDate = getPSTDayEnd(now)
                 break
-                
+
               case 'last_month':
                 const lastMonthStart = new Date(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)
                 const lastMonthEnd = new Date(now.getUTCFullYear(), now.getUTCMonth(), 0)
                 startDate = getPSTDayStart(lastMonthStart)
                 endDate = getPSTDayEnd(lastMonthEnd)
                 break
-                
+
               case 'ytd':
                 // Year to date
                 const yearStart = new Date(now.getUTCFullYear(), 0, 1)
                 startDate = getPSTDayStart(yearStart)
                 endDate = getPSTDayEnd(now)
                 break
-                
+
               case 'custom':
                 startDate = toolUse.input.startDate
                 endDate = toolUse.input.endDate
                 break
-                
+
               default:
                 throw new Error(`Unknown time range: ${toolUse.input.timeRange}`)
             }
-            
+
             console.log(`💰 SUPABASE: Date range: ${startDate} to ${endDate}`)
-            
+
             // Build the SQL query
             const query = `
               SELECT 
@@ -987,27 +1018,45 @@ Key columns: income (dollars), datetime (timestamp)`,
               WHERE datetime >= '${startDate}'
                 AND datetime <= '${endDate}'
             `
-            
+
             console.log(`💰 SUPABASE: Executing query...`)
             const result = await supabaseMCP.executeQuery(query)
-            
+
             // Parse the result
             let revenueData = { total_dollars: 0, transaction_count: 0 }
             if (result?.content?.[0]?.text) {
               // Extract JSON from the response text
-              const textContent = result.content[0].text
-              const jsonMatch = textContent.match(/\[.*\]/s)
+              // The response wraps data in <untrusted-data-xxx> tags
+              let textContent = result.content[0].text
+
+              // Unescape the string if it contains escaped quotes (from MCP serialization)
+              // Replace \" with " and \n with actual newlines to get valid JSON
+              const unescapedContent = textContent.replace(/\\"/g, '"').replace(/\\n/g, '\n')
+
+              console.log(`💰 SUPABASE: Looking for JSON in response...`)
+
+              // Try to find JSON array in the response
+              // Look for pattern like [{...}] which is the actual data
+              const jsonMatch = unescapedContent.match(/\[\s*\{[^[\]]*\}\s*\]/s)
               if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0])
-                if (parsed[0]) {
-                  revenueData = parsed[0]
+                try {
+                  const parsed = JSON.parse(jsonMatch[0])
+                  if (parsed[0]) {
+                    revenueData = parsed[0]
+                    console.log(`💰 SUPABASE: Parsed data:`, revenueData)
+                  }
+                } catch (parseError) {
+                  console.error(`💰 SUPABASE: JSON parse error:`, parseError.message)
+                  console.log(`💰 SUPABASE: Attempted to parse:`, jsonMatch[0].substring(0, 200))
                 }
+              } else {
+                console.log(`💰 SUPABASE: No JSON array found in response`)
               }
             }
-            
+
             // Income is already in dollars
             const totalDollars = revenueData.total_dollars || 0
-            
+
             toolResponse = {
               content: {
                 success: true,
@@ -1016,16 +1065,22 @@ Key columns: income (dollars), datetime (timestamp)`,
                 endDate,
                 revenue: {
                   totalDollars: totalDollars,
-                  formattedTotal: `$${totalDollars.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  formattedTotal: `$${totalDollars.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
                 },
                 transactionCount: revenueData.transaction_count || 0,
                 firstTransaction: revenueData.first_transaction,
                 lastTransaction: revenueData.last_transaction,
-              }
+              },
             }
-            
-            console.log(`💰 SUPABASE: Revenue = $${totalDollars.toFixed(2)} from ${revenueData.transaction_count} transactions`)
-            
+
+            console.log(
+              `💰 SUPABASE: Revenue = $${totalDollars.toFixed(2)} from ${
+                revenueData.transaction_count
+              } transactions`
+            )
           } catch (error) {
             console.error(`💰 SUPABASE: Error querying revenue:`, error)
             toolResponse = {
@@ -1033,7 +1088,7 @@ Key columns: income (dollars), datetime (timestamp)`,
                 success: false,
                 error: error.message,
                 hint: 'The Supabase MCP connection may need to be configured. Check SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF.',
-              }
+              },
             }
           }
         } else {
@@ -1162,20 +1217,24 @@ Key columns: income (dollars), datetime (timestamp)`,
     const callOutputTokens = data.usage?.output_tokens || 0
     totalInputTokens += callInputTokens
     totalOutputTokens += callOutputTokens
-    
+
     // Add to breakdown
     apiCalls.push({
       type: 'tool_response',
       inputTokens: callInputTokens,
       outputTokens: callOutputTokens,
-      toolsRequested: data.stop_reason === 'tool_use' 
-        ? data.content.filter(b => b.type === 'tool_use').map(b => b.name) 
-        : [],
+      toolsRequested:
+        data.stop_reason === 'tool_use'
+          ? data.content.filter(b => b.type === 'tool_use').map(b => b.name)
+          : [],
     })
   }
 
   // Calculate cost (Claude Sonnet 4.5: $3/1M input, $15/1M output)
-  const { inputCost, outputCost, totalCost } = calculateClaudeCost(totalInputTokens, totalOutputTokens)
+  const { inputCost, outputCost, totalCost } = calculateClaudeCost(
+    totalInputTokens,
+    totalOutputTokens
+  )
 
   console.log(`💰 AI Chat Tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
   console.log(`💵 AI Chat Cost: $${totalCost.toFixed(6)}`)
@@ -1215,7 +1274,9 @@ Key columns: income (dollars), datetime (timestamp)`,
     const aiResponse = 'Sorry, I got a weird response. Try again!'
 
     if (controller && encoder) {
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`))
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`)
+      )
     }
 
     return { response: aiResponse, costBreakdown }
@@ -1230,7 +1291,9 @@ Key columns: income (dollars), datetime (timestamp)`,
 
   // If streaming, send the final response with cost breakdown
   if (controller && encoder) {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`))
+    controller.enqueue(
+      encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`)
+    )
   }
 
   return { response: aiResponse, costBreakdown }
@@ -1238,7 +1301,16 @@ Key columns: income (dollars), datetime (timestamp)`,
 
 export async function POST(request) {
   try {
-    const { message, chatHistory, stream, user, currentChat, imageUrls, isThreadContext, targetedMessage } = await request.json()
+    const {
+      message,
+      chatHistory,
+      stream,
+      user,
+      currentChat,
+      imageUrls,
+      isThreadContext,
+      targetedMessage,
+    } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
