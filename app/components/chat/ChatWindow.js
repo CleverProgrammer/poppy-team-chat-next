@@ -993,7 +993,7 @@ export default function ChatWindow() {
   }, [user])
 
   // Context menu handler
-  const handleContextMenu = (e, message) => {
+  const handleContextMenu = useCallback((e, message) => {
     e.preventDefault()
     // Get the message wrapper element - for right-click, find from target
     const messageElement = e.messageElement || e.target.closest('.message-wrapper')
@@ -1005,7 +1005,7 @@ export default function ChatWindow() {
       messageElement,
       reactionsOnly: e.reactionsOnly || false, // Double-tap passes this flag
     })
-  }
+  }, [])
 
   // Subscribe to unread chats
   useEffect(() => {
