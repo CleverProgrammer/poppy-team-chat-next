@@ -118,7 +118,7 @@ export default function CommandPalette({ isOpen, onClose, allUsers, groups = [],
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex(prev => Math.max(prev - 1, 0));
-    } else if (e.key === 'Enter') {
+    } else if (e.key === 'Enter' && !e.nativeEvent?.isComposing && !e.isComposing) {
       e.preventDefault();
       if (filteredItems[selectedIndex]) {
         handleSelect(filteredItems[selectedIndex]);

@@ -147,7 +147,9 @@ export default function ThreadView({
 
   // Handle Enter key to send (desktop)
   const handleInputKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Check if user is composing text with IME (Input Method Editor)
+    const isComposing = e.nativeEvent?.isComposing || e.isComposing
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault()
       handleSendReply()
     }

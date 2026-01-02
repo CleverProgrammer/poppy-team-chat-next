@@ -333,12 +333,16 @@ export default function ChatWindow() {
     // On desktop, Enter sends the message unless Shift is pressed
     const isMobile = Capacitor.isNativePlatform()
 
+    // Check if user is composing text with IME (Input Method Editor)
+    // During IME composition, Enter is used to confirm the text, not send
+    const isComposing = e.nativeEvent?.isComposing || e.isComposing
+
     // Quick AI shortcuts (like Shift for a single capital letter):
     // Cmd+Enter (Mac) or Ctrl+Enter (Windows): Send to public AI
     // Cmd+Shift+Enter (Mac) or Ctrl+Shift+Enter (Windows): Send to private AI
     const isCmdOrCtrl = e.metaKey || e.ctrlKey
 
-    if (e.key === 'Enter' && isCmdOrCtrl && !isMobile) {
+    if (e.key === 'Enter' && isCmdOrCtrl && !isMobile && !isComposing) {
       e.preventDefault()
       if (e.shiftKey) {
         // Cmd+Shift+Enter: Send to private AI (incognito mode)
@@ -350,7 +354,7 @@ export default function ChatWindow() {
       return
     }
 
-    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+    if (e.key === 'Enter' && !e.shiftKey && !isMobile && !isComposing) {
       e.preventDefault()
       handleSend()
     }

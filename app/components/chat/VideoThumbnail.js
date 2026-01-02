@@ -72,10 +72,23 @@ export default function VideoThumbnail({
     setLoaded(true)
   }
 
+  // Handle touch end to ensure immediate response on mobile
+  // Stops propagation to prevent parent's double-tap detection from interfering
+  const handleTouchEnd = (e) => {
+    e.stopPropagation()
+    // Trigger click immediately on touch for responsive mobile experience
+    onClick?.()
+  }
+
   // Reply-style videos have their own fixed layout
   if (isReply) {
     return (
-      <div className='video-reply-bubble' onClick={onClick} data-image-tap="true">
+      <div 
+        className='video-reply-bubble' 
+        onClick={onClick} 
+        onTouchEnd={handleTouchEnd}
+        data-image-tap="true"
+      >
         <img
           src={getAnimatedUrl()}
           alt='Video'
@@ -98,6 +111,7 @@ export default function VideoThumbnail({
       className={cn('rounded-xl overflow-hidden cursor-pointer relative')}
       style={{ maxWidth: MAX_VIDEO_WIDTH, maxHeight: MAX_VIDEO_HEIGHT }}
       onClick={onClick}
+      onTouchEnd={handleTouchEnd}
       data-image-tap="true"
     >
       <SkeletonView

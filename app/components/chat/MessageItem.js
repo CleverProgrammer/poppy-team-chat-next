@@ -72,6 +72,14 @@ function ImageWithSkeleton({
     }
   }
 
+  // Handle touch end to ensure immediate response on mobile
+  // Stops propagation to prevent parent's double-tap detection from interfering
+  const handleTouchEnd = (e) => {
+    e.stopPropagation()
+    // Trigger click immediately on touch for responsive mobile experience
+    onClick?.()
+  }
+
   return (
     <div 
       className={cn(
@@ -80,6 +88,7 @@ function ImageWithSkeleton({
       )}
       style={{ maxWidth, maxHeight }}
       onClick={onClick}
+      onTouchEnd={handleTouchEnd}
       data-image-tap="true"
     >
       <SkeletonView

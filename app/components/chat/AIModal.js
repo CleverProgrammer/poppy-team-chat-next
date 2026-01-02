@@ -82,7 +82,8 @@ export default function AIModal({ isOpen, onClose, onInsert, insertPosition }) {
             value={aiModalInput}
             onChange={(e) => setAiModalInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              const isComposing = e.nativeEvent?.isComposing || e.isComposing
+              if (e.key === 'Enter' && !isComposing) {
                 e.preventDefault();
                 sendAiModalMessage();
               }

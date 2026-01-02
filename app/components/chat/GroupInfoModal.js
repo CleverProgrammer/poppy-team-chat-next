@@ -135,7 +135,8 @@ export default function GroupInfoModal({
 
   // Handle enter key in name input
   const handleNameKeyDown = (e) => {
-    if (e.key === 'Enter') {
+    const isComposing = e.nativeEvent?.isComposing || e.isComposing
+    if (e.key === 'Enter' && !isComposing) {
       handleSaveName()
     } else if (e.key === 'Escape') {
       handleCancelEdit()

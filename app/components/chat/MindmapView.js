@@ -317,6 +317,12 @@ export default function MindmapView({ markdown, title, onUpdate }) {
               <div 
                 className="mindmap-overlay"
                 onClick={() => setIsExpanded(true)}
+                onTouchEnd={(e) => {
+                  // Prevent double-tap delay - trigger expansion immediately on touch
+                  e.stopPropagation()
+                  setIsExpanded(true)
+                }}
+                data-image-tap="true"
                 title="Click to expand and interact"
               />
             )}
