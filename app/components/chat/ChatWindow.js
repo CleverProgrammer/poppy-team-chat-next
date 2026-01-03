@@ -1095,7 +1095,7 @@ export default function ChatWindow() {
     console.log('📜 Loading older messages...')
 
     try {
-      // Combine messages and posts to find the oldest item
+      // sort messages to find the oldest item
       const sortedMessages = [...messages].sort(
         (a, b) => {
           const aTime = a.timestamp?.seconds || 0
@@ -1139,7 +1139,7 @@ export default function ChatWindow() {
     } finally {
       setLoadingOlder(false)
     }
-  }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
+  }, [messages, loadingOlder, hasMoreMessages, currentChat, user])
 
   // Stable renderer for Virtuoso items to avoid inline re-creations
   const renderItem = useCallback(
