@@ -185,6 +185,16 @@ function processMentions(text, allUsers, currentUser, keyPrefix = '') {
   let match;
   
   while ((match = mentionRegex.exec(text)) !== null) {
+    // Check if there's a non-whitespace character immediately before the @
+    // If so, this is likely an email address (e.g., someone@email.com) - skip it
+    if (match.index > 0) {
+      const charBefore = text.charAt(match.index - 1);
+      if (charBefore && !/\s/.test(charBefore)) {
+        // This is an email, not a mention - skip it entirely
+        continue;
+      }
+    }
+    
     // Add text before this mention
     if (match.index > lastIndex) {
       result.push(text.slice(lastIndex, match.index));
