@@ -89,17 +89,24 @@ export function useMentionMenu({
       }
 
       if (atPos !== -1) {
-        // Get text between @ and cursor
-        const query = value.substring(atPos + 1, cursorPos)
-        // Only show if no space in query
-        if (!query.includes(' ') && !query.includes('\n')) {
-          setMentionMenu({
-            type: 'mention',
-            position: atPos,
-            query: query.toLowerCase(),
-          })
-          setMentionMenuIndex(0)
-          return
+        // Check if the @ is part of an email (has non-whitespace before it)
+        // If so, don't open the mention menu - it's an email, not a mention
+        const charBeforeAt = atPos > 0 ? value[atPos - 1] : ' '
+        const isEmailContext = charBeforeAt && !/\s/.test(charBeforeAt)
+        
+        if (!isEmailContext) {
+          // Get text between @ and cursor
+          const query = value.substring(atPos + 1, cursorPos)
+          // Only show if no space in query
+          if (!query.includes(' ') && !query.includes('\n')) {
+            setMentionMenu({
+              type: 'mention',
+              position: atPos,
+              query: query.toLowerCase(),
+            })
+            setMentionMenuIndex(0)
+            return
+          }
         }
       }
 
