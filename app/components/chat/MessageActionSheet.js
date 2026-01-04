@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { hapticLight } from '../../utils/haptics';
 import { ALL_EMOJIS } from '../../constants/emojis';
+import { copyMessageRich, hasAnyContent } from '../../utils/copyMessage';
 
 export default function MessageActionSheet({
   isOpen,
@@ -71,16 +72,15 @@ export default function MessageActionSheet({
     onClose();
   };
 
-  // Copy message text
+  // Copy message with all content (text, images, videos)
   const handleCopy = async () => {
-    const text = message?.text || message?.content;
-    if (text) {
-      try {
-        await navigator.clipboard.writeText(text.trim());
+    try {
+      const success = await copyMessageRich(message);
+      if (success) {
         hapticLight();
-      } catch (err) {
-        console.error('Failed to copy:', err);
       }
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
     onClose();
   };
@@ -190,8 +190,8 @@ export default function MessageActionSheet({
                 <span>Team Memory</span>
               </button>
             )}
-            {/* Copy - only if message has text */}
-            {(message?.text || message?.content) && (
+            {/* Copy - for any message with content (text, images, videos, audio) */}
+            {hasAnyContent(message) && (
               <button className="action-sheet-action-btn" onClick={handleCopy}>
                 <span className="action-icon">📋</span>
                 <span>Copy</span>

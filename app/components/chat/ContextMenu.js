@@ -3,6 +3,7 @@
 import { useRef, useState, useLayoutEffect, useEffect } from 'react';
 import { hapticLight, hapticSelection } from '../../utils/haptics';
 import { ALL_EMOJIS } from '../../constants/emojis';
+import { copyMessageRich, hasAnyContent } from '../../utils/copyMessage';
 
 export default function ContextMenu({
   contextMenu,
@@ -125,13 +126,10 @@ export default function ContextMenu({
   };
 
   const handleCopy = async () => {
-    const text = message?.text || message?.content;
-    if (text) {
-      try {
-        await navigator.clipboard.writeText(text.trim());
-      } catch (err) {
-        console.error('Failed to copy:', err);
-      }
+    try {
+      await copyMessageRich(message);
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
     setContextMenu(null);
   };
@@ -233,8 +231,8 @@ export default function ContextMenu({
               {isOwnMessage && (
                 <button onClick={handleAddToTeamMemory}>🧠 Team Memory</button>
               )}
-              {/* 3. Copy */}
-              {(message?.text || message?.content) && (
+              {/* 3. Copy - for any message with content (text, images, videos, audio) */}
+              {hasAnyContent(message) && (
                 <button onClick={handleCopy}>📋 Copy</button>
               )}
               {/* 4. Edit */}
