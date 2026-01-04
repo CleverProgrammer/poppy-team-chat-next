@@ -129,15 +129,15 @@ export function useMessageSending({
     const hasImages = imageFiles.length > 0;
     if ((!messageText.trim() && !hasImages) || sending) return;
 
-    // Check for @poppy mention - match @poppy anywhere in text and capture everything after
-    const poppyMention = messageText.match(/@poppy\s*(.*)/i);
-    const aiQuestion = poppyMention && poppyMention[1]?.trim() ? poppyMention[1].trim() : null;
+    // Check for @poppy mention anywhere in the message (not just at the start)
+    const hasPoppyMention = /@poppy/i.test(messageText);
     
     // AI Mode: treat all messages as AI questions (even without @poppy prefix)
     // forceAI overrides this for one-time AI sends (Cmd+Enter shortcuts)
     const effectiveAiMode = aiMode || forceAI;
-    const shouldTriggerAI = effectiveAiMode ? true : !!aiQuestion;
-    const actualAiQuestion = effectiveAiMode ? messageText.trim() : aiQuestion;
+    const shouldTriggerAI = effectiveAiMode || hasPoppyMention;
+    // Use the full message as the AI question (the AI gets the full context)
+    const actualAiQuestion = shouldTriggerAI ? messageText.trim() : null;
     
     // Private mode: mark message as private (only visible to sender)
     // forcePrivate overrides privateMode for one-time sends
