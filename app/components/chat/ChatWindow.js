@@ -888,6 +888,71 @@ export default function ChatWindow() {
     }
   }, [currentChat, user])
 
+  // Ask AI about a specific message
+  const handleAskAIAboutMessage = useCallback(async (message) => {
+    console.log('🤖 Ask AI triggered for message:', message)
+    
+    if (!message || !currentChat) {
+      console.log('🤖 Ask AI: No message or currentChat', { message, currentChat })
+      return
+    }
+    
+    // Get the message text
+    const messageText = message.text || message.content || ''
+    
+    // Get image URLs if present
+    const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : null)
+    const hasImages = imageUrls && imageUrls.length > 0
+    
+    // Must have either text or images
+    if (!messageText.trim() && !hasImages) {
+      console.log('🤖 Ask AI: No message text or images found')
+      return
+    }
+    
+    console.log('🤖 Ask AI: Sending to Poppy:', { messageText, hasImages, imageCount: imageUrls?.length })
+    
+    // Build the AI question based on content type
+    let question
+    if (messageText.trim() && hasImages) {
+      question = `Please analyze this message and its attached image(s): "${messageText}"`
+    } else if (hasImages) {
+      question = `Please analyze and describe this image. What do you see?`
+    } else {
+      question = `Please analyze and respond to this message: "${messageText}"`
+    }
+    
+    // Build targeted message context for AI
+    const targetedMessage = {
+      text: messageText,
+      sender: message.sender || message.senderName || 'Unknown',
+      senderId: message.senderId,
+      timestamp: message.timestamp,
+      // Include media context if available
+      imageUrls: imageUrls,
+      audioUrl: message.audioUrl || null,
+      muxPlaybackIds: message.muxPlaybackIds || null,
+    }
+    
+    // Call askPoppy with the message context and pass images for vision
+    await askPoppy(question, { targetedMessage, imageUrls: hasImages ? imageUrls : null })
+    console.log('🤖 Ask AI: Request sent to Poppy')
+  }, [currentChat, askPoppy])
+
+  // Undo AI Response (delete an AI-generated message)
+  const handleUndoAIResponse = useCallback(async (messageId) => {
+    // Use the same delete logic as handleDeleteMessage
+    const chatType = currentChat?.type
+    const chatId = chatType === 'dm' ? getDMId(user.uid, currentChat.id) : currentChat.id
+
+    try {
+      await deleteMessage(chatId, messageId, chatType)
+    } catch (error) {
+      console.error('Error undoing AI response:', error)
+      alert('Failed to undo AI response. Please try again.')
+    }
+  }, [currentChat, user])
+
   // Thread view handlers
   const openThreadView = useCallback(originalMessage => {
     setThreadView({ open: true, originalMessage })
@@ -1181,6 +1246,8 @@ export default function ChatWindow() {
           onDelete={handleDeleteMessage}
           onPromote={handlePromoteMessage}
           onAddToTeamMemory={handleAddToTeamMemory}
+          onAskAI={handleAskAIAboutMessage}
+          onUndoAIResponse={handleUndoAIResponse}
           onAddReaction={handleAddReaction}
           onImageClick={handleOpenLightbox}
           onScrollToMessage={scrollToMessage}
@@ -1195,11 +1262,13 @@ export default function ChatWindow() {
       currentChat,
       handleAddReaction,
       handleAddToTeamMemory,
+      handleAskAIAboutMessage,
       handleContextMenu,
       handleDeleteMessage,
       handleMakePublic,
       handleOpenLightbox,
       handlePromoteMessage,
+      handleUndoAIResponse,
       messageIndexById,
       messages,
       openThreadView,
@@ -1361,6 +1430,8 @@ export default function ChatWindow() {
         onDelete={handleDeleteMessage}
         onPromote={handlePromoteMessage}
         onAddToTeamMemory={handleAddToTeamMemory}
+        onAskAI={handleAskAIAboutMessage}
+        onUndoAIResponse={handleUndoAIResponse}
         onAddReaction={handleAddReaction}
         onImageClick={(images, startIndex) => setLightboxData({ open: true, images, startIndex })}
         onScrollToMessage={scrollToMessage}
@@ -1777,6 +1848,8 @@ export default function ChatWindow() {
         onPromote={handlePromoteMessage}
         onDemote={handleDemotePost}
         onAddToTeamMemory={handleAddToTeamMemory}
+        onAskAI={handleAskAIAboutMessage}
+        onUndoAIResponse={handleUndoAIResponse}
         topReactions={topReactions}
         onAddReaction={handleAddReaction}
         reactionsOnly={contextMenu?.reactionsOnly || false}

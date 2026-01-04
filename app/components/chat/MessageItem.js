@@ -128,6 +128,8 @@ function MessageItem({
   onDelete,
   onPromote,
   onAddToTeamMemory,
+  onAskAI,
+  onUndoAIResponse,
   onAddReaction,
   onImageClick,
   onScrollToMessage,
@@ -678,6 +680,8 @@ function MessageItem({
           onDelete={() => onDelete?.(msg.id)}
           onPromote={() => onPromote?.(msg.id)}
           onAddToTeamMemory={() => onAddToTeamMemory?.(msg)}
+          onAskAI={() => onAskAI?.(msg)}
+          onUndoAIResponse={() => onUndoAIResponse?.(msg.id)}
           onMakePublic={() => onMakePublic?.(msg.id)}
           reactionsOnly={actionSheetReactionsOnly}
         />
@@ -1283,6 +1287,8 @@ function MessageItem({
         onDelete={() => onDelete?.(msg.id)}
         onPromote={() => onPromote?.(msg.id)}
         onAddToTeamMemory={() => onAddToTeamMemory?.(msg)}
+        onAskAI={() => onAskAI?.(msg)}
+        onUndoAIResponse={() => onUndoAIResponse?.(msg.id)}
         onMakePublic={() => onMakePublic?.(msg.id)}
         reactionsOnly={actionSheetReactionsOnly}
       />

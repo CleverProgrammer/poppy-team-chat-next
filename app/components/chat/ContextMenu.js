@@ -16,6 +16,8 @@ export default function ContextMenu({
   onPromote,
   onDemote,
   onAddToTeamMemory,
+  onAskAI,
+  onUndoAIResponse,
   topReactions = [],
   onAddReaction,
   reactionsOnly = false  // When true, only show reactions (for double-tap)
@@ -125,6 +127,18 @@ export default function ContextMenu({
     setContextMenu(null);
   };
 
+  const handleAskAI = () => {
+    console.log('🤖 ContextMenu: Ask AI clicked, message:', message);
+    console.log('🤖 ContextMenu: onAskAI function:', onAskAI);
+    onAskAI?.(message);
+    setContextMenu(null);
+  };
+
+  const handleUndoAIResponse = () => {
+    onUndoAIResponse?.(message.id);
+    setContextMenu(null);
+  };
+
   const handleCopy = async () => {
     try {
       await copyMessageRich(message);
@@ -227,6 +241,10 @@ export default function ContextMenu({
               {!isPost && <button onClick={handleReply}>↩ Reply</button>}
               {/* 2. Video Reply */}
               {!isPost && onVideoReply && <button onClick={handleVideoReply}>🎬 Video Reply</button>}
+              {/* Ask AI - available for any message with text or images */}
+              {!isPost && (message.text || message.content || message.imageUrl || message.imageUrls?.length) && onAskAI && (
+                <button onClick={handleAskAI}>✨ Ask AI</button>
+              )}
               {/* 3. Add to Team Memory */}
               {isOwnMessage && (
                 <button onClick={handleAddToTeamMemory}>🧠 Team Memory</button>
@@ -242,6 +260,10 @@ export default function ContextMenu({
               {/* 4. Make it a post / Make it a message */}
               {!isPost && <button onClick={handlePromote}>📌 Make it a post</button>}
               {isPost && <button onClick={handleDemote}>💬 Make it a message</button>}
+              {/* Undo AI Response - only for AI messages */}
+              {message.senderId === 'ai' && onUndoAIResponse && (
+                <button onClick={handleUndoAIResponse}>↩️ Undo AI Response</button>
+              )}
               {/* 5. Undo Send (last) */}
               {isOwnMessage && !isPost && (
                 <button onClick={handleDelete}>💀 Undo Send</button>
