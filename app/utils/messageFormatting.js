@@ -1,11 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 // URL regex pattern used across the app
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+// Email regex pattern - matches common email formats
+export const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+
+// Phone regex pattern - matches various phone formats
+// Matches: (123) 456-7890, 123-456-7890, 123.456.7890, +1 123 456 7890, 1234567890, etc.
+export const phoneRegex = /(\+?1?\s*[-.]?\s*)?(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/g;
 
 // Mindmap block pattern - matches ```mindmap ... ``` or ```mindmap ... </mindmap> blocks
 // Supports both proper markdown closing (```) and XML-style closing (</mindmap>)
@@ -80,6 +87,69 @@ function MentionPill({ mentionText, allUsers, currentUser }) {
         </span>
       )}
       <span className="mention-pill-name">{firstName}</span>
+    </span>
+  );
+}
+
+// Email link component - clickable email with copy-to-clipboard
+function EmailLink({ email }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(email).then(() => {
+      setCopied(true);
+      // Reset after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy email:', err);
+    });
+  }, [email]);
+
+  return (
+    <span 
+      className={`email-link ${copied ? 'email-link-copied' : ''}`}
+      onClick={handleClick}
+      title={copied ? 'Copied!' : 'Click to copy'}
+    >
+      {email}
+      {copied && <span className="email-copied-badge">✓</span>}
+    </span>
+  );
+}
+
+// Phone link component - clickable phone with copy-to-clipboard
+function PhoneLink({ phone }) {
+  const [copied, setCopied] = useState(false);
+
+  // Clean phone number for copying (remove formatting, keep digits and +)
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+
+  const handleClick = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(cleanPhone).then(() => {
+      setCopied(true);
+      // Reset after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy phone:', err);
+    });
+  }, [cleanPhone]);
+
+  return (
+    <span 
+      className={`phone-link ${copied ? 'phone-link-copied' : ''}`}
+      onClick={handleClick}
+      title={copied ? 'Copied!' : 'Click to copy'}
+    >
+      📞 {phone}
+      {copied && <span className="phone-copied-badge">✓</span>}
     </span>
   );
 }
@@ -172,8 +242,90 @@ function InlineImage({ src, onImageClick }) {
   );
 }
 
-// Process mentions in a text segment
-function processMentions(text, allUsers, currentUser, keyPrefix = '') {
+// Process emails in a text segment - returns array with EmailLink components
+function processEmails(text, keyPrefix = '') {
+  if (!text || typeof text !== 'string') return [text];
+  
+  // First, strip out any mailto: prefixes from the text
+  text = text.replace(/mailto:/gi, '');
+  
+  const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+  const result = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = emailPattern.exec(text)) !== null) {
+    // Add text before this email
+    if (match.index > lastIndex) {
+      result.push(text.slice(lastIndex, match.index));
+    }
+    
+    // Add email component
+    result.push(
+      <EmailLink
+        key={`${keyPrefix}email-${result.length}`}
+        email={match[1]}
+      />
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    result.push(text.slice(lastIndex));
+  }
+  
+  return result.length > 0 ? result : [text];
+}
+
+// Process phone numbers in a text segment - returns array with PhoneLink components
+function processPhones(text, keyPrefix = '') {
+  if (!text || typeof text !== 'string') return [text];
+  
+  // First, strip out any tel: prefixes from the text
+  text = text.replace(/tel:/gi, '');
+  
+  // Match phone patterns: (123) 456-7890, 123-456-7890, +1 123 456 7890, etc.
+  const phonePattern = /(\+?1?\s*[-.]?\s*)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+  const result = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = phonePattern.exec(text)) !== null) {
+    const phoneNumber = match[0].trim();
+    
+    // Skip if it looks like it could be part of a longer number (like a credit card)
+    // Phone numbers should be 10-15 digits max
+    const digitCount = phoneNumber.replace(/\D/g, '').length;
+    if (digitCount < 10 || digitCount > 15) continue;
+    
+    // Add text before this phone
+    if (match.index > lastIndex) {
+      result.push(text.slice(lastIndex, match.index));
+    }
+    
+    // Add phone component
+    result.push(
+      <PhoneLink
+        key={`${keyPrefix}phone-${result.length}`}
+        phone={phoneNumber}
+      />
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    result.push(text.slice(lastIndex));
+  }
+  
+  return result.length > 0 ? result : [text];
+}
+
+// Process mentions in a text segment (handles text that may already have email components)
+function processMentionsOnly(text, allUsers, currentUser, keyPrefix = '') {
   if (!text || typeof text !== 'string') return text;
   
   // Match @FirstName or @FirstName LastName (captures full name to hide last name)
@@ -185,6 +337,16 @@ function processMentions(text, allUsers, currentUser, keyPrefix = '') {
   let match;
   
   while ((match = mentionRegex.exec(text)) !== null) {
+    // Check if there's a non-whitespace character immediately before the @
+    // If so, this is likely an email address (e.g., someone@email.com) - skip it
+    if (match.index > 0) {
+      const charBefore = text.charAt(match.index - 1);
+      if (charBefore && !/\s/.test(charBefore)) {
+        // This is an email, not a mention - skip it entirely
+        continue;
+      }
+    }
+    
     // Add text before this mention
     if (match.index > lastIndex) {
       result.push(text.slice(lastIndex, match.index));
@@ -234,6 +396,32 @@ function processMentions(text, allUsers, currentUser, keyPrefix = '') {
   return result.length > 0 ? result : text;
 }
 
+// Process both emails, phones, and mentions in text
+function processMentions(text, allUsers, currentUser, keyPrefix = '') {
+  if (!text || typeof text !== 'string') return text;
+  
+  // First, process emails
+  const withEmails = processEmails(text, keyPrefix);
+  
+  // Then, process phone numbers on string parts
+  const withPhones = withEmails.flatMap((part, idx) => {
+    if (typeof part === 'string') {
+      return processPhones(part, `${keyPrefix}${idx}-`);
+    }
+    return part;
+  });
+  
+  // Finally, process mentions on remaining string parts
+  const result = withPhones.flatMap((part, idx) => {
+    if (typeof part === 'string') {
+      return processMentionsOnly(part, allUsers, currentUser, `${keyPrefix}p${idx}-`);
+    }
+    return part;
+  });
+  
+  return result;
+}
+
 export function linkifyAIText(text, onImageClick = null, allUsers = [], currentUser = null) {
   if (!text) return null;
 
@@ -246,6 +434,16 @@ export function linkifyAIText(text, onImageClick = null, allUsers = [], currentU
         components={{
           // Links
           a: ({ href, children }) => {
+            // Handle mailto: links - convert to our EmailLink component
+            if (href && href.startsWith('mailto:')) {
+              const email = href.replace('mailto:', '');
+              return <EmailLink email={email} />;
+            }
+            // Handle tel: links - convert to our PhoneLink component
+            if (href && href.startsWith('tel:')) {
+              const phone = href.replace('tel:', '');
+              return <PhoneLink phone={phone} />;
+            }
             if (href && isFirebaseImageUrl(href)) {
               return <InlineImage src={href} onImageClick={onImageClick} />;
             }

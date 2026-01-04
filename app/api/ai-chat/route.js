@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import mcpManager from '../../lib/mcp-client.js'
 import { queryRevenueSQL, isSupabaseConfigured } from '../../lib/supabase-query.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
+import { lookupPerson } from '../../lib/rocketreach-client.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 import { trackClaudeUsage, calculateClaudeCost } from '../../lib/ai-usage-tracker.js'
@@ -315,6 +316,17 @@ The user's own words are your BEST search terms. Don't overthink it!
      2. search_chat_history (Ragie)
      3. Other Clavis tools
    - Great for real-time info that changes (social stats, current events, etc.)
+   
+   === ROCKETREACH (Contact Lookup) ===
+   - Use for: finding someone's EMAIL, phone number, LinkedIn URL
+   - WORKFLOW: Tavily finds who works at a company → RocketReach gets their contact info
+   - EXAMPLE FLOW:
+     1. User: "I want to reach out to someone at Raycast"
+     2. You use Tavily to search: "who is CEO of Raycast" → finds "Petr Nikolaev"
+     3. You use lookup_person_contact with name="Petr Nikolaev", currentEmployer="Raycast"
+     4. RocketReach returns their email, phone, LinkedIn
+   - REQUIRES: Both the person's NAME and their CURRENT COMPANY
+   - Great for: outreach, partnership requests, finding decision-makers
    
    === NOTION ===
    - Use for: documents, notes, wikis, knowledge base
@@ -705,6 +717,43 @@ RESPONSE STYLE:
     },
   })
 
+  // Add RocketReach person lookup tool - find emails and contact info
+  tools.push({
+    name: 'lookup_person_contact',
+    description: `Look up a person's professional contact information (email, phone, LinkedIn, etc.) using RocketReach.
+
+USE THIS TOOL when:
+- User asks for someone's email address
+- User wants to contact someone at a specific company
+- User asks "how do I reach [name] at [company]?"
+- User says "find [name]'s email" or "get contact info for [name]"
+- After using Tavily to find someone's name + company, use THIS tool to get their actual email
+
+WORKFLOW: Tavily finds the person → RocketReach gets their email/contact info
+
+EXAMPLE:
+1. User: "I want to reach out to someone at Raycast about partnerships"
+2. You use Tavily to find: "Petr Nikolaev is CEO of Raycast"
+3. You use lookup_person_contact with name="Petr Nikolaev", currentEmployer="Raycast"
+4. You get their email and share it with the user
+
+IMPORTANT: You need BOTH name AND company for best results.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: "The person's full name (e.g., 'Petr Nikolaev', 'Elon Musk')",
+        },
+        currentEmployer: {
+          type: 'string',
+          description: "The company they currently work at (e.g., 'Raycast', 'Tesla', 'OpenAI')",
+        },
+      },
+      required: ['name', 'currentEmployer'],
+    },
+  })
+
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -829,6 +878,8 @@ RESPONSE STYLE:
         toolCategory = '🧠 MEMORY'
       } else if (toolUse.name === 'query_supabase_revenue') {
         toolCategory = '💰 SUPABASE'
+      } else if (toolUse.name === 'lookup_person_contact') {
+        toolCategory = '🚀 ROCKETREACH'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -1039,6 +1090,31 @@ RESPONSE STYLE:
                 success: false,
                 error: error.message,
                 hint: 'Check SUPABASE_PROJECT_REF and SUPABASE_SERVICE_ROLE_KEY environment variables.',
+              },
+            }
+          }
+        } else if (toolUse.name === 'lookup_person_contact') {
+          // Handle RocketReach person lookup
+          console.log(
+            `🚀 ROCKETREACH: Looking up ${toolUse.input.name} at ${toolUse.input.currentEmployer}`
+          )
+
+          try {
+            const result = await lookupPerson(toolUse.input.name, toolUse.input.currentEmployer)
+            toolResponse = { content: result }
+
+            if (result.found) {
+              console.log(`🚀 ROCKETREACH: ✅ Found! Email: ${result.email || 'N/A'}`)
+            } else {
+              console.log(`🚀 ROCKETREACH: ❌ No profile found`)
+            }
+          } catch (error) {
+            console.error(`🚀 ROCKETREACH: Error:`, error)
+            toolResponse = {
+              content: {
+                success: false,
+                error: error.message,
+                hint: 'Check ROCKETREACH_API_KEY environment variable.',
               },
             }
           }
