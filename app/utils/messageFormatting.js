@@ -246,6 +246,9 @@ function InlineImage({ src, onImageClick }) {
 function processEmails(text, keyPrefix = '') {
   if (!text || typeof text !== 'string') return [text];
   
+  // First, strip out any mailto: prefixes from the text
+  text = text.replace(/mailto:/gi, '');
+  
   const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
   const result = [];
   let lastIndex = 0;
@@ -279,6 +282,9 @@ function processEmails(text, keyPrefix = '') {
 // Process phone numbers in a text segment - returns array with PhoneLink components
 function processPhones(text, keyPrefix = '') {
   if (!text || typeof text !== 'string') return [text];
+  
+  // First, strip out any tel: prefixes from the text
+  text = text.replace(/tel:/gi, '');
   
   // Match phone patterns: (123) 456-7890, 123-456-7890, +1 123 456 7890, etc.
   const phonePattern = /(\+?1?\s*[-.]?\s*)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
@@ -428,6 +434,16 @@ export function linkifyAIText(text, onImageClick = null, allUsers = [], currentU
         components={{
           // Links
           a: ({ href, children }) => {
+            // Handle mailto: links - convert to our EmailLink component
+            if (href && href.startsWith('mailto:')) {
+              const email = href.replace('mailto:', '');
+              return <EmailLink email={email} />;
+            }
+            // Handle tel: links - convert to our PhoneLink component
+            if (href && href.startsWith('tel:')) {
+              const phone = href.replace('tel:', '');
+              return <PhoneLink phone={phone} />;
+            }
             if (href && isFirebaseImageUrl(href)) {
               return <InlineImage src={href} onImageClick={onImageClick} />;
             }
