@@ -23,6 +23,8 @@ export default function MessageActionSheet({
   onPromote,
   onDemote,
   onAddToTeamMemory,
+  onAskAI,
+  onUndoAIResponse,
   onMakePublic,
   currentUserId = null, // For checking private message ownership
 }) {
@@ -184,6 +186,13 @@ export default function MessageActionSheet({
                 <span>Video Reply</span>
               </button>
             )}
+            {/* Ask AI - available for any message with text or images */}
+            {!isPost && (message?.text || message?.content || message?.imageUrl || message?.imageUrls?.length) && onAskAI && (
+              <button className="action-sheet-action-btn" onClick={() => handleAction(onAskAI)}>
+                <span className="action-icon">✨</span>
+                <span>Ask AI</span>
+              </button>
+            )}
             {isOwnMessage && (
               <button className="action-sheet-action-btn" onClick={() => handleAction(onAddToTeamMemory)}>
                 <span className="action-icon">🧠</span>
@@ -220,6 +229,13 @@ export default function MessageActionSheet({
               <button className="action-sheet-action-btn" onClick={() => handleAction(onDemote)}>
                 <span className="action-icon">💬</span>
                 <span>Make it a message</span>
+              </button>
+            )}
+            {/* Undo AI Response - only for AI messages */}
+            {message?.senderId === 'ai' && onUndoAIResponse && (
+              <button className="action-sheet-action-btn" onClick={() => handleAction(onUndoAIResponse)}>
+                <span className="action-icon">↩️</span>
+                <span>Undo AI Response</span>
               </button>
             )}
             {isOwnMessage && !isPost && (

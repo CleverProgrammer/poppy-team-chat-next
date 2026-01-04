@@ -25,6 +25,8 @@ export default function ThreadView({
   onDelete,
   onPromote,
   onAddToTeamMemory,
+  onAskAI,
+  onUndoAIResponse,
   onAddReaction,
   onImageClick,
   onScrollToMessage,
@@ -234,6 +236,8 @@ export default function ThreadView({
               onDelete={onDelete}
               onPromote={onPromote}
               onAddToTeamMemory={onAddToTeamMemory}
+              onAskAI={onAskAI}
+              onUndoAIResponse={onUndoAIResponse}
               onAddReaction={onAddReaction}
               onImageClick={onImageClick}
               onScrollToMessage={onScrollToMessage}
