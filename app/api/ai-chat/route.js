@@ -328,6 +328,17 @@ The user's own words are your BEST search terms. Don't overthink it!
    - REQUIRES: Both the person's NAME and their CURRENT COMPANY
    - Great for: outreach, partnership requests, finding decision-makers
    
+   === GMAIL (Send Emails) ===
+   - Use for: sending emails on behalf of the user
+   - Available via Klavis/Clavis tools
+   - Use when user says: "send an email", "email [person]", "draft an email", "reach out to [email]"
+   - WORKFLOW for cold outreach:
+     1. Use Tavily to find who to contact at a company
+     2. Use RocketReach to get their email
+     3. Use Gmail tool to send the email
+   - Can compose and send emails with subject, body, recipients
+   - Ask for confirmation before sending if the user hasn't explicitly approved the content
+   
    === NOTION ===
    - Use for: documents, notes, wikis, knowledge base
    - FOR NOTION: Always filter/sort by last_edited_time for time-bound queries!
