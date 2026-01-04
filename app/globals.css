@@ -984,6 +984,147 @@ html {
   color: #cbd5e1;
 }
 
+/* Email links - clickable, copyable email addresses */
+.email-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  margin: 0 2px;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  color: #60a5fa;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.email-link:hover {
+  background: rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.email-link:active {
+  transform: scale(0.98);
+}
+
+.email-link-copied {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #4ade80 !important;
+}
+
+.email-copied-badge {
+  font-size: 0.75em;
+  margin-left: 2px;
+  animation: email-copied-pop 0.2s ease-out;
+}
+
+@keyframes email-copied-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Email links in sent messages (your own) */
+.message-wrapper.sent .email-link {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message-wrapper.sent .email-link:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.message-wrapper.sent .email-link-copied {
+  background: rgba(34, 197, 94, 0.3) !important;
+  color: #86efac !important;
+}
+
+/* Phone links - clickable, copyable phone numbers */
+.phone-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  margin: 0 2px;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: 6px;
+  color: #4ade80;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.phone-link:hover {
+  background: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.phone-link:active {
+  transform: scale(0.98);
+}
+
+.phone-link-copied {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+.phone-copied-badge {
+  font-size: 0.75em;
+  margin-left: 2px;
+  animation: phone-copied-pop 0.2s ease-out;
+}
+
+@keyframes phone-copied-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Phone links in sent messages (your own) */
+.message-wrapper.sent .phone-link {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.message-wrapper.sent .phone-link:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.message-wrapper.sent .phone-link-copied {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: #93c5fd !important;
+}
+
 /* Inline images rendered from Firebase URLs in AI responses */
 .inline-image-container {
   display: block;
