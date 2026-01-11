@@ -12,6 +12,11 @@ export default function ChatInput({
   imagePreview,
   imagePreviews = [],
   imageFiles = [],
+  // Audio file props (same pattern as images - for AI questions)
+  audioPreviews = [],
+  audioFiles = [],
+  handleRemoveAudioAtIndex,
+  formatAudioDuration,
   mentionMenu,
   mentionMenuIndex,
   handleTextareaChange,
@@ -740,6 +745,44 @@ export default function ChatInput({
                 </div>
               )
             })}
+          </div>
+        )}
+        {/* Audio file previews (dropped audio files for AI questions) */}
+        {audioPreviews.length > 0 && (
+          <div className={`audio-preview-container ${audioPreviews.length > 1 ? 'multi-audio' : ''}`}>
+            {audioPreviews.map((audioPreview, index) => (
+              <div key={index} className='audio-preview-wrapper'>
+                <div className='audio-preview-info'>
+                  <span className='audio-preview-icon'>🎵</span>
+                  <span className='audio-preview-name' title={audioPreview.name}>
+                    {audioPreview.name?.length > 20 
+                      ? audioPreview.name.substring(0, 17) + '...' 
+                      : audioPreview.name || 'Audio'}
+                  </span>
+                  <span className='audio-preview-duration'>
+                    {formatAudioDuration ? formatAudioDuration(audioPreview.duration) : '0:00'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleRemoveAudioAtIndex && handleRemoveAudioAtIndex(index)}
+                  className='remove-audio-btn-mini'
+                  aria-label='Remove audio'
+                  type='button'
+                >
+                  <svg
+                    width='8'
+                    height='8'
+                    viewBox='0 0 12 12'
+                    fill='none'
+                    stroke='white'
+                    strokeWidth='2.5'
+                    strokeLinecap='round'
+                  >
+                    <path d='M2 2L10 10M10 2L2 10' />
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
         )}
         <div className='input-row'>

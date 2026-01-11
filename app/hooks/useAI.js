@@ -28,8 +28,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
   // Call AI API with streaming support
   // imageUrls: optional array of image URLs to send directly to AI (for vision)
   // targetedMessage: message being replied to (AI should focus on this message)
+  // audioTranscripts: optional array of audio transcriptions to include in context
   const callAI = useCallback(
-    async (question, chatHistory, onStatus = null, imageUrls = null, targetedMessage = null) => {
+    async (question, chatHistory, onStatus = null, imageUrls = null, targetedMessage = null, audioTranscripts = null) => {
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,6 +39,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           chatHistory,
           stream: !!onStatus, // Enable streaming if onStatus callback is provided
           imageUrls: imageUrls, // Direct image URLs for AI vision
+          audioTranscripts: audioTranscripts, // Audio transcriptions for AI context
           targetedMessage: targetedMessage, // Message being replied to (AI focus)
           user: user
             ? {
@@ -105,10 +107,11 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
   // Ask Poppy in channel/DM (posts response as message)
   // options.imageUrls: optional array of image URLs to send for AI vision
+  // options.audioTranscripts: optional array of audio transcriptions for AI context
   // options.targetedMessage: message being replied to (for AI to focus on)
   const askPoppy = useCallback(
     async (userQuestion, options = {}) => {
-      const { isPrivate = false, privateFor = null, imageUrls = null, targetedMessage = null } = options
+      const { isPrivate = false, privateFor = null, imageUrls = null, audioTranscripts = null, targetedMessage = null } = options
       
       // Generate unique request ID for tracing concurrent requests
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -143,8 +146,8 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           setAiTypingStatus(status)
         }
 
-        // Pass imageUrls and targetedMessage to AI for context
-        const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls, targetedMessage)
+        // Pass imageUrls, audioTranscripts, and targetedMessage to AI for context
+        const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls, targetedMessage, audioTranscripts)
         const aiResponse = aiResult.response
         const costBreakdown = aiResult.costBreakdown
 
@@ -154,6 +157,9 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         }
         if (imageUrls?.length) {
           console.log(`🖼️ [${requestId}] Sent ${imageUrls.length} image(s) to AI for vision`)
+        }
+        if (audioTranscripts?.length) {
+          console.log(`🎵 [${requestId}] Sent ${audioTranscripts.length} audio transcription(s) to AI`)
         }
 
         // Remove typing indicator

@@ -39,6 +39,11 @@ export function useMessageSending({
   imageFiles = [],
   imagePreviews = [],
   clearImage,
+  // Audio files (same pattern as images - for AI questions)
+  audioFiles = [],
+  audioPreviews = [],
+  clearAudio,
+  clearAllMedia,
   replyingTo,
   setReplyingTo,
   editingMessage,
@@ -125,9 +130,10 @@ export function useMessageSending({
       return handleEdit();
     }
 
-    // Allow sending if there's text OR images
+    // Allow sending if there's text OR images OR audio files
     const hasImages = imageFiles.length > 0;
-    if ((!messageText.trim() && !hasImages) || sending) return;
+    const hasAudio = audioFiles.length > 0;
+    if ((!messageText.trim() && !hasImages && !hasAudio) || sending) return;
 
     // Check for @poppy mention anywhere in the message (not just at the start)
     const hasPoppyMention = /@poppy/i.test(messageText);
@@ -175,9 +181,17 @@ export function useMessageSending({
 
     // Clear input and state immediately for instant feel
     const currentImageFiles = [...imageFiles];
+    const currentAudioFiles = [...audioFiles];
+    const currentAudioPreviews = [...audioPreviews];
     const currentReplyingTo = replyingTo;
 
-    clearImage();
+    // Clear all media (images + audio)
+    if (clearAllMedia) {
+      clearAllMedia();
+    } else {
+      clearImage();
+      if (clearAudio) clearAudio();
+    }
     setReplyingTo(null);
 
     if (inputRef.current) {
@@ -279,7 +293,29 @@ export function useMessageSending({
         setUploading(false);
       }
 
-      const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0;
+      // Upload audio files if present (for AI questions about audio)
+      let audioUrls = [];
+      let audioDurations = [];
+      if (currentAudioFiles.length > 0) {
+        setUploading(true);
+        console.log(`🎵 Uploading ${currentAudioFiles.length} audio file(s)...`);
+        
+        const audioResults = await Promise.all(
+          currentAudioFiles.map(async (file, index) => {
+            const url = await uploadAudio(file, user.uid);
+            const duration = currentAudioPreviews[index]?.duration || 0;
+            console.log(`🎵 Uploaded: ${file.name} (${duration.toFixed(1)}s)`);
+            return { url, duration };
+          })
+        );
+        
+        audioUrls = audioResults.map(r => r.url);
+        audioDurations = audioResults.map(r => r.duration);
+        setUploading(false);
+      }
+
+      // hasMedia now includes audio (all media in one message, like images)
+      const hasMedia = imageUrls.length > 0 || muxPlaybackIds.length > 0 || audioUrls.length > 0;
       const privateOptions = { isPrivate, privateFor: user.uid };
 
       if (currentChat.type === 'ai') {
@@ -301,7 +337,9 @@ export function useMessageSending({
             mediaDimensions,
             null,
             privateOptions,
-            messages
+            messages,
+            audioUrls,
+            audioDurations
           );
         } else if (currentReplyingTo) {
           messageIdForPreview = await sendMessageWithReply(
@@ -357,7 +395,9 @@ export function useMessageSending({
             mediaDimensions,
             null,
             privateOptions,
-            messages
+            messages,
+            audioUrls,
+            audioDurations
           );
         } else if (currentReplyingTo) {
           messageIdForPreview = await sendMessageDMWithReply(
@@ -407,7 +447,9 @@ export function useMessageSending({
             mediaDimensions,
             null,
             privateOptions,
-            messages
+            messages,
+            audioUrls,
+            audioDurations
           );
         } else if (currentReplyingTo) {
           messageIdForPreview = await sendGroupMessageWithReply(
@@ -462,12 +504,43 @@ export function useMessageSending({
 
       // Trigger AI response if @poppy was mentioned or AI mode is active
       // Pass uploaded image URLs to AI for vision analysis
+      // For audio: transcribe first so AI has the transcriptions immediately
       // If replying to a message, pass it as targetedMessage so AI knows what we're referring to
       if (shouldTriggerAI && actualAiQuestion) {
+        // If there are audio files, transcribe them before asking AI
+        let audioTranscripts = null;
+        if (audioUrls.length > 0) {
+          console.log('🎵 Transcribing audio files for AI...');
+          try {
+            const transcriptions = await Promise.all(
+              audioUrls.map(async (url) => {
+                try {
+                  const response = await fetch('/api/media/transcribe-audio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audioUrl: url }),
+                  });
+                  const data = await response.json();
+                  // API returns { transcription: { text, formatted, tldr } }
+                  return data.transcription?.text || '';
+                } catch (err) {
+                  console.error('Failed to transcribe audio for AI:', err);
+                  return '';
+                }
+              })
+            );
+            audioTranscripts = transcriptions.filter(t => t);
+            console.log(`🎵 Got ${audioTranscripts.length} transcription(s) for AI`);
+          } catch (err) {
+            console.error('Audio transcription for AI failed:', err);
+          }
+        }
+
         askPoppy(actualAiQuestion, { 
           isPrivate, 
           privateFor: user.uid,
           imageUrls: imageUrls.length > 0 ? imageUrls : null,
+          audioTranscripts: audioTranscripts?.length > 0 ? audioTranscripts : null, // Pass transcriptions to AI
           targetedMessage: currentReplyingTo || null, // Pass the message being replied to
         });
       }
@@ -490,6 +563,10 @@ export function useMessageSending({
     imageFiles,
     imagePreviews,
     clearImage,
+    audioFiles,
+    audioPreviews,
+    clearAudio,
+    clearAllMedia,
     replyingTo,
     setReplyingTo,
     editingMessage,

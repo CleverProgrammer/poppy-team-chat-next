@@ -6,6 +6,7 @@ import MessageActionSheet from './MessageActionSheet'
 import StoriesViewer from './StoriesViewer'
 import VideoThumbnail from './VideoThumbnail'
 import VoiceMessage from './VoiceMessage'
+import MiniVoiceMessage from './MiniVoiceMessage'
 import SkeletonView from './SkeletonView'
 import {
   linkifyText,
@@ -1073,14 +1074,28 @@ function MessageItem({
             </div>
           )}
           
-          {/* Voice message */}
-          {msg.audioUrl && (
+          {/* Voice message (single audio - legacy) */}
+          {msg.audioUrl && !msg.audioUrls && (
             <VoiceMessage
               audioUrl={msg.audioUrl}
               audioDuration={msg.audioDuration}
               isSent={isOwnMessage}
               transcription={msg.transcription}
             />
+          )}
+          
+          {/* Audio attachments (multiple audio files - mini voice messages with waveforms) */}
+          {msg.audioUrls && msg.audioUrls.length > 0 && (
+            <div className={`mini-audio-grid ${msg.audioUrls.length > 1 ? 'multi-audio' : ''}`}>
+              {msg.audioUrls.map((url, index) => (
+                <MiniVoiceMessage
+                  key={index}
+                  audioUrl={url}
+                  audioDuration={msg.audioDurations?.[index] || 0}
+                  isSent={isOwnMessage}
+                />
+              ))}
+            </div>
           )}
           {/* Loom video embed */}
           {msg.text && isLoomUrl(msg.text) && (
