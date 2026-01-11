@@ -9,13 +9,14 @@ import DMStoryRing from '../chat/DMStoryRing'
 import MyStoriesRing from '../chat/MyStoriesRing'
 import MyTasksModal from '../profile/MyTasksModal'
 import AnnouncementsModal from '../announcements/AnnouncementsModal'
-import PinnedGrid from './PinnedGrid'
-import { 
-  subscribeToPinnedItems, 
-  pinItem, 
-  unpinItem, 
-  isItemPinned 
-} from '../../lib/firestore'
+// PINNING DISABLED - Commented out for now
+// import PinnedGrid from './PinnedGrid'
+// import { 
+//   subscribeToPinnedItems, 
+//   pinItem, 
+//   unpinItem, 
+//   isItemPinned 
+// } from '../../lib/firestore'
 
 export default function Sidebar({
   currentChat,
@@ -46,80 +47,82 @@ export default function Sidebar({
   const [sidebarWidth, setSidebarWidth] = useState(320)
   const [isResizing, setIsResizing] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [pinnedItems, setPinnedItems] = useState([])
-  const [sidebarContextMenu, setSidebarContextMenu] = useState(null)
+  // PINNING DISABLED
+  // const [pinnedItems, setPinnedItems] = useState([])
+  // const [sidebarContextMenu, setSidebarContextMenu] = useState(null)
   const menuRef = useRef(null)
   const sidebarRef = useRef(null)
-  const sidebarContextMenuRef = useRef(null)
+  // const sidebarContextMenuRef = useRef(null)
   
   const COLLAPSED_WIDTH = 72
   const MIN_EXPANDED_WIDTH = 260
   const COLLAPSE_THRESHOLD = 150
 
-  // Subscribe to pinned items
-  useEffect(() => {
-    if (!user?.uid) {
-      setPinnedItems([])
-      return
-    }
+  // PINNING DISABLED - All pinning functionality commented out
+  // // Subscribe to pinned items
+  // useEffect(() => {
+  //   if (!user?.uid) {
+  //     setPinnedItems([])
+  //     return
+  //   }
 
-    let hasInitialized = false
+  //   let hasInitialized = false
 
-    const unsubscribe = subscribeToPinnedItems(user.uid, (items) => {
-      // If no pinned items and we haven't initialized yet, add default 'general' channel in the center
-      if (items.length === 0 && !hasInitialized) {
-        hasInitialized = true
-        const defaultPin = {
-          type: 'channel',
-          id: 'general',
-          name: 'general',
-          position: 4, // Center of 3x3 grid
-        }
-        pinItem(user.uid, defaultPin).catch(err => {
-          console.error('Failed to create default pin:', err)
-        })
-      } else {
-        // Always update state, even if hasInitialized is true
-        setPinnedItems(items)
-      }
-    })
+  //   const unsubscribe = subscribeToPinnedItems(user.uid, (items) => {
+  //     // If no pinned items and we haven't initialized yet, add default 'general' channel in the center
+  //     if (items.length === 0 && !hasInitialized) {
+  //       hasInitialized = true
+  //       const defaultPin = {
+  //         type: 'channel',
+  //         id: 'general',
+  //         name: 'general',
+  //         position: 4, // Center of 3x3 grid
+  //       }
+  //       pinItem(user.uid, defaultPin).catch(err => {
+  //         console.error('Failed to create default pin:', err)
+  //       })
+  //     } else {
+  //       // Always update state, even if hasInitialized is true
+  //       setPinnedItems(items)
+  //     }
+  //   })
 
-    return () => unsubscribe()
-  }, [user?.uid])
+  //   return () => unsubscribe()
+  // }, [user?.uid])
 
-  // Handle unpinning an item
-  const handleUnpin = useCallback(async (itemType, itemId) => {
-    if (!user?.uid) return
-    await unpinItem(user.uid, itemType, itemId)
-  }, [user?.uid])
+  // // Handle unpinning an item
+  // const handleUnpin = useCallback(async (itemType, itemId) => {
+  //   if (!user?.uid) return
+  //   await unpinItem(user.uid, itemType, itemId)
+  // }, [user?.uid])
 
-  // Handle pinning from context menu
-  const handlePin = useCallback(async (item) => {
-    if (!user?.uid) return
-    await pinItem(user.uid, item)
-    setSidebarContextMenu(null)
-  }, [user?.uid])
+  // // Handle pinning from context menu
+  // const handlePin = useCallback(async (item) => {
+  //   if (!user?.uid) return
+  //   await pinItem(user.uid, item)
+  //   setSidebarContextMenu(null)
+  // }, [user?.uid])
 
-  // Close sidebar context menu on click outside
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (sidebarContextMenuRef.current && !sidebarContextMenuRef.current.contains(e.target)) {
-        setSidebarContextMenu(null)
-      }
-    }
-    document.addEventListener('click', handleClick)
-    return () => document.removeEventListener('click', handleClick)
-  }, [])
+  // // Close sidebar context menu on click outside
+  // useEffect(() => {
+  //   const handleClick = (e) => {
+  //     if (sidebarContextMenuRef.current && !sidebarContextMenuRef.current.contains(e.target)) {
+  //       setSidebarContextMenu(null)
+  //     }
+  //   }
+  //   document.addEventListener('click', handleClick)
+  //   return () => document.removeEventListener('click', handleClick)
+  // }, [])
 
-  // Handle right-click on sidebar items
-  const handleSidebarContextMenu = useCallback((e, item) => {
-    e.preventDefault()
-    setSidebarContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      item,
-    })
-  }, [])
+  // // Handle right-click on sidebar items
+  // const handleSidebarContextMenu = useCallback((e, item) => {
+  //   e.preventDefault()
+  //   setSidebarContextMenu({
+  //     x: e.clientX,
+  //     y: e.clientY,
+  //     item,
+  //   })
+  // }, [])
 
   // Handle sidebar resize
   useEffect(() => {
@@ -586,8 +589,8 @@ export default function Sidebar({
         <span>Search</span>
       </div>
 
-      {/* Pinned Items Grid */}
-      <PinnedGrid
+      {/* PINNING DISABLED - PinnedGrid commented out */}
+      {/* <PinnedGrid
         pinnedItems={pinnedItems}
         currentChat={currentChat}
         onSelectChat={onSelectChat}
@@ -596,16 +599,16 @@ export default function Sidebar({
         groups={groups}
         user={user}
         unreadChats={unreadChats}
-      />
+      /> */}
 
       {/* All Conversations - iMessage Style */}
       <div className='sidebar-section dm-section'>
-        {/* Channels - filter out pinned ones */}
+        {/* Channels */}
         {[
           { id: 'general', name: 'general' },
           { id: 'dev-gang', name: 'Dev Gang 💯' },
           { id: 'test', name: 'test' }
-        ].filter(channel => !pinnedItems.some(p => p.type === 'channel' && p.id === channel.id)).map(channel => {
+        ].map(channel => {
           const channelId = channel.id
           const isActive = currentChat?.type === 'channel' && currentChat?.id === channelId
           const isUnread = unreadChats.includes(`channel:${channelId}`)
@@ -622,11 +625,12 @@ export default function Sidebar({
               key={`channel-${channelId}`}
               className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
               onClick={() => handleChannelClick(channelId, channel.name)}
-              onContextMenu={(e) => handleSidebarContextMenu(e, {
-                type: 'channel',
-                id: channelId,
-                name: channel.name,
-              })}
+              // PINNING DISABLED - context menu removed
+              // onContextMenu={(e) => handleSidebarContextMenu(e, {
+              //   type: 'channel',
+              //   id: channelId,
+              //   name: channel.name,
+              // })}
             >
               <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
               
@@ -700,8 +704,8 @@ export default function Sidebar({
           </div>
         )}
         
-        {/* Combined Groups & DMs - sorted by recency, filter out pinned ones */}
-        {combinedConversations.filter(conv => !pinnedItems.some(p => p.type === conv.type && p.id === conv.id)).map(conv => {
+        {/* Combined Groups & DMs - sorted by recency */}
+        {combinedConversations.map(conv => {
           if (conv.type === 'dm') {
             const dmUser = conv.user
             const isActive = currentChat?.type === 'dm' && currentChat?.id === conv.id
@@ -721,12 +725,13 @@ export default function Sidebar({
                 key={`dm-${conv.id}`}
                 className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
                 onClick={() => handleDMClick(dmUser)}
-                onContextMenu={(e) => handleSidebarContextMenu(e, {
-                  type: 'dm',
-                  id: conv.id,
-                  name: dmUser.displayName || dmUser.email,
-                  photoURL: dmUser.photoURL,
-                })}
+                // PINNING DISABLED - context menu removed
+                // onContextMenu={(e) => handleSidebarContextMenu(e, {
+                //   type: 'dm',
+                //   id: conv.id,
+                //   name: dmUser.displayName || dmUser.email,
+                //   photoURL: dmUser.photoURL,
+                // })}
               >
                 <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
                 
@@ -768,12 +773,13 @@ export default function Sidebar({
                 key={`group-${group.id}`}
                 className={`dm-item-imessage ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
                 onClick={() => handleGroupClick(group)}
-                onContextMenu={(e) => handleSidebarContextMenu(e, {
-                  type: 'group',
-                  id: group.id,
-                  name: group.displayName || group.name || 'Group Chat',
-                  photoURL: group.photoURL,
-                })}
+                // PINNING DISABLED - context menu removed
+                // onContextMenu={(e) => handleSidebarContextMenu(e, {
+                //   type: 'group',
+                //   id: group.id,
+                //   name: group.displayName || group.name || 'Group Chat',
+                //   photoURL: group.photoURL,
+                // })}
               >
                 <div className={`dm-unread-dot ${isUnread ? 'visible' : ''}`} />
                 
@@ -917,8 +923,8 @@ export default function Sidebar({
         user={user}
       />
 
-      {/* Sidebar Context Menu for Pin/Unpin */}
-      {sidebarContextMenu && (
+      {/* PINNING DISABLED - Sidebar Context Menu for Pin/Unpin */}
+      {/* {sidebarContextMenu && (
         <div 
           ref={sidebarContextMenuRef}
           className="sidebar-context-menu"
@@ -948,7 +954,7 @@ export default function Sidebar({
             </button>
           )}
         </div>
-      )}
+      )} */}
     </div>
   )
 }
