@@ -1269,7 +1269,7 @@ export default function ChatWindow() {
   }, [])
 
   // 2. Memoize the Item Content Renderer
-  // Note: 'VirtuosoMessageList' passes an object { data } to the renderer
+  // Note: 'VirtuosoMessageList' passes an object { data } and index to the renderer
   const ItemContent = useCallback(
     ({ data: item }, index) => {
       if (item.isPost) {
