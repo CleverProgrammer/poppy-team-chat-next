@@ -7,6 +7,145 @@ import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 import { trackClaudeUsage, calculateClaudeCost } from '../../lib/ai-usage-tracker.js'
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// LOOM VIDEO INTEGRATION - Extract transcripts from Loom URLs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Extract all Loom URLs from a text string
+ * @param {string} text - The text to search for Loom URLs
+ * @returns {string[]} Array of Loom URLs found
+ */
+function extractLoomUrls(text) {
+  if (!text) return []
+  const loomRegex = /https?:\/\/(?:www\.)?loom\.com\/share\/[a-zA-Z0-9]+/g
+  return text.match(loomRegex) || []
+}
+
+/**
+ * Fetch transcript for a Loom video using our internal API
+ * @param {string} loomUrl - The Loom share URL
+ * @returns {Promise<{video: object, transcript: object} | null>}
+ */
+async function fetchLoomTranscript(loomUrl) {
+  try {
+    // Call our internal Loom transcript API
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3007'
+
+    const response = await fetch(`${baseUrl}/api/loom/transcript`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loomUrl }),
+    })
+
+    if (!response.ok) {
+      console.error(`❌ Loom: Failed to fetch transcript for ${loomUrl}: ${response.status}`)
+      return null
+    }
+
+    const data = await response.json()
+    if (data.success) {
+      console.log(
+        `✅ Loom: Extracted transcript for "${data.video?.name}" (${data.transcript?.wordCount} words)`
+      )
+      return data
+    }
+    return null
+  } catch (error) {
+    console.error(`❌ Loom: Error fetching transcript:`, error)
+    return null
+  }
+}
+
+/**
+ * Sync a Loom transcript to Ragie for long-term memory
+ */
+async function syncLoomToRagie(loomData, context = {}) {
+  try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3007'
+
+    const response = await fetch(`${baseUrl}/api/ragie/sync-loom`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        loomUrl: `https://www.loom.com/share/${loomData.video.id}`,
+        videoId: loomData.video.id,
+        videoName: loomData.video.name,
+        duration: loomData.video.duration,
+        durationFormatted: loomData.video.durationFormatted,
+        transcript: loomData.transcript.text,
+        wordCount: loomData.transcript.wordCount,
+        language: loomData.transcript.language,
+        ...context,
+      }),
+    })
+
+    if (response.ok) {
+      console.log(`✅ Loom: Synced to Ragie for long-term memory: "${loomData.video.name}"`)
+    }
+  } catch (error) {
+    console.error(`⚠️ Loom: Failed to sync to Ragie:`, error)
+    // Don't throw - this is a non-critical operation
+  }
+}
+
+/**
+ * Process text and extract Loom transcripts for any Loom URLs found
+ * Returns enriched text with Loom context appended
+ * @param {string} text - Original message text
+ * @param {object} context - Optional context (sender, chatId, etc.) for Ragie sync
+ * @returns {Promise<{text: string, loomData: object[]}>}
+ */
+async function enrichTextWithLoomTranscripts(text, context = {}) {
+  const loomUrls = extractLoomUrls(text)
+  if (loomUrls.length === 0) {
+    return { text, loomData: [] }
+  }
+
+  console.log(`🎬 Loom: Found ${loomUrls.length} Loom URL(s) in message`)
+
+  const loomData = []
+  const loomContextParts = []
+
+  // Fetch transcripts in parallel
+  const transcriptPromises = loomUrls.map(url => fetchLoomTranscript(url))
+  const transcriptResults = await Promise.all(transcriptPromises)
+
+  for (let i = 0; i < loomUrls.length; i++) {
+    const result = transcriptResults[i]
+    if (result && result.video && result.transcript) {
+      loomData.push(result)
+
+      // Sync to Ragie for long-term memory (fire and forget)
+      syncLoomToRagie(result, context)
+
+      // Truncate transcript if too long (keep first 3000 chars for context)
+      const transcriptText = result.transcript.text || ''
+      const truncatedTranscript =
+        transcriptText.length > 3000
+          ? transcriptText.substring(0, 3000) + '... [transcript truncated]'
+          : transcriptText
+
+      loomContextParts.push(
+        `\n[🎬 Loom Video: "${result.video.name}" (${
+          result.video.durationFormatted || 'unknown duration'
+        })]\n` + `[Loom Transcript: "${truncatedTranscript}"]`
+      )
+    }
+  }
+
+  // Append Loom context to the original text
+  const enrichedText = text + loomContextParts.join('\n')
+
+  return { text: enrichedText, loomData }
+}
+
 // Initialize Keywords AI Telemetry with manual instrumentation
 const keywordsAi = new KeywordsAITelemetry({
   apiKey: process.env.KEYWORDS_AI_API_KEY || '',
@@ -179,8 +318,30 @@ When users share images, videos, or voice messages, you'll see them in the chat 
 - [📷 Shared 1 image] followed by [Image URLs: ...] and [Image Analysis: ...] 
 - [🎥 Shared 1 video] - a video was shared
 - [🎤 Voice message (30s)] - an audio message
+- [🎬 Loom Video: "Title" (duration)] followed by [Loom Transcript: "..."] - a Loom video with its full transcript!
 
 READ THE IMAGE ANALYSIS to understand what's in the image, and USE THE IMAGE URLs to share them!
+
+=== LOOM VIDEOS (SUPER POWER!) ===
+
+When someone shares a Loom URL (loom.com/share/...), I automatically extract the FULL TRANSCRIPT for you!
+
+You'll see it like this:
+[🎬 Loom Video: "Project Update" (5m 32s)]
+[Loom Transcript: "Hey team, just wanted to give a quick update on the project..."]
+
+WHAT YOU CAN DO WITH LOOM TRANSCRIPTS:
+- Answer ANY question about what was said in the video
+- Summarize the key points
+- Extract action items or decisions
+- Quote specific parts of the video
+- Explain what was discussed
+
+Example:
+User: "Hey @poppy what did Joey say about tying work to revenue?"
+You: "Joey explained his process for tracking metrics! He tracks Instagram views and comments monthly - in September he hit 6.3M views and 18K comments. He uses a 'better and worse tracker' spreadsheet to monitor insights throughout the month."
+
+BE SPECIFIC when answering about Loom videos - quote the transcript when relevant!
 
 === SHOWING IMAGES IN RESPONSES (CRITICAL!) ===
 
@@ -474,7 +635,14 @@ WHAT NOT TO SAVE:
           })]`
           // Include transcription if available
           if (msg.transcription) {
-            msgContent += `\n[Transcription: "${msg.transcription}"]`
+            // Handle both object format {text: "..."} and legacy string format
+            const transcriptText =
+              typeof msg.transcription === 'string'
+                ? msg.transcription
+                : msg.transcription.text || msg.transcription.formatted || ''
+            if (transcriptText) {
+              msgContent += `\n[Transcription: "${transcriptText}"]`
+            }
           }
         }
 
@@ -539,6 +707,36 @@ The user is REPLYING to this specific message. Their question/request is about T
   }
 
   // Add the current user message WITH their name clearly marked
+  // First, check for Loom URLs and extract transcripts
+  let enrichedMessage = message
+  let loomData = []
+
+  const loomUrls = extractLoomUrls(message)
+  if (loomUrls.length > 0) {
+    console.log(
+      `🎬 AI Chat: Found ${loomUrls.length} Loom URL(s) in message, extracting transcripts...`
+    )
+    if (sendStatus) sendStatus(`Extracting Loom video transcript...`)
+
+    // Pass context for Ragie sync
+    const loomContext = {
+      sender: user?.name || 'Unknown',
+      senderEmail: user?.email || '',
+      senderId: user?.id || '',
+      chatId: currentChat?.id || null,
+      chatType: currentChat?.type || null,
+      timestamp: new Date().toISOString(),
+    }
+
+    const enrichResult = await enrichTextWithLoomTranscripts(message, loomContext)
+    enrichedMessage = enrichResult.text
+    loomData = enrichResult.loomData
+
+    if (loomData.length > 0) {
+      console.log(`✅ AI Chat: Extracted ${loomData.length} Loom transcript(s)`)
+    }
+  }
+
   // Support image URLs for Claude vision - use content array format
   if (imageUrls && imageUrls.length > 0) {
     console.log(`🖼️ AI Chat: User sent ${imageUrls.length} image(s) for vision analysis`)
@@ -560,7 +758,7 @@ The user is REPLYING to this specific message. Their question/request is about T
     // Add the text message with targeted context if present
     contentArray.push({
       type: 'text',
-      text: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}\n\n[User attached ${
+      text: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${enrichedMessage}\n\n[User attached ${
         imageUrls.length
       } image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
     })
@@ -572,7 +770,7 @@ The user is REPLYING to this specific message. Their question/request is about T
   } else {
     messages.push({
       role: 'user',
-      content: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${message}`,
+      content: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${enrichedMessage}`,
     })
   }
 
