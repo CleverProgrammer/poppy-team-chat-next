@@ -474,7 +474,14 @@ WHAT NOT TO SAVE:
           })]`
           // Include transcription if available
           if (msg.transcription) {
-            msgContent += `\n[Transcription: "${msg.transcription}"]`
+            // Handle both object format {text: "..."} and legacy string format
+            const transcriptText =
+              typeof msg.transcription === 'string'
+                ? msg.transcription
+                : msg.transcription.text || msg.transcription.formatted || ''
+            if (transcriptText) {
+              msgContent += `\n[Transcription: "${transcriptText}"]`
+            }
           }
         }
 
