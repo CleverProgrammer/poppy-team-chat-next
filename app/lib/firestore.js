@@ -37,6 +37,93 @@ function getPacificTimestamp() {
   }).replace(' ', 'T') + '.000Z'
 }
 
+/**
+ * Extract Loom URLs from text
+ */
+function extractLoomUrls(text) {
+  if (!text) return []
+  const loomRegex = /https?:\/\/(?:www\.)?loom\.com\/share\/[a-zA-Z0-9]+/g
+  return text.match(loomRegex) || []
+}
+
+/**
+ * Extract Loom transcript and store on message document
+ * Called after a message is sent (fire and forget)
+ * @param {string} text - Message text to check for Loom URLs
+ * @param {string} collectionPath - Firestore path like 'channels/general/messages' or 'dms/dm_123/messages'
+ * @param {string} messageId - The message document ID
+ * @param {object} context - Additional context for Ragie sync (sender, chatId, etc.)
+ */
+async function extractAndStoreLoomTranscript(text, collectionPath, messageId, context = {}) {
+  const loomUrls = extractLoomUrls(text)
+  if (loomUrls.length === 0) return
+  
+  console.log(`🎬 Loom: Found ${loomUrls.length} Loom URL(s) in message, extracting transcript...`)
+  
+  // Only process the first Loom URL (most common case is just one)
+  const loomUrl = loomUrls[0]
+  
+  try {
+    // Call our internal Loom transcript API
+    const response = await fetch('/api/loom/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loomUrl }),
+    })
+    
+    if (!response.ok) {
+      console.error(`❌ Loom: Failed to fetch transcript: ${response.status}`)
+      return
+    }
+    
+    const data = await response.json()
+    
+    if (data.success && data.video && data.transcript) {
+      console.log(`✅ Loom: Extracted transcript for "${data.video.name}" (${data.transcript.wordCount} words)`)
+      
+      // Store the Loom transcript on the message document
+      const [collectionType, chatId] = collectionPath.split('/')
+      const messageRef = doc(db, collectionType, chatId, 'messages', messageId)
+      
+      await updateDoc(messageRef, {
+        loomTranscript: {
+          url: loomUrl,
+          videoId: data.video.id,
+          videoName: data.video.name,
+          duration: data.video.duration,
+          durationFormatted: data.video.durationFormatted,
+          thumbnailUrl: data.video.thumbnailUrl,
+          language: data.transcript.language,
+          text: data.transcript.text,
+          wordCount: data.transcript.wordCount,
+        },
+      })
+      
+      console.log(`💾 Loom: Saved transcript to message ${messageId}`)
+      
+      // Also sync to Ragie for long-term memory
+      fetch('/api/ragie/sync-loom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          loomUrl,
+          videoId: data.video.id,
+          videoName: data.video.name,
+          duration: data.video.duration,
+          durationFormatted: data.video.durationFormatted,
+          transcript: data.transcript.text,
+          wordCount: data.transcript.wordCount,
+          language: data.transcript.language,
+          messageId,
+          ...context,
+        }),
+      }).catch(err => console.error('Ragie Loom sync failed:', err))
+    }
+  } catch (error) {
+    console.error('❌ Loom: Error extracting transcript:', error)
+  }
+}
+
 // Fun adjectives and animals for human-readable task IDs
 const TASK_ID_ADJECTIVES = [
   'swift',
@@ -258,6 +345,16 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
       })
       .catch(err => console.error('Tagging failed:', err))
 
+    // Extract and store Loom transcript if message contains Loom URLs (fire and forget)
+    extractAndStoreLoomTranscript(text, `channels/${channelId}`, docRef.id, {
+      chatId: channelId,
+      chatType: 'channel',
+      sender: user.displayName || user.email,
+      senderEmail: user.email,
+      senderId: user.uid,
+      timestamp: getPacificTimestamp(),
+    })
+
     return docRef.id
   } catch (error) {
     console.error('Error sending message:', error)
@@ -451,6 +548,20 @@ export async function sendMessageDM(
         }
       })
       .catch(err => console.error('Tagging failed:', err))
+
+    // Extract and store Loom transcript if message contains Loom URLs (fire and forget)
+    extractAndStoreLoomTranscript(text, `dms/${dmId}`, docRef.id, {
+      chatId: dmId,
+      chatType: 'dm',
+      sender: user.displayName || user.email,
+      senderEmail: user.email,
+      senderId: user.uid,
+      timestamp: getPacificTimestamp(),
+      participants: dmId.split('_').slice(1),
+      recipientId,
+      recipientName: recipient?.displayName || recipient?.email || null,
+      recipientEmail: recipient?.email || null,
+    })
 
     // Add both users to each other's active DMs
     if (recipientId) {
@@ -1195,6 +1306,18 @@ export async function sendMessageWithMedia(
         .catch(err => console.error('Image analysis failed:', err))
     }
 
+    // Extract and store Loom transcript if message contains Loom URLs (fire and forget)
+    if (text) {
+      extractAndStoreLoomTranscript(text, `channels/${channelId}`, docRef.id, {
+        chatId: channelId,
+        chatType: 'channel',
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: getPacificTimestamp(),
+      })
+    }
+
     return docRef.id
   } catch (error) {
     console.error('Error sending message with media:', error)
@@ -1348,6 +1471,22 @@ export async function sendMessageDMWithMedia(
           }
         })
         .catch(err => console.error('Image analysis failed:', err))
+    }
+
+    // Extract and store Loom transcript if message contains Loom URLs (fire and forget)
+    if (text) {
+      extractAndStoreLoomTranscript(text, `dms/${dmId}`, docRef.id, {
+        chatId: dmId,
+        chatType: 'dm',
+        sender: user.displayName || user.email,
+        senderEmail: user.email,
+        senderId: user.uid,
+        timestamp: getPacificTimestamp(),
+        participants: dmId.split('_').slice(1),
+        recipientId,
+        recipientName: recipient?.displayName || recipient?.email || null,
+        recipientEmail: recipient?.email || null,
+      })
     }
 
     // Add to active DMs
