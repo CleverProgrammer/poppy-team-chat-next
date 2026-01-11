@@ -604,6 +604,22 @@ WHAT NOT TO SAVE:
           msgContent += msg.text
         }
 
+        // Add Loom transcript if stored on message (extracted when message was sent)
+        if (msg.loomTranscript) {
+          const loomData = msg.loomTranscript
+          // Truncate transcript for history (keep it shorter than current message)
+          const transcriptText = loomData.text || ''
+          const truncatedTranscript =
+            transcriptText.length > 2000
+              ? transcriptText.substring(0, 2000) + '... [truncated]'
+              : transcriptText
+
+          msgContent += `\n[🎬 Loom Video: "${loomData.videoName}" (${
+            loomData.durationFormatted || 'unknown'
+          })]\n`
+          msgContent += `[Loom Transcript: "${truncatedTranscript}"]`
+        }
+
         // Add image indicator, URLs, and analysis if present
         if (msg.imageUrl || msg.imageUrls?.length) {
           const imageUrls = msg.imageUrls || (msg.imageUrl ? [msg.imageUrl] : [])
@@ -683,13 +699,27 @@ WHAT NOT TO SAVE:
       ? `[🎥 ${targetedMessage.muxPlaybackIds.length} video(s)]`
       : ''
 
+    // Include Loom transcript if available (extracted when message was sent)
+    let targetLoom = ''
+    if (targetedMessage.loomTranscript) {
+      const loomData = targetedMessage.loomTranscript
+      const transcriptText = loomData.text || ''
+      const truncatedTranscript =
+        transcriptText.length > 3000
+          ? transcriptText.substring(0, 3000) + '... [truncated]'
+          : transcriptText
+      targetLoom = `\n[🎬 Loom Video: "${loomData.videoName}" (${
+        loomData.durationFormatted || 'unknown'
+      })]\n[Loom Transcript: "${truncatedTranscript}"]`
+    }
+
     targetedMessageContext = `
 ╔══════════════════════════════════════════════════════════════════╗
 ║  🎯 TARGETED MESSAGE (User is specifically asking about THIS!)   ║
 ╚══════════════════════════════════════════════════════════════════╝
 The user is REPLYING to this specific message. Their question/request is about THIS message:
 
-[${targetSender}]: ${targetText}${targetAudio}${targetVideo}${
+[${targetSender}]: ${targetText}${targetAudio}${targetVideo}${targetLoom}${
       targetImages.length > 0
         ? `\n[📷 ${targetImages.length} image(s): ${targetImages.join(', ')}]`
         : ''
