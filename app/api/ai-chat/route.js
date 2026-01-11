@@ -212,7 +212,8 @@ async function processAIRequest(
   workflowId = null,
   imageUrls = null, // Direct image URLs for AI vision
   isThreadContext = false, // Flag to indicate this is thread context (not general chat history)
-  targetedMessage = null // Message the user is replying to (AI should focus on this)
+  targetedMessage = null, // Message the user is replying to (AI should focus on this)
+  audioTranscripts = null // Audio transcriptions to include in context
 ) {
   // Build system prompt with user context and current time
   const now = new Date()
@@ -767,6 +768,22 @@ The user is REPLYING to this specific message. Their question/request is about T
     }
   }
 
+  // Build audio transcript context if present
+  let audioContext = ''
+  if (audioTranscripts && audioTranscripts.length > 0) {
+    console.log(`🎵 AI Chat: User sent ${audioTranscripts.length} audio transcription(s)`)
+    audioContext = `
+╔══════════════════════════════════════════════════════════════════╗
+║  🎤 AUDIO TRANSCRIPTS (User attached ${audioTranscripts.length} audio file${audioTranscripts.length > 1 ? 's' : ''})  ║
+╚══════════════════════════════════════════════════════════════════╝
+The user has attached audio files. Here are their transcriptions:
+
+${audioTranscripts.map((t, i) => `Audio ${i + 1}: "${t}"`).join('\n\n')}
+
+───────────────────────────────────────────────────────────────────
+`
+  }
+
   // Support image URLs for Claude vision - use content array format
   if (imageUrls && imageUrls.length > 0) {
     console.log(`🖼️ AI Chat: User sent ${imageUrls.length} image(s) for vision analysis`)
@@ -785,10 +802,10 @@ The user is REPLYING to this specific message. Their question/request is about T
       })
     }
 
-    // Add the text message with targeted context if present
+    // Add the text message with targeted context, audio context, and question
     contentArray.push({
       type: 'text',
-      text: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${enrichedMessage}\n\n[User attached ${
+      text: `${targetedMessageContext}${audioContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${enrichedMessage}\n\n[User attached ${
         imageUrls.length
       } image${imageUrls.length > 1 ? 's' : ''} above for you to analyze/discuss]`,
     })
@@ -800,7 +817,7 @@ The user is REPLYING to this specific message. Their question/request is about T
   } else {
     messages.push({
       role: 'user',
-      content: `${targetedMessageContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${enrichedMessage}`,
+      content: `${targetedMessageContext}${audioContext}═══ NEW MESSAGE FROM ${currentUserName.toUpperCase()} (this is "I/me/my") ═══\n[${currentUserName}]: ${enrichedMessage}`,
     })
   }
 
@@ -1574,6 +1591,7 @@ export async function POST(request) {
       user,
       currentChat,
       imageUrls,
+      audioTranscripts,
       isThreadContext,
       targetedMessage,
     } = await request.json()
@@ -1629,7 +1647,8 @@ export async function POST(request) {
                   workflowId,
                   imageUrls,
                   isThreadContext,
-                  targetedMessage
+                  targetedMessage,
+                  audioTranscripts
                 )
               }
             )
@@ -1678,7 +1697,8 @@ export async function POST(request) {
           workflowId,
           imageUrls,
           isThreadContext,
-          targetedMessage
+          targetedMessage,
+          audioTranscripts
         )
       }
     )

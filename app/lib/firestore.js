@@ -957,25 +957,46 @@ export async function uploadImage(file, userId) {
   }
 }
 
-// Upload audio file to Firebase Storage
+// Helper to get file extension from audio mime type
+function getAudioExtension(mimeType) {
+  const mimeMap = {
+    'audio/webm': 'webm',
+    'audio/mp4': 'm4a',
+    'audio/x-m4a': 'm4a',
+    'audio/m4a': 'm4a',
+    'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
+    'audio/wav': 'wav',
+    'audio/wave': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/aac': 'aac',
+    'audio/ogg': 'ogg',
+    'audio/flac': 'flac',
+    'audio/x-caf': 'caf',
+    'audio/x-aiff': 'aiff',
+  }
+  return mimeMap[mimeType] || 'audio'
+}
+
+// Upload audio file to Firebase Storage (supports multiple formats: m4a, mp3, wav, webm, etc.)
 export async function uploadAudio(blob, userId) {
   if (!blob) throw new Error('No audio blob provided')
 
   try {
-    // Generate unique filename with timestamp
+    // Generate unique filename with timestamp and correct extension
     const timestamp = Date.now()
-    const filename = `${userId}/${timestamp}_voice.webm`
+    const mimeType = blob.type || 'audio/webm'
+    const extension = getAudioExtension(mimeType)
+    const filename = `${userId}/${timestamp}_voice.${extension}`
     const storageRef = ref(storage, `chat-audio/${filename}`)
 
-    // Convert blob to File for upload
-    const audioFile = new File([blob], filename, { type: 'audio/webm' })
-
-    // Upload the file
-    const snapshot = await uploadBytes(storageRef, audioFile)
+    // Upload directly - Firebase handles blobs and Files
+    const snapshot = await uploadBytes(storageRef, blob)
 
     // Get download URL
     const downloadURL = await getDownloadURL(snapshot.ref)
 
+    console.log(`🎵 Audio uploaded: ${extension} format, ${(blob.size / 1024).toFixed(1)}KB`)
     return downloadURL
   } catch (error) {
     console.error('Error uploading audio:', error)
@@ -1191,9 +1212,11 @@ export async function sendMessageWithMedia(
   mediaDimensions = [], // Array of { width, height } for each media item
   linkPreview = null,
   options = {},
-  recentMessages = [] // Recent messages for image analysis context
+  recentMessages = [], // Recent messages for image analysis context
+  audioUrls = [], // Audio file URLs (for AI questions about audio)
+  audioDurations = [] // Duration in seconds for each audio file
 ) {
-  if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+  if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0 && audioUrls.length === 0)) return
 
   const { isPrivate = false, privateFor = null } = options
 
@@ -1204,6 +1227,9 @@ export async function sendMessageWithMedia(
       imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
       muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      // Audio attachments (like images - multiple files in one message)
+      audioUrls: audioUrls.length > 0 ? audioUrls : null,
+      audioDurations: audioDurations.length > 0 ? audioDurations : null,
       // Store dimensions for layout stability (prevents layout shift on load)
       mediaDimensions: mediaDimensions.length > 0 ? mediaDimensions : null,
       sender: user.displayName || user.email,
@@ -1318,6 +1344,61 @@ export async function sendMessageWithMedia(
       })
     }
 
+    // Transcribe all audio files and store transcriptions (fire and forget)
+    // Each audio gets transcribed and indexed to Ragie
+    if (audioUrls.length > 0) {
+      console.log(`🎵 Transcribing ${audioUrls.length} audio file(s) for message ${docRef.id}...`)
+      const transcriptions = []
+      
+      // Transcribe all audio files in parallel
+      Promise.all(
+        audioUrls.map(async (audioUrl, index) => {
+          try {
+            const response = await fetch('/api/media/transcribe-audio', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioUrl }),
+            })
+            const data = await response.json()
+            return { index, transcript: data.transcript || '' }
+          } catch (err) {
+            console.error(`Failed to transcribe audio ${index}:`, err)
+            return { index, transcript: '' }
+          }
+        })
+      ).then(async (results) => {
+        // Sort by index to maintain order
+        results.sort((a, b) => a.index - b.index)
+        const audioTranscripts = results.map(r => r.transcript)
+        
+        // Update message with all transcriptions
+        await updateDoc(doc(db, 'channels', channelId, 'messages', docRef.id), {
+          audioTranscripts: audioTranscripts,
+        })
+        console.log(`🎵 Saved ${audioTranscripts.length} audio transcription(s) to message`)
+        
+        // Index combined transcription to Ragie
+        const combinedTranscript = audioTranscripts.filter(t => t).join('\n\n')
+        if (combinedTranscript) {
+          fetch('/api/ragie/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageId: docRef.id,
+              chatId: channelId,
+              chatType: 'channel',
+              chatName: getChannelName(channelId),
+              text: `[Audio transcript] ${combinedTranscript}`,
+              sender: user.displayName || user.email,
+              senderEmail: user.email,
+              senderId: user.uid,
+              timestamp: getPacificTimestamp(),
+            }),
+          }).catch(err => console.error('Failed to index audio transcript to Ragie:', err))
+        }
+      }).catch(err => console.error('Audio transcription batch failed:', err))
+    }
+
     return docRef.id
   } catch (error) {
     console.error('Error sending message with media:', error)
@@ -1325,7 +1406,7 @@ export async function sendMessageWithMedia(
   }
 }
 
-// Send DM with media (images and/or Mux videos)
+// Send DM with media (images and/or Mux videos and/or audio)
 export async function sendMessageDMWithMedia(
   dmId,
   user,
@@ -1338,9 +1419,11 @@ export async function sendMessageDMWithMedia(
   mediaDimensions = [], // Array of { width, height } for each media item
   linkPreview = null,
   options = {},
-  recentMessages = [] // Recent messages for image analysis context
+  recentMessages = [], // Recent messages for image analysis context
+  audioUrls = [], // Audio file URLs (for AI questions about audio)
+  audioDurations = [] // Duration in seconds for each audio file
 ) {
-  if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+  if (!user || (imageUrls.length === 0 && muxPlaybackIds.length === 0 && audioUrls.length === 0)) return
 
   const { isPrivate = false, privateFor = null } = options
 
@@ -1351,6 +1434,9 @@ export async function sendMessageDMWithMedia(
       imageUrl: imageUrls[0] || null, // Keep for backwards compatibility
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
       muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      // Audio attachments (like images - multiple files in one message)
+      audioUrls: audioUrls.length > 0 ? audioUrls : null,
+      audioDurations: audioDurations.length > 0 ? audioDurations : null,
       // Store dimensions for layout stability (prevents layout shift on load)
       mediaDimensions: mediaDimensions.length > 0 ? mediaDimensions : null,
       sender: user.displayName || user.email,
@@ -1487,6 +1573,57 @@ export async function sendMessageDMWithMedia(
         recipientName: recipient?.displayName || recipient?.email || null,
         recipientEmail: recipient?.email || null,
       })
+    }
+
+    // Transcribe all audio files and store transcriptions (fire and forget)
+    if (audioUrls.length > 0) {
+      console.log(`🎵 Transcribing ${audioUrls.length} audio file(s) for DM ${docRef.id}...`)
+      
+      Promise.all(
+        audioUrls.map(async (audioUrl, index) => {
+          try {
+            const response = await fetch('/api/media/transcribe-audio', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioUrl }),
+            })
+            const data = await response.json()
+            return { index, transcript: data.transcript || '' }
+          } catch (err) {
+            console.error(`Failed to transcribe audio ${index}:`, err)
+            return { index, transcript: '' }
+          }
+        })
+      ).then(async (results) => {
+        results.sort((a, b) => a.index - b.index)
+        const audioTranscripts = results.map(r => r.transcript)
+        
+        await updateDoc(doc(db, 'dms', dmId, 'messages', docRef.id), {
+          audioTranscripts: audioTranscripts,
+        })
+        console.log(`🎵 Saved ${audioTranscripts.length} audio transcription(s) to DM message`)
+        
+        // Index combined transcription to Ragie
+        const combinedTranscript = audioTranscripts.filter(t => t).join('\n\n')
+        if (combinedTranscript) {
+          fetch('/api/ragie/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageId: docRef.id,
+              chatId: dmId,
+              chatType: 'dm',
+              text: `[Audio transcript] ${combinedTranscript}`,
+              sender: user.displayName || user.email,
+              senderEmail: user.email,
+              senderId: user.uid,
+              timestamp: getPacificTimestamp(),
+              participants: dmId.split('_').slice(1),
+              recipientId,
+            }),
+          }).catch(err => console.error('Failed to index audio transcript to Ragie:', err))
+        }
+      }).catch(err => console.error('Audio transcription batch failed:', err))
     }
 
     // Add to active DMs
@@ -4113,9 +4250,11 @@ export async function sendGroupMessageWithMedia(
   mediaDimensions = [],
   linkPreview = null,
   options = {},
-  recentMessages = []
+  recentMessages = [],
+  audioUrls = [], // Audio file URLs (for AI questions about audio)
+  audioDurations = [] // Duration in seconds for each audio file
 ) {
-  if (!user || !groupId || (imageUrls.length === 0 && muxPlaybackIds.length === 0)) return
+  if (!user || !groupId || (imageUrls.length === 0 && muxPlaybackIds.length === 0 && audioUrls.length === 0)) return
 
   const { isPrivate = false, privateFor = null } = options
 
@@ -4126,6 +4265,9 @@ export async function sendGroupMessageWithMedia(
       imageUrl: imageUrls[0] || null,
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
       muxPlaybackIds: muxPlaybackIds.length > 0 ? muxPlaybackIds : null,
+      // Audio attachments (like images - multiple files in one message)
+      audioUrls: audioUrls.length > 0 ? audioUrls : null,
+      audioDurations: audioDurations.length > 0 ? audioDurations : null,
       mediaDimensions: mediaDimensions.length > 0 ? mediaDimensions : null,
       sender: user.displayName || user.email,
       senderId: user.uid,
@@ -4234,6 +4376,57 @@ export async function sendGroupMessageWithMedia(
           }
         })
         .catch(err => console.error('Image analysis failed:', err))
+    }
+
+    // Transcribe all audio files and store transcriptions (fire and forget)
+    if (audioUrls.length > 0) {
+      console.log(`🎵 Transcribing ${audioUrls.length} audio file(s) for group message ${docRef.id}...`)
+      
+      Promise.all(
+        audioUrls.map(async (audioUrl, index) => {
+          try {
+            const response = await fetch('/api/media/transcribe-audio', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioUrl }),
+            })
+            const data = await response.json()
+            return { index, transcript: data.transcript || '' }
+          } catch (err) {
+            console.error(`Failed to transcribe audio ${index}:`, err)
+            return { index, transcript: '' }
+          }
+        })
+      ).then(async (results) => {
+        results.sort((a, b) => a.index - b.index)
+        const audioTranscripts = results.map(r => r.transcript)
+        
+        await updateDoc(doc(db, 'groups', groupId, 'messages', docRef.id), {
+          audioTranscripts: audioTranscripts,
+        })
+        console.log(`🎵 Saved ${audioTranscripts.length} audio transcription(s) to group message`)
+        
+        // Index combined transcription to Ragie
+        const combinedTranscript = audioTranscripts.filter(t => t).join('\n\n')
+        if (combinedTranscript) {
+          fetch('/api/ragie/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageId: docRef.id,
+              chatId: groupId,
+              chatType: 'group',
+              chatName: groupName,
+              text: `[Audio transcript] ${combinedTranscript}`,
+              sender: user.displayName || user.email,
+              senderEmail: user.email,
+              senderId: user.uid,
+              timestamp: getPacificTimestamp(),
+              participants,
+            }),
+          }).catch(err => console.error('Failed to index audio transcript to Ragie:', err))
+        }
+      }).catch(err => console.error('Audio transcription batch failed:', err))
     }
 
     await updateDoc(doc(db, 'groups', groupId), {

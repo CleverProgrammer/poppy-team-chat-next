@@ -5,7 +5,7 @@ import { useWavesurfer } from '@wavesurfer/react'
 import { useDevMode } from '../../contexts/DevModeContext'
 
 const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3]
-const TRUNCATE_LENGTH = 300 // Characters before truncating
+const TRUNCATE_LENGTH = 100 // Characters before truncating
 
 export default function VoiceMessage({ audioUrl, audioDuration, isSent, transcription }) {
   const [isPlaying, setIsPlaying] = useState(false)

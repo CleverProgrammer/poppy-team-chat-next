@@ -25,7 +25,7 @@ import CreateGroupModal from './CreateGroupModal'
 import GroupInfoModal from './GroupInfoModal'
 import AnnouncementPopup from '../announcements/AnnouncementPopup'
 import { useAuth } from '../../contexts/AuthContext'
-import { useImageUpload } from '../../hooks/useImageUpload'
+import { useImageUpload, formatAudioDuration } from '../../hooks/useImageUpload'
 import { useReactions } from '../../hooks/useReactions'
 import { useAI } from '../../hooks/useAI'
 import { useMessageSending } from '../../hooks/useMessageSending'
@@ -204,7 +204,7 @@ export default function ChatWindow() {
     }
   }, [isSidebarOpen])
 
-  // Image upload hook (supports multiple images)
+  // Image and audio upload hook (supports multiple images AND audio files)
   const {
     imagePreview,
     imageFile,
@@ -216,6 +216,12 @@ export default function ChatWindow() {
     handleRemoveImage,
     handleRemoveImageAtIndex,
     clearImage,
+    // Audio state (same pattern as images - for AI questions)
+    audioPreviews,
+    audioFiles,
+    handleRemoveAudioAtIndex,
+    clearAudio,
+    clearAllMedia,
     dropzoneProps,
     openFilePicker,
   } = useImageUpload()
@@ -292,6 +298,11 @@ export default function ChatWindow() {
     imageFiles,
     imagePreviews,
     clearImage,
+    // Audio files (same pattern as images - for AI questions)
+    audioFiles,
+    audioPreviews,
+    clearAudio,
+    clearAllMedia,
     replyingTo,
     setReplyingTo,
     editingMessage,
@@ -1642,7 +1653,7 @@ export default function ChatWindow() {
                 />
                 {isDragActive && (
                   <div className='drag-overlay'>
-                    <div className='drag-overlay-content'>📎 Drop image or video here</div>
+                    <div className='drag-overlay-content'>📎 Drop image, video, or audio here</div>
                   </div>
                 )}
                 {messages.length === 0 && posts.length === 0 ? (
@@ -1799,6 +1810,11 @@ export default function ChatWindow() {
                 imagePreview={imagePreview}
                 imagePreviews={imagePreviews}
                 imageFiles={imageFiles}
+                // Audio file props (same pattern as images)
+                audioPreviews={audioPreviews}
+                audioFiles={audioFiles}
+                handleRemoveAudioAtIndex={handleRemoveAudioAtIndex}
+                formatAudioDuration={formatAudioDuration}
                 mentionMenu={mentionMenu}
                 mentionMenuIndex={mentionMenuIndex}
                 handleTextareaChange={handleTextareaChange}
