@@ -578,7 +578,7 @@ WHAT NOT TO SAVE:
     // This ensures we have Loom context even when the user asks about a Loom in a follow-up message
     const loomTranscriptCache = new Map()
     const allLoomUrls = []
-    
+
     // Collect all Loom URLs from recent history
     for (const msg of recentHistory) {
       if (msg.text) {
@@ -590,21 +590,23 @@ WHAT NOT TO SAVE:
         }
       }
     }
-    
+
     // Fetch all Loom transcripts in parallel (limit to last 3 to avoid slowdown)
     if (allLoomUrls.length > 0) {
       const urlsToFetch = allLoomUrls.slice(-3) // Only fetch most recent 3 Looms
-      console.log(`🎬 AI Chat: Found ${allLoomUrls.length} Loom URL(s) in chat history, fetching ${urlsToFetch.length} transcript(s)...`)
+      console.log(
+        `🎬 AI Chat: Found ${allLoomUrls.length} Loom URL(s) in chat history, fetching ${urlsToFetch.length} transcript(s)...`
+      )
       if (sendStatus) sendStatus(`Extracting Loom transcripts from chat history...`)
-      
-      const transcriptPromises = urlsToFetch.map(async (url) => {
+
+      const transcriptPromises = urlsToFetch.map(async url => {
         const result = await fetchLoomTranscript(url)
         if (result) {
           loomTranscriptCache.set(url, result)
         }
         return result
       })
-      
+
       await Promise.all(transcriptPromises)
       console.log(`✅ AI Chat: Cached ${loomTranscriptCache.size} Loom transcript(s) from history`)
     }
@@ -637,7 +639,7 @@ WHAT NOT TO SAVE:
         // Add text if present
         if (msg.text) {
           msgContent += msg.text
-          
+
           // Check for Loom URLs and add transcript if available
           const msgLoomUrls = extractLoomUrls(msg.text)
           for (const loomUrl of msgLoomUrls) {
@@ -645,11 +647,14 @@ WHAT NOT TO SAVE:
             if (loomData && loomData.video && loomData.transcript) {
               // Truncate transcript for history (keep it shorter than current message)
               const transcriptText = loomData.transcript.text || ''
-              const truncatedTranscript = transcriptText.length > 2000
-                ? transcriptText.substring(0, 2000) + '... [truncated]'
-                : transcriptText
-              
-              msgContent += `\n[🎬 Loom Video: "${loomData.video.name}" (${loomData.video.durationFormatted || 'unknown'})]\n`
+              const truncatedTranscript =
+                transcriptText.length > 2000
+                  ? transcriptText.substring(0, 2000) + '... [truncated]'
+                  : transcriptText
+
+              msgContent += `\n[🎬 Loom Video: "${loomData.video.name}" (${
+                loomData.video.durationFormatted || 'unknown'
+              })]\n`
               msgContent += `[Loom Transcript: "${truncatedTranscript}"]`
             }
           }
