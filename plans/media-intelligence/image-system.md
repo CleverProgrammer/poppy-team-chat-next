@@ -475,3 +475,4 @@ await adminDb.collection('ai_usage').doc(docId).set({
 - [ ] GIF search integration
 - [ ] Image-to-text extraction for documents
 
+

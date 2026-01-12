@@ -56,3 +56,4 @@ design_inspo_components
 functions/node_modules
 functions/.env
 functions/service-account.json
+.trigger

@@ -38,10 +38,14 @@ if (!admin.apps.length) {
   admin.initializeApp({
     credential,
     projectId: 'poppy-team-chat',
+    storageBucket: 'poppy-team-chat.firebasestorage.app',
   })
 }
 
 // Get Firestore instance
 const adminDb = admin.firestore()
 
-export { admin, adminDb }
+// Get Storage instance
+const adminStorage = admin.storage()
+
+export { admin, adminDb, adminStorage }

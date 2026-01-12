@@ -499,6 +499,29 @@ export function useMessageSending({
           .catch(err => console.warn('Failed to attach link preview:', err));
       }
 
+      // Trigger background conversion for CAF audio files (iPhone Voice Memos)
+      // This converts them to MP3 so they can be played in browsers
+      if (audioUrls.length > 0 && messageIdForPreview && chatIdForPreview && chatTypeForPreview) {
+        audioUrls.forEach((url, index) => {
+          // Check if it's a CAF file (iPhone Voice Memos format)
+          if (url.toLowerCase().includes('.caf')) {
+            console.log(`🔄 Triggering CAF→MP3 conversion for audio ${index + 1}...`);
+            fetch('/api/trigger/convert-audio', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audioUrl: url,
+                userId: user.uid,
+                messageId: messageIdForPreview,
+                chatId: chatIdForPreview,
+                chatType: chatTypeForPreview,
+                audioIndex: index,
+              }),
+            }).catch(err => console.error('Failed to trigger audio conversion:', err));
+          }
+        });
+      }
+
       // Remove optimistic message once real one arrives (Firestore subscription will add it)
       setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
 
