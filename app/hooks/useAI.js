@@ -230,8 +230,18 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
       
       // Only check for user - allow concurrent requests (no aiProcessing block)
       if (!user) return
+      
+      // For image-only sends (no text), allow empty question - API will use default prompt
+      const hasImages = imageUrls && imageUrls.length > 0
+      const effectiveQuestion = userQuestion || (hasImages ? '' : '')
+      
+      // Skip if no question and no images
+      if (!effectiveQuestion && !hasImages) return
 
-      console.log(`🚀 [${requestId}] Starting direct chat: "${userQuestion.substring(0, 40)}..."`)
+      console.log(`🚀 [${requestId}] Starting direct chat: "${effectiveQuestion ? effectiveQuestion.substring(0, 40) + '...' : '📷 Image-only'}"`)
+      if (hasImages && !effectiveQuestion) {
+        console.log(`🖼️ [${requestId}] Image-only send - API will generate response`)
+      }
 
       setAiProcessing(true)
 
@@ -257,7 +267,8 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
 
         // Pass raw messages (same format as askPoppy) - API handles formatting
         // Pass imageUrls to AI for vision support
-        const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
+        // For image-only sends, effectiveQuestion is empty string - API provides default prompt
+        const aiResult = await callAI(effectiveQuestion, messages.slice(-50), onStatus, imageUrls)
         const aiResponse = aiResult.response
         const tldr = aiResult.tldr
         const costBreakdown = aiResult.costBreakdown

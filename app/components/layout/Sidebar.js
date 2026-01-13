@@ -264,6 +264,14 @@ export default function Sidebar({
   const getPreviewText = (message, dmUserId) => {
     if (!message) return 'No messages yet'
     
+    // For AI messages with TLDR, always show the TLDR first
+    const isAIMessage = message.sender === 'Poppy AI' || message.senderId === 'ai'
+    if (isAIMessage && message.tldr) {
+      const maxLength = 80
+      const truncatedTldr = message.tldr.length > maxLength ? message.tldr.substring(0, maxLength) + '...' : message.tldr
+      return `✨ ${truncatedTldr}`
+    }
+    
     if (message.imageUrl || message.imageUrls?.length > 0) {
       const imageCount = message.imageUrls?.length || 1
       const photoLabel = imageCount > 1 ? 'Photos' : 'Photo'
@@ -675,7 +683,7 @@ export default function Sidebar({
                   <span className='dm-timestamp'>{formatTimestamp(aiLastMessage?.timestamp)}</span>
                 </div>
                 <div className='dm-preview'>
-                  {aiLastMessage ? (aiLastMessage.content?.substring(0, 80) || '') : 'Chat with AI assistant'}
+                  {aiLastMessage ? getPreviewText(aiLastMessage) : 'Chat with AI assistant'}
                 </div>
               </div>
             </div>

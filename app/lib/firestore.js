@@ -831,7 +831,8 @@ export function subscribeToAILastMessage(userId, callback) {
     return () => {}
   }
 
-  const messagesRef = collection(db, 'users', userId, 'ai-chat')
+  // Note: AI messages are saved to 'aiChats/{userId}/messages' by sendAIMessage
+  const messagesRef = collection(db, 'aiChats', userId, 'messages')
   const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1))
 
   return onSnapshot(

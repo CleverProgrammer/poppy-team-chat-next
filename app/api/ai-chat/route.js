@@ -1747,9 +1747,14 @@ export async function POST(request) {
       targetedMessage,
     } = await request.json()
 
-    if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    // Allow empty message if images are present (image-only sends)
+    const hasImages = imageUrls && imageUrls.length > 0
+    if (!message && !hasImages) {
+      return NextResponse.json({ error: 'Message or images required' }, { status: 400 })
     }
+    
+    // Use default prompt for image-only messages
+    const effectiveMessage = message || 'What do you see in this image? Describe it.'
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
@@ -1787,7 +1792,7 @@ export async function POST(request) {
               },
               async () => {
                 await processAIRequest(
-                  message,
+                  effectiveMessage,
                   chatHistory,
                   apiKey,
                   user,
@@ -1837,7 +1842,7 @@ export async function POST(request) {
       },
       async () => {
         return await processAIRequest(
-          message,
+          effectiveMessage,
           chatHistory,
           apiKey,
           user,
