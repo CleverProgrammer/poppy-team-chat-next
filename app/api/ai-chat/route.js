@@ -498,33 +498,8 @@ The real gold is in search_chat_history - use it proactively, not as a last reso
    - FOR TIME-BOUND QUERIES: Use startDate and endDate parameters!
    - Use topK of 20-50 to get more context
 
-=== SEARCH QUERY CONSTRUCTION (CRITICAL!) ===
 
-🚨 DO NOT invent random search terms! Use the user's ACTUAL words! 🚨
-
-**SEARCH 1 (FIRST ATTEMPT):** Use the user's exact key terms with minimal changes
-   - User asks "what food did I get?" → search "food got"
-   - User asks "did anyone mention the trip?" → search "trip"
-   - User asks "what did Sarah say about the project?" → search "Sarah project"
-   - KEEP IT SIMPLE! The user's words are usually the BEST search terms.
-
-**SEARCH 2 (ONLY IF SEARCH 1 RETURNS NOTHING):** Add a few natural synonyms
-   - "food got" → "food meal ate received"
-   - "trip" → "trip travel vacation"
-   - Keep it focused on the SAME topic - don't go off on tangents
-
-**NEVER DO THIS:**
-   ❌ User asks about "food" and you search "doordash uber eats grubhub postmates"
-   ❌ User asks about "trip" and you search "airplane hotel booking expedia"
-   ❌ Inventing brand names or specific terms the user never mentioned
-   ❌ Adding 10+ random words hoping something sticks
-
-**WHY:** Ragie uses semantic search - it already understands "food" matches "meal" and "acai bowl".
-         Adding unrelated specific terms (like brand names) actually HURTS search accuracy.
-
-The user's own words are your BEST search terms. Don't overthink it!
-
-4. IF STILL NOT FOUND: USE CLAVIS AI TOOLS
+4. IF STILL NOT FOUND: USE KLAVIS AI TOOLS
    - These give you access to external systems: Linear, Google Calendar, Notion, Tavily, etc.
    
    === LINEAR (Project Management) ===
@@ -537,8 +512,7 @@ The user's own words are your BEST search terms. Don't overthink it!
    - This calendar belongs to Rafeh Qazi (the founder)
    - ONLY share calendar info if the user is one of these people:
      * Rafeh Qazi (qazi@cleverprogrammer.com) - the owner
-     * Elsa - assistant
-     * Rachel - assistant
+     * Rachel - chief of staff
    - For ANYONE ELSE: Do not reveal calendar details. Say something like "I can only share Rafeh's calendar with authorized team members"
    - Use the EXACT date format from the timestamp above
    
@@ -635,7 +609,7 @@ WHAT NOT TO SAVE:
 4. If user asks again or says "no that's wrong" = SEARCH CHAT HISTORY IMMEDIATELY
 5. Don't ask permission to search - JUST DO IT
 6. Be aggressive about finding information - the user is counting on you!
-7. When in doubt, SEARCH. When certain, SEARCH ANYWAY to confirm.
+7. When in doubt, SEARCH.
 `
 
   // Build messages array from chat history
@@ -1135,10 +1109,19 @@ tldr should capture the CORE answer in max 80 chars.`,
   // Generate thread_identifier for conversation tracking
   const threadId = user ? `poppy_chat_${user.id}` : 'poppy_chat_anonymous'
 
+  // Add cache_control to the last tool for tool definition caching
+  // This caches all tools (~3,000-5,000 tokens) for ~90% cost reduction
+  if (tools.length > 0) {
+    tools[tools.length - 1] = {
+      ...tools[tools.length - 1],
+      cache_control: { type: 'ephemeral' },
+    }
+  }
+
   let data
   try {
     // Build request with Keywords AI parameters in metadata
-    // Using prompt caching to reduce costs by ~90% on system prompt
+    // Using prompt caching to reduce costs by ~90% on system prompt AND tools
     const createParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
