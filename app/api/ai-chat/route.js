@@ -165,17 +165,17 @@ await keywordsAi.initialize()
 // Returns { tldr: string | null, fullText: string }
 function parseTLDR(text) {
   if (!text) return { tldr: null, fullText: text }
-  
+
   // Look for TLDR: at the start of the response
   const tldrMatch = text.match(/^TLDR:\s*(.+?)(?:\n\n|\n|$)/i)
-  
+
   if (tldrMatch) {
     const tldr = tldrMatch[1].trim()
     // Remove the TLDR line from the full text
     const fullText = text.replace(/^TLDR:\s*.+?\n\n?/i, '').trim()
     return { tldr, fullText }
   }
-  
+
   return { tldr: null, fullText: text }
 }
 
@@ -431,7 +431,7 @@ ALWAYS include the image URL on its own line when referencing images. Users LOVE
 
 === FOLLOW CONVERSATIONAL CONTEXT (CRITICAL!) ===
 
-You have the last 50 messages - USE THEM to understand follow-up questions!
+You have the last 20 messages - USE THEM to understand follow-up questions!
 - "what about last week?" after discussing feature requests = "feature requests from last week"
 - "any from yesterday?" = same topic, different time
 - "what about X?" or "and Y?" = they're referring to the PREVIOUS topic
@@ -481,12 +481,12 @@ ALWAYS USE search_chat_history WHEN:
 
 THE 80% RULE: If there's even a 20% chance the answer is in chat history, USE THE TOOL!
 
-DON'T BE LAZY! Checking chat context (50 messages) is NOT enough.
+DON'T BE LAZY! Checking chat context (20 messages) is NOT enough.
 The real gold is in search_chat_history - use it proactively, not as a last resort.
 
 === SEARCH STRATEGY ===
 
-1. QUICK GLANCE: Check the last 50 messages for obvious answers
+1. QUICK GLANCE: Check the last 20 messages for obvious answers
 2. IF NOT OBVIOUS → IMMEDIATELY USE search_chat_history
    - Don't say "I don't see that in our conversation"
    - Don't ask "can you tell me more?"
@@ -642,9 +642,10 @@ WHAT NOT TO SAVE:
   const messages = []
   const currentUserName = user?.name || 'Current User'
 
-  // Add recent chat history if provided (last 50 messages for context)
+  // Add recent chat history if provided (last 20 messages for context)
+  // Reduced from 50 to save ~5,000-10,000 input tokens per request
   if (chatHistory && chatHistory.length > 0) {
-    const recentHistory = chatHistory.slice(-50)
+    const recentHistory = chatHistory.slice(-20)
 
     // Build appropriate header based on context type
     let historyBlock
@@ -845,7 +846,9 @@ The user is REPLYING to this specific message. Their question/request is about T
     console.log(`🎵 AI Chat: User sent ${audioTranscripts.length} audio transcription(s)`)
     audioContext = `
 ╔══════════════════════════════════════════════════════════════════╗
-║  🎤 AUDIO TRANSCRIPTS (User attached ${audioTranscripts.length} audio file${audioTranscripts.length > 1 ? 's' : ''})  ║
+║  🎤 AUDIO TRANSCRIPTS (User attached ${audioTranscripts.length} audio file${
+      audioTranscripts.length > 1 ? 's' : ''
+    })  ║
 ╚══════════════════════════════════════════════════════════════════╝
 The user has attached audio files. Here are their transcriptions:
 
@@ -1106,7 +1109,8 @@ tldr should capture the CORE answer in max 80 chars.`,
       properties: {
         tldr: {
           type: 'string',
-          description: 'REQUIRED for any response with lists, multiple sentences, or formatted content. One-line summary (max 80 chars) capturing the core insight. Only skip for single-sentence responses.',
+          description:
+            'REQUIRED for any response with lists, multiple sentences, or formatted content. One-line summary (max 80 chars) capturing the core insight. Only skip for single-sentence responses.',
         },
         response: {
           type: 'string',
@@ -1225,17 +1229,17 @@ tldr should capture the CORE answer in max 80 chars.`,
 
     // Find tool use blocks
     const toolUses = data.content.filter(block => block.type === 'tool_use')
-    
+
     // Check if only send_response is being used (final response, no execution needed)
     const onlySendResponse = toolUses.length === 1 && toolUses[0].name === 'send_response'
     if (onlySendResponse) {
       console.log('✅ Poppy AI: send_response tool used - final response ready')
       break // Exit loop, response will be extracted from tool input
     }
-    
+
     // Filter out send_response from tools to execute (it's just for formatting)
     const toolsToExecute = toolUses.filter(t => t.name !== 'send_response')
-    
+
     // If no tools to execute (all were send_response), break
     if (toolsToExecute.length === 0) {
       console.log('✅ Poppy AI: No tools to execute - final response ready')
@@ -1714,7 +1718,7 @@ tldr should capture the CORE answer in max 80 chars.`,
     const parsed = parseTLDR(rawResponse)
     tldr = parsed.tldr
     aiResponse = parsed.fullText
-    
+
     console.log(`⚠️ AI Chat: Fallback to text parsing (AI didn't use send_response)`)
     if (tldr) {
       console.log(`📝 AI Chat: Extracted TLDR from text: "${tldr.substring(0, 50)}..."`)
@@ -1853,7 +1857,11 @@ export async function POST(request) {
         )
       }
     )
-    return NextResponse.json({ response: result.response, tldr: result.tldr, costBreakdown: result.costBreakdown })
+    return NextResponse.json({
+      response: result.response,
+      tldr: result.tldr,
+      costBreakdown: result.costBreakdown,
+    })
   } catch (error) {
     console.error('Error in AI chat route:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
