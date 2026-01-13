@@ -1138,10 +1138,17 @@ tldr should capture the CORE answer in max 80 chars.`,
   let data
   try {
     // Build request with Keywords AI parameters in metadata
+    // Using prompt caching to reduce costs by ~90% on system prompt
     const createParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
-      system: systemPrompt,
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       messages: messages,
       tools: tools,
       metadata: {
@@ -1579,12 +1586,18 @@ tldr should capture the CORE answer in max 80 chars.`,
       if (sendStatus) sendStatus('Retrying with better query...')
     }
 
-    // Call Claude again with tool results
+    // Call Claude again with tool results (with prompt caching)
     if (sendStatus) sendStatus('Processing results...')
     data = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
-      system: systemPrompt,
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       messages: messages,
       tools: tools,
       metadata: {
