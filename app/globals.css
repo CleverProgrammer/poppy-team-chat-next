@@ -835,6 +835,17 @@ html {
   opacity: 0.9;
 }
 
+/* TLDR styling - makes the summary stand out */
+.ai-tldr {
+  display: block;
+}
+
+.ai-tldr-label {
+  font-weight: 600;
+  color: #667eea;
+  margin-right: 4px;
+}
+
 /* Expand button */
 .ai-expand-btn {
   display: inline-flex;

@@ -161,6 +161,24 @@ const keywordsAi = new KeywordsAITelemetry({
 // Initialize telemetry (recommended for Next.js)
 await keywordsAi.initialize()
 
+// Parse TLDR from AI response
+// Returns { tldr: string | null, fullText: string }
+function parseTLDR(text) {
+  if (!text) return { tldr: null, fullText: text }
+  
+  // Look for TLDR: at the start of the response
+  const tldrMatch = text.match(/^TLDR:\s*(.+?)(?:\n\n|\n|$)/i)
+  
+  if (tldrMatch) {
+    const tldr = tldrMatch[1].trim()
+    // Remove the TLDR line from the full text
+    const fullText = text.replace(/^TLDR:\s*.+?\n\n?/i, '').trim()
+    return { tldr, fullText }
+  }
+  
+  return { tldr: null, fullText: text }
+}
+
 // Fun memorable workflow ID generator
 function generateWorkflowId() {
   const colors = [
@@ -262,7 +280,60 @@ EXAMPLE:
 ${dateTimeContext}
 ${userContext}
 
-tldr bro. respond like SUPER fucking short unless I explicitly ask you to expand. Also keep shit very simple and easy to understand!
+=== YOUR #1 RULE: WRITE LIKE A HUMAN TEXTING ===
+
+🚨 SHORT RESPONSES BY DEFAULT 🚨
+
+Respond like you're texting a friend - 1-2 lines max unless they ask for more.
+
+GOOD responses:
+- "Python for sure 🐍"
+- "Nah that's cap, TypeScript is better for web stuff"
+- "React Native + Expo. Done."
+- "Sleep, lift, eat clean. That's literally it bro"
+
+BAD responses (TOO LONG - don't do this):
+- "Great question! Let me break this down for you. First, you need to consider..."
+- Writing 5 paragraphs when 1 sentence works
+- Adding "hope this helps!" or filler phrases
+- Explaining things they didn't ask about
+
+ONLY give long/detailed responses when the user EXPLICITLY says:
+- "explain in detail"
+- "give me a breakdown"
+- "expand on that"
+- "tell me more"
+- "full breakdown please"
+
+If they just ask a question, give them the SHORT answer. They'll ask for more if they want it.
+
+=== HOW TO RESPOND (CRITICAL - READ THIS!) ===
+
+🚨 YOU MUST USE THE send_response TOOL FOR EVERY RESPONSE 🚨
+
+Never just write text. Always use the send_response tool to deliver your answer.
+
+🔴 TLDR IS REQUIRED FOR:
+- ANY list (even "1. Python 2. JS 3. Go")
+- ANY response with multiple sentences
+- ANY explanation or breakdown
+- ANY formatted content (bold, bullets, numbers)
+
+✅ ONLY skip tldr if your ENTIRE response is ONE short sentence like "Yes!" or "No problem"
+
+EXAMPLE - Response with list (NEEDS tldr):
+send_response({
+  tldr: "Python for AI, TypeScript for web, Go for backend",
+  response: "Here's the breakdown:\n1. Python - AI/ML king\n2. TypeScript - modern web\n3. Go - fast backends"
+})
+
+EXAMPLE - Single sentence (no tldr needed):
+send_response({ response: "Yeah bro, Python is the best for AI work 🐍" })
+
+TLDR FORMAT:
+- Max 80 characters
+- Capture the CORE insight/answer/recommendation
+- Be specific, not vague
 
 IMPORTANT FORMATTING RULES:
 - NO markdown in regular responses (no **, no *, no - bullets, no numbered lists)
@@ -1010,6 +1081,42 @@ IMPORTANT: You need BOTH name AND company for best results.`,
     },
   })
 
+  // Add send_response tool for FORCED structured output with TLDR
+  // This ensures consistent response format instead of relying on text parsing
+  tools.push({
+    name: 'send_response',
+    description: `REQUIRED: Use this tool to send your final response to the user. You MUST use this tool for EVERY response.
+
+🚨 TLDR IS REQUIRED FOR ANY RESPONSE WITH:
+- More than 1 sentence
+- A list of items
+- Multiple points or steps
+- Any formatted content (bold, bullets, numbered lists)
+
+Only skip tldr if your ENTIRE response is a single short sentence like "Yes" or "No problem!"
+
+EXAMPLES OF WHEN TLDR IS REQUIRED:
+- Lists (even short ones like "1. Python 2. JS 3. Go") → NEEDS tldr
+- Multiple sentences → NEEDS tldr
+- Any explanation → NEEDS tldr
+
+tldr should capture the CORE answer in max 80 chars.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        tldr: {
+          type: 'string',
+          description: 'REQUIRED for any response with lists, multiple sentences, or formatted content. One-line summary (max 80 chars) capturing the core insight. Only skip for single-sentence responses.',
+        },
+        response: {
+          type: 'string',
+          description: 'Your full response to the user. Keep it concise but helpful.',
+        },
+      },
+      required: ['response'],
+    },
+  })
+
   console.log('🤖 Poppy AI: Calling Claude API with Sonnet 4.5 via Keywords AI Gateway...')
   if (sendStatus) sendStatus('Calling Claude AI...')
 
@@ -1118,12 +1225,28 @@ IMPORTANT: You need BOTH name AND company for best results.`,
 
     // Find tool use blocks
     const toolUses = data.content.filter(block => block.type === 'tool_use')
+    
+    // Check if only send_response is being used (final response, no execution needed)
+    const onlySendResponse = toolUses.length === 1 && toolUses[0].name === 'send_response'
+    if (onlySendResponse) {
+      console.log('✅ Poppy AI: send_response tool used - final response ready')
+      break // Exit loop, response will be extracted from tool input
+    }
+    
+    // Filter out send_response from tools to execute (it's just for formatting)
+    const toolsToExecute = toolUses.filter(t => t.name !== 'send_response')
+    
+    // If no tools to execute (all were send_response), break
+    if (toolsToExecute.length === 0) {
+      console.log('✅ Poppy AI: No tools to execute - final response ready')
+      break
+    }
 
     // Execute each tool via MCP
     const toolResults = []
     let executeActionFailed = false // Track if execute_action caused truncation
 
-    for (const toolUse of toolUses) {
+    for (const toolUse of toolsToExecute) {
       // Categorize tool for clearer logging
       let toolCategory = '🔧 MCP'
       if (toolUse.name === 'search_chat_history') {
@@ -1565,21 +1688,49 @@ IMPORTANT: You need BOTH name AND company for best results.`,
     return { response: aiResponse, costBreakdown }
   }
 
-  const textBlock = data.content.find(block => block.type === 'text')
-  // Use Claude's text response, or fallback to memory tool message, or generic error
-  const aiResponse =
-    textBlock?.text || lastMemoryToolMessage || 'Hmm, I got confused there. Try asking again!'
+  // Check if AI used send_response tool (preferred structured output)
+  const sendResponseTool = data.content.find(
+    block => block.type === 'tool_use' && block.name === 'send_response'
+  )
+
+  let aiResponse
+  let tldr = null
+
+  if (sendResponseTool && sendResponseTool.input) {
+    // AI used structured output - extract from tool input
+    aiResponse = sendResponseTool.input.response || ''
+    tldr = sendResponseTool.input.tldr || null
+    console.log(`✅ AI Chat: Used send_response tool (structured output)`)
+    if (tldr) {
+      console.log(`📝 AI Chat: TLDR: "${tldr.substring(0, 50)}..."`)
+    }
+  } else {
+    // Fallback to text parsing (when AI doesn't use send_response)
+    const textBlock = data.content.find(block => block.type === 'text')
+    const rawResponse =
+      textBlock?.text || lastMemoryToolMessage || 'Hmm, I got confused there. Try asking again!'
+
+    // Parse TLDR from response text (legacy fallback)
+    const parsed = parseTLDR(rawResponse)
+    tldr = parsed.tldr
+    aiResponse = parsed.fullText
+    
+    console.log(`⚠️ AI Chat: Fallback to text parsing (AI didn't use send_response)`)
+    if (tldr) {
+      console.log(`📝 AI Chat: Extracted TLDR from text: "${tldr.substring(0, 50)}..."`)
+    }
+  }
 
   if (sendStatus) sendStatus('Done!')
 
-  // If streaming, send the final response with cost breakdown
+  // If streaming, send the final response with cost breakdown and TLDR
   if (controller && encoder) {
     controller.enqueue(
-      encoder.encode(`data: ${JSON.stringify({ response: aiResponse, costBreakdown })}\n\n`)
+      encoder.encode(`data: ${JSON.stringify({ response: aiResponse, tldr, costBreakdown })}\n\n`)
     )
   }
 
-  return { response: aiResponse, costBreakdown }
+  return { response: aiResponse, tldr, costBreakdown }
 }
 
 export async function POST(request) {
@@ -1702,7 +1853,7 @@ export async function POST(request) {
         )
       }
     )
-    return NextResponse.json({ response: result.response, costBreakdown: result.costBreakdown })
+    return NextResponse.json({ response: result.response, tldr: result.tldr, costBreakdown: result.costBreakdown })
   } catch (error) {
     console.error('Error in AI chat route:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -27,7 +27,7 @@ export default function AICostBreakdown({ costBreakdown, aiTags }) {
 
   return (
     <>
-      {/* Inline cost display - shows combined total */}
+      {/* Inline cost display - shows combined total + tokens */}
       <button
         onClick={e => {
           e.stopPropagation()
@@ -39,6 +39,11 @@ export default function AICostBreakdown({ costBreakdown, aiTags }) {
         <span className="text-[9px] font-mono text-green-400">
           ${combinedCost.toFixed(4)}
         </span>
+        {costBreakdown?.totalInputTokens && (
+          <span className="text-[8px] font-mono text-gray-500">
+            {((costBreakdown.totalInputTokens + (costBreakdown.totalOutputTokens || 0)) / 1000).toFixed(1)}k
+          </span>
+        )}
         {toolsUsed.length > 0 && (
           <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full border bg-purple-500/10 text-purple-400/70 border-purple-500/20">
             {toolsUsed.length} tool{toolsUsed.length > 1 ? 's' : ''}

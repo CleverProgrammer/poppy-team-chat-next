@@ -66,6 +66,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let finalResponse = ''
+        let tldr = null
         let costBreakdown = null
 
         while (true) {
@@ -84,6 +85,7 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
                   onStatus(data.status)
               } else if (data.response) {
                 finalResponse = data.response
+                tldr = data.tldr || null
                 costBreakdown = data.costBreakdown || null
               } else if (data.error) {
                   throw new Error(data.error)
@@ -95,12 +97,12 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
           }
         }
 
-        return { response: finalResponse, costBreakdown }
+        return { response: finalResponse, tldr, costBreakdown }
       }
 
       // Non-streaming fallback
       const data = await response.json()
-      return { response: data.response, costBreakdown: data.costBreakdown }
+      return { response: data.response, tldr: data.tldr, costBreakdown: data.costBreakdown }
     },
     [user, currentChat]
   )
@@ -149,9 +151,13 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Pass imageUrls, audioTranscripts, and targetedMessage to AI for context
         const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls, targetedMessage, audioTranscripts)
         const aiResponse = aiResult.response
+        const tldr = aiResult.tldr
         const costBreakdown = aiResult.costBreakdown
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+        if (tldr) {
+          console.log(`📝 [${requestId}] TLDR: "${tldr.substring(0, 50)}..."`)
+        }
         if (costBreakdown) {
           console.log(`💰 [${requestId}] Cost: $${costBreakdown.totalCost?.toFixed(6)} (${costBreakdown.toolsUsed?.length || 0} tools)`)
         }
@@ -166,10 +172,10 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         setAiTyping(false)
 
         // Post AI response as a real message (with same privacy as the question)
-        // Include cost breakdown for dev mode display
+        // Include cost breakdown and TLDR for display
         const messageOptions = isPrivate 
-          ? { isPrivate: true, privateFor: privateFor || user?.uid, costBreakdown } 
-          : { costBreakdown }
+          ? { isPrivate: true, privateFor: privateFor || user?.uid, costBreakdown, tldr } 
+          : { costBreakdown, tldr }
         
         if (currentChat.type === 'channel') {
           // sendMessage signature: (channelId, user, text, linkPreview, options)
@@ -253,9 +259,13 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Pass imageUrls to AI for vision support
         const aiResult = await callAI(userQuestion, messages.slice(-50), onStatus, imageUrls)
         const aiResponse = aiResult.response
+        const tldr = aiResult.tldr
         const costBreakdown = aiResult.costBreakdown
 
         console.log(`✅ [${requestId}] API response: ${aiResponse ? aiResponse.substring(0, 40) : 'EMPTY'}...`)
+        if (tldr) {
+          console.log(`📝 [${requestId}] TLDR: "${tldr.substring(0, 50)}..."`)
+        }
         if (costBreakdown) {
           console.log(`💰 [${requestId}] Cost: $${costBreakdown.totalCost?.toFixed(6)} (${costBreakdown.toolsUsed?.length || 0} tools)`)
         }
@@ -266,8 +276,8 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
         // Remove typing indicator
         setAiTyping(false)
 
-        // Save AI response to Firestore (with cost breakdown for dev mode)
-        await sendAIMessage(user.uid, aiResponse, true, null, null, costBreakdown)
+        // Save AI response to Firestore (with cost breakdown and TLDR)
+        await sendAIMessage(user.uid, aiResponse, true, null, null, costBreakdown, tldr)
 
         // Mark AI chat as unread for the user
         markChatAsUnread(user.uid, 'ai', 'poppy-ai')

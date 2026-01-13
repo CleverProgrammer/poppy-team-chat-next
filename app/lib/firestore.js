@@ -286,7 +286,7 @@ function getChannelName(channelId) {
 export async function sendMessage(channelId, user, text, linkPreview = null, options = {}) {
   if (!user || !text.trim()) return
 
-  const { isPrivate = false, privateFor = null, costBreakdown = null } = options
+  const { isPrivate = false, privateFor = null, costBreakdown = null, tldr = null } = options
 
   try {
     const messagesRef = collection(db, 'channels', channelId, 'messages')
@@ -313,6 +313,11 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
     // Add cost breakdown for AI responses (dev mode display)
     if (costBreakdown) {
       messageData.costBreakdown = costBreakdown
+    }
+    
+    // Add TLDR for AI responses (preview display)
+    if (tldr) {
+      messageData.tldr = tldr
     }
 
     const docRef = await addDoc(messagesRef, messageData)
@@ -458,7 +463,7 @@ export async function sendMessageDM(
 ) {
   if (!user || !text.trim()) return
 
-  const { isPrivate = false, privateFor = null, costBreakdown = null } = options
+  const { isPrivate = false, privateFor = null, costBreakdown = null, tldr = null } = options
 
   console.log('═══════════════════════════════════════════════════════════')
   console.log('📤 [SEND DM] SENDING MESSAGE')
@@ -496,6 +501,11 @@ export async function sendMessageDM(
     // Add cost breakdown for AI responses (dev mode display)
     if (costBreakdown) {
       messageData.costBreakdown = costBreakdown
+    }
+    
+    // Add TLDR for AI responses (preview display)
+    if (tldr) {
+      messageData.tldr = tldr
     }
 
     const docRef = await addDoc(messagesRef, messageData)
@@ -2414,7 +2424,7 @@ export async function markDMMessagesAsRead(dmId, userId, messageIds) {
 }
 
 // AI Chat functions
-export async function sendAIMessage(userId, text, isAI = false, user = null, imageUrls = null, costBreakdown = null) {
+export async function sendAIMessage(userId, text, isAI = false, user = null, imageUrls = null, costBreakdown = null, tldr = null) {
   // Allow empty text if images are present
   if (!userId || (!text.trim() && (!imageUrls || imageUrls.length === 0))) return
 
@@ -2438,6 +2448,11 @@ export async function sendAIMessage(userId, text, isAI = false, user = null, ima
     // Add cost breakdown for AI responses (dev mode display)
     if (costBreakdown && isAI) {
       messageData.costBreakdown = costBreakdown
+    }
+    
+    // Add TLDR for AI responses (preview display)
+    if (tldr && isAI) {
+      messageData.tldr = tldr
     }
     
     const docRef = await addDoc(messagesRef, messageData)
@@ -4056,7 +4071,7 @@ export async function loadOlderGroupMessages(groupId, oldestTimestamp, messageLi
 export async function sendGroupMessage(groupId, user, text, linkPreview = null, options = {}) {
   if (!user || !text.trim() || !groupId) return
 
-  const { isPrivate = false, privateFor = null, costBreakdown = null } = options
+  const { isPrivate = false, privateFor = null, costBreakdown = null, tldr = null } = options
 
   try {
     const messagesRef = collection(db, 'groups', groupId, 'messages')
@@ -4081,6 +4096,11 @@ export async function sendGroupMessage(groupId, user, text, linkPreview = null, 
     // Add cost breakdown for AI responses (dev mode display)
     if (costBreakdown) {
       messageData.costBreakdown = costBreakdown
+    }
+    
+    // Add TLDR for AI responses (preview display)
+    if (tldr) {
+      messageData.tldr = tldr
     }
 
     const docRef = await addDoc(messagesRef, messageData)

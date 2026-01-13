@@ -35,7 +35,33 @@ const MAX_MULTI_IMAGE_WIDTH = 120
 const MAX_MULTI_IMAGE_HEIGHT = 120
 
 // Collapsible AI card settings
-const AI_COLLAPSED_CHAR_LIMIT = 120 // Characters to show when collapsed
+const AI_COLLAPSED_CHAR_LIMIT = 120 // Characters to show when collapsed (fallback if no TLDR)
+
+// Strip markdown formatting for plain text preview
+function stripMarkdown(text) {
+  if (!text) return ''
+  return text
+    // Remove bold/italic markers
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    // Remove headers
+    .replace(/^#+\s+/gm, '')
+    // Remove code blocks
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`(.+?)`/g, '$1')
+    // Remove links but keep text
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    // Remove bullet points
+    .replace(/^[-*]\s+/gm, '')
+    // Remove numbered lists
+    .replace(/^\d+\.\s+/gm, '')
+    // Clean up extra whitespace
+    .replace(/\n{2,}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 /**
  * ImageWithSkeleton - Wraps an image with SkeletonView for loading state.
@@ -1118,7 +1144,16 @@ function MessageItem({
               {msg.senderId === 'ai' && msg.text.length > AI_COLLAPSED_CHAR_LIMIT && !aiExpanded ? (
                 <div className='ai-collapsed-card'>
                   <div className='ai-collapsed-preview'>
-                    {msg.text.slice(0, AI_COLLAPSED_CHAR_LIMIT).trim()}...
+                    {/* Use TLDR if available, otherwise strip markdown and truncate */}
+                    {msg.tldr ? (
+                      <span className='ai-tldr'>
+                        <span className='ai-tldr-label'>TLDR:</span> {msg.tldr}
+                      </span>
+                    ) : (
+                      <>
+                        {stripMarkdown(msg.text).slice(0, AI_COLLAPSED_CHAR_LIMIT).trim()}...
+                      </>
+                    )}
                   </div>
                   <button 
                     className='ai-expand-btn'
