@@ -34,6 +34,9 @@ const MAX_MEDIA_HEIGHT = 280
 const MAX_MULTI_IMAGE_WIDTH = 120
 const MAX_MULTI_IMAGE_HEIGHT = 120
 
+// Collapsible AI card settings
+const AI_COLLAPSED_CHAR_LIMIT = 120 // Characters to show when collapsed
+
 /**
  * ImageWithSkeleton - Wraps an image with SkeletonView for loading state.
  * Parent div controls max-width, SkeletonView fills 100% and maintains aspect ratio.
@@ -150,6 +153,7 @@ function MessageItem({
   const [storiesInitialIndex, setStoriesInitialIndex] = useState(0)
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
+  const [aiExpanded, setAiExpanded] = useState(false) // For collapsible AI messages
   const lastTapTime = useRef(0)
   const secondLastTapTime = useRef(0) // For triple-tap detection
   const doubleTapTimer = useRef(null) // Delay double-tap to check for triple-tap
@@ -1110,42 +1114,82 @@ function MessageItem({
           )}
           {msg.text && (
             <>
-              {/* Check if message contains mindmap blocks */}
-              {containsMindmap(msg.text) ? (
-                // Split text into regular text and mindmap segments
-                splitTextAndMindmaps(msg.text).map((segment, idx) => (
-                  segment.type === 'mindmap' ? (
-                    <MindmapView 
-                      key={`mindmap-${idx}`}
-                      markdown={segment.content}
-                      title={segment.title}
-                    />
-                  ) : (
-                    <div key={`text-${idx}`} className='text'>
-                      {msg.senderId === 'ai' ?
-                        linkifyAIText(segment.content, onImageClick, allUsers, user) :
-                        linkifyText(segment.content, onImageClick, allUsers, user)
-                      }
-                    </div>
-                  )
-                ))
-              ) : (
-                // Regular text rendering
-                <div className='text'>
-                  {msg.senderId === 'ai' ?
-                    linkifyAIText(msg.text, onImageClick, allUsers, user) :
-                    linkifyText(msg.text, onImageClick, allUsers, user)
-                  }
-                  {msg.edited && <span className='edited-indicator'> (edited)</span>}
-                  {msg.isPrivate && (
-                    <span className='private-indicator' title='Only you can see this'>
-                      <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
-                        <path d='M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24'/>
-                        <line x1='1' y1='1' x2='23' y2='23'/>
-                      </svg>
-                    </span>
-                  )}
+              {/* AI Messages: Collapsible card to reduce chat pollution */}
+              {msg.senderId === 'ai' && msg.text.length > AI_COLLAPSED_CHAR_LIMIT && !aiExpanded ? (
+                <div className='ai-collapsed-card'>
+                  <div className='ai-collapsed-preview'>
+                    {msg.text.slice(0, AI_COLLAPSED_CHAR_LIMIT).trim()}...
+                  </div>
+                  <button 
+                    className='ai-expand-btn'
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      hapticLight()
+                      setAiExpanded(true)
+                    }}
+                  >
+                    <span>Show full response</span>
+                    <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+                      <polyline points='6 9 12 15 18 9'></polyline>
+                    </svg>
+                  </button>
                 </div>
+              ) : (
+                <>
+                  {/* Check if message contains mindmap blocks */}
+                  {containsMindmap(msg.text) ? (
+                    // Split text into regular text and mindmap segments
+                    splitTextAndMindmaps(msg.text).map((segment, idx) => (
+                      segment.type === 'mindmap' ? (
+                        <MindmapView 
+                          key={`mindmap-${idx}`}
+                          markdown={segment.content}
+                          title={segment.title}
+                        />
+                      ) : (
+                        <div key={`text-${idx}`} className='text'>
+                          {msg.senderId === 'ai' ?
+                            linkifyAIText(segment.content, onImageClick, allUsers, user) :
+                            linkifyText(segment.content, onImageClick, allUsers, user)
+                          }
+                        </div>
+                      )
+                    ))
+                  ) : (
+                    // Regular text rendering
+                    <div className='text'>
+                      {msg.senderId === 'ai' ?
+                        linkifyAIText(msg.text, onImageClick, allUsers, user) :
+                        linkifyText(msg.text, onImageClick, allUsers, user)
+                      }
+                      {msg.edited && <span className='edited-indicator'> (edited)</span>}
+                      {msg.isPrivate && (
+                        <span className='private-indicator' title='Only you can see this'>
+                          <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+                            <path d='M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24'/>
+                            <line x1='1' y1='1' x2='23' y2='23'/>
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Collapse button for expanded AI messages */}
+                  {msg.senderId === 'ai' && msg.text.length > AI_COLLAPSED_CHAR_LIMIT && aiExpanded && (
+                    <button 
+                      className='ai-collapse-btn'
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        hapticLight()
+                        setAiExpanded(false)
+                      }}
+                    >
+                      <span>Show less</span>
+                      <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+                        <polyline points='18 15 12 9 6 15'></polyline>
+                      </svg>
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}

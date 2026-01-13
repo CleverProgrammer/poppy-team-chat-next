@@ -815,6 +815,111 @@ html {
   font-size: 10px;
 }
 
+/* =====================================================
+   COLLAPSIBLE AI CARDS
+   Keep AI responses compact to reduce chat pollution
+   ===================================================== */
+
+/* Collapsed AI card container */
+.ai-collapsed-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Preview text in collapsed state */
+.ai-collapsed-preview {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  opacity: 0.9;
+}
+
+/* Expand button */
+.ai-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
+  color: #667eea;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: fit-content;
+}
+
+.ai-expand-btn:hover {
+  background: rgba(102, 126, 234, 0.25);
+  transform: translateY(-1px);
+}
+
+.ai-expand-btn:active {
+  transform: translateY(0);
+}
+
+.ai-expand-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.ai-expand-btn:hover svg {
+  transform: translateY(2px);
+}
+
+/* Collapse button (shown when expanded) */
+.ai-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: fit-content;
+  margin-top: 8px;
+}
+
+.ai-collapse-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.ai-collapse-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.ai-collapse-btn:hover svg {
+  transform: translateY(-2px);
+}
+
+/* Dark mode adjustments for AI cards */
+@media (prefers-color-scheme: dark) {
+  .ai-expand-btn {
+    background: rgba(102, 126, 234, 0.2);
+    color: #8b9cf8;
+  }
+  
+  .ai-expand-btn:hover {
+    background: rgba(102, 126, 234, 0.3);
+  }
+  
+  .ai-collapse-btn {
+    border-color: rgba(102, 126, 234, 0.3);
+  }
+  
+  .ai-collapse-btn:hover {
+    color: #8b9cf8;
+  }
+}
+
 /* Private message styling - subtle yellow tint */
 .message-wrapper.private-message .message {
   background: linear-gradient(135deg, rgba(250, 204, 21, 0.15) 0%, rgba(234, 179, 8, 0.1) 100%);
