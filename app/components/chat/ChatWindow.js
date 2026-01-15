@@ -915,13 +915,22 @@ export default function ChatWindow() {
     const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : null)
     const hasImages = imageUrls && imageUrls.length > 0
     
-    // Must have either text or images
-    if (!messageText.trim() && !hasImages) {
-      console.log('🤖 Ask AI: No message text or images found')
+    // Check for audio (both singular audioUrl and audioUrls array for iOS)
+    const hasAudio = message.audioUrl || (message.audioUrls && message.audioUrls.length > 0)
+    
+    // Must have either text, images, or audio
+    if (!messageText.trim() && !hasImages && !hasAudio) {
+      console.log('🤖 Ask AI: No message text, images, or audio found')
       return
     }
     
-    console.log('🤖 Ask AI: Sending to Poppy:', { messageText, hasImages, imageCount: imageUrls?.length })
+    console.log('🤖 Ask AI: Sending to Poppy:', { 
+      messageText, 
+      hasImages, 
+      imageCount: imageUrls?.length,
+      hasAudio,
+      hasTranscription: !!message.transcription 
+    })
     
     // Build the AI question based on content type
     let question
@@ -929,6 +938,12 @@ export default function ChatWindow() {
       question = `Please analyze this message and its attached image(s): "${messageText}"`
     } else if (hasImages) {
       question = `Please analyze and describe this image. What do you see?`
+    } else if (hasAudio && message.transcription) {
+      // Voice message with transcription available
+      question = `Please analyze this voice message. What did they say and what are they asking about?`
+    } else if (hasAudio) {
+      // Voice message without transcription yet
+      question = `Please analyze this voice message. The transcription should be available - what did they say?`
     } else {
       question = `Please analyze and respond to this message: "${messageText}"`
     }
@@ -942,6 +957,9 @@ export default function ChatWindow() {
       // Include media context if available
       imageUrls: imageUrls,
       audioUrl: message.audioUrl || null,
+      audioUrls: message.audioUrls || null, // iOS converted audio
+      audioDuration: message.audioDuration || null,
+      transcription: message.transcription || null, // Include transcription for AI!
       muxPlaybackIds: message.muxPlaybackIds || null,
     }
     

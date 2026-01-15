@@ -371,9 +371,11 @@ export function useAI(user, currentChat, messages, setMessages, virtuosoRef) {
               formattedMsg.muxPlaybackIds = msg.muxPlaybackIds
             }
             
-            // Include audio/voice message info
-            if (msg.audioUrl) {
+            // Include audio/voice message info (both singular audioUrl and audioUrls array for iOS)
+            const hasAudio = msg.audioUrl || (msg.audioUrls && msg.audioUrls.length > 0)
+            if (hasAudio) {
               formattedMsg.audioUrl = msg.audioUrl
+              formattedMsg.audioUrls = msg.audioUrls // iOS converted audio
               formattedMsg.audioDuration = msg.audioDuration
               if (msg.transcription) {
                 formattedMsg.transcription = msg.transcription

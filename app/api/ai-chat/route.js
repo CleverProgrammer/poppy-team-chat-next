@@ -691,9 +691,12 @@ WHAT NOT TO SAVE:
         }
 
         // Add voice message indicator and transcription if present
-        if (msg.audioUrl) {
+        // Handle both singular audioUrl (web) and audioUrls array (iOS/converted)
+        const hasAudio = msg.audioUrl || (msg.audioUrls && msg.audioUrls.length > 0)
+        if (hasAudio) {
           msgContent += msgContent ? '\n' : ''
-          msgContent += `[🎤 Voice message (${
+          const audioCount = msg.audioUrls?.length || 1
+          msgContent += `[🎤 Voice message${audioCount > 1 ? `s (${audioCount})` : ''} (${
             msg.audioDuration ? Math.round(msg.audioDuration) + 's' : 'audio'
           })]`
           // Include transcription if available
@@ -737,11 +740,27 @@ WHAT NOT TO SAVE:
     const targetText = targetedMessage.text || ''
     const targetImages =
       targetedMessage.imageUrls || (targetedMessage.imageUrl ? [targetedMessage.imageUrl] : [])
-    const targetAudio = targetedMessage.audioUrl
-      ? `[🎤 Voice message${
-          targetedMessage.audioDuration ? ` (${Math.round(targetedMessage.audioDuration)}s)` : ''
-        }]`
-      : ''
+    
+    // Handle both singular audioUrl (web) and audioUrls array (iOS/converted)
+    const hasTargetAudio = targetedMessage.audioUrl || (targetedMessage.audioUrls && targetedMessage.audioUrls.length > 0)
+    let targetAudio = ''
+    if (hasTargetAudio) {
+      const audioCount = targetedMessage.audioUrls?.length || 1
+      targetAudio = `[🎤 Voice message${audioCount > 1 ? `s (${audioCount})` : ''}${
+        targetedMessage.audioDuration ? ` (${Math.round(targetedMessage.audioDuration)}s)` : ''
+      }]`
+      // Include transcription if available for targeted message
+      if (targetedMessage.transcription) {
+        const transcriptText =
+          typeof targetedMessage.transcription === 'string'
+            ? targetedMessage.transcription
+            : targetedMessage.transcription.text || targetedMessage.transcription.formatted || ''
+        if (transcriptText) {
+          targetAudio += `\n[Transcription: "${transcriptText}"]`
+        }
+      }
+    }
+    
     const targetVideo = targetedMessage.muxPlaybackIds?.length
       ? `[🎥 ${targetedMessage.muxPlaybackIds.length} video(s)]`
       : ''

@@ -45,13 +45,24 @@ export async function POST(request) {
     }
     const messageRef = adminDb.collection(collectionName).doc(chatId).collection('messages').doc(messageId);
 
+    // Get message data for sender info (needed for transcription)
+    let senderInfo = null;
+    
     await adminDb.runTransaction(async (transaction) => {
       const messageDoc = await transaction.get(messageRef);
       if (!messageDoc.exists) {
         throw new Error('Message not found');
       }
 
-      const currentAudioUrls = messageDoc.data()?.audioUrls || [];
+      const messageData = messageDoc.data();
+      const currentAudioUrls = messageData?.audioUrls || [];
+
+      // Capture sender info for transcription
+      senderInfo = {
+        sender: messageData?.sender || messageData?.senderName || 'Unknown',
+        senderEmail: messageData?.senderEmail || '',
+        senderId: messageData?.senderId || userId,
+      };
 
       // Update the specific audio URL at the given index
       currentAudioUrls[audioIndex] = mp3Url;
@@ -62,6 +73,49 @@ export async function POST(request) {
     });
 
     console.log(`✅ Converted audio uploaded and message updated: ${mp3Url}`);
+
+    // 🎙️ TRIGGER TRANSCRIPTION for the converted audio (fire and forget)
+    // This was missing before - iOS audio messages were never getting transcribed!
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3007');
+    
+    console.log(`🎙️ Triggering transcription for converted audio: ${mp3Url}`);
+    
+    fetch(`${baseUrl}/api/media/transcribe-audio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audioUrl: mp3Url,
+        messageId,
+        sender: senderInfo?.sender,
+        senderEmail: senderInfo?.senderEmail,
+        senderId: senderInfo?.senderId,
+        enableSpeakerDiarization: true,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.transcription?.text) {
+          console.log(`🎙️ iOS audio transcribed: ${data.transcription.text.substring(0, 50)}...`);
+          if (data.transcription.tldr) {
+            console.log(`✨ TLDR: ${data.transcription.tldr}`);
+          }
+          
+          // Save transcription to Firestore
+          messageRef.update({
+            transcription: {
+              text: data.transcription.text,
+              formatted: data.transcription.formatted,
+              tldr: data.transcription.tldr || null,
+              speakerCount: data.transcription.speakerCount,
+              confidence: data.transcription.confidence,
+              _cost: data.cost?.amount,
+              _durationSeconds: data.audio?.durationSeconds,
+            },
+          }).catch(err => console.warn('Failed to save iOS transcription to Firestore:', err));
+        }
+      })
+      .catch(err => console.error('iOS audio transcription failed:', err));
 
     return NextResponse.json({ success: true, mp3Url });
   } catch (error) {
