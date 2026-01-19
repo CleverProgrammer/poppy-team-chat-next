@@ -751,10 +751,10 @@ function MessageItem({
       onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchMove}
     >
-      {/* Channel avatar - positioned to the left of the message like iMessage */}
+      {/* Channel/Group avatar - positioned to the left of the message like iMessage */}
       {/* Only show for messages WITHOUT replies - for replies, avatar shows next to actual message */}
       {!isSent &&
-        currentChat.type === 'channel' &&
+        (currentChat.type === 'channel' || currentChat.type === 'group') &&
         msg.senderId !== 'ai' &&
         !msg.replyTo &&
         (() => {
@@ -970,7 +970,7 @@ function MessageItem({
         )}
         {/* Sender avatar for received messages with replies - shows next to actual message */}
         <div className={`message-row ${msg.replyTo && !isSent ? 'with-avatar' : ''}`}>
-          {!isSent && msg.replyTo && currentChat.type === 'channel' && msg.senderId !== 'ai' && (() => {
+          {!isSent && msg.replyTo && (currentChat.type === 'channel' || currentChat.type === 'group') && msg.senderId !== 'ai' && (() => {
             const photoURL = msg.photoURL || allUsers.find(u => u.uid === msg.senderId)?.photoURL
             const initial = (msg.sender || '?')[0].toUpperCase()
             return photoURL ? (
