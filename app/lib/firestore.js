@@ -369,7 +369,7 @@ export async function sendMessage(channelId, user, text, linkPreview = null, opt
 
 export function subscribeToMessages(channelId, callback, messageLimit = 50) {
   const messagesRef = collection(db, 'channels', channelId, 'messages')
-  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(messageLimit))
+  const q = query(messagesRef, orderBy('timestamp', 'desc'))
 
   return onSnapshot(
     q,
@@ -391,7 +391,7 @@ export function subscribeToMessages(channelId, callback, messageLimit = 50) {
 
 export function subscribeToMessagesDM(dmId, callback, messageLimit = 50) {
   const messagesRef = collection(db, 'dms', dmId, 'messages')
-  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(messageLimit))
+  const q = query(messagesRef, orderBy('timestamp', 'desc'))
 
   return onSnapshot(
     q,
@@ -4017,7 +4017,7 @@ export function subscribeToGroupMessages(groupId, callback, messageLimit = 50) {
   }
 
   const messagesRef = collection(db, 'groups', groupId, 'messages')
-  const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(messageLimit))
+  const q = query(messagesRef, orderBy('timestamp', 'desc'))
 
   return onSnapshot(
     q,
