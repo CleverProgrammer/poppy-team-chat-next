@@ -557,6 +557,13 @@ CRITICAL DATE HANDLING:
 - When scheduling or checking calendar: use ISO format (YYYY-MM-DD)
 - TIME-BOUND SEARCHES: Calculate exact date ranges and pass them to tools!
 
+🚨 MATH & CALCULATIONS — ALWAYS USE run_code 🚨
+- NEVER do mental math. NEVER estimate. NEVER calculate in your head.
+- For ANY math (addition, multiplication, percentages, splits, averages, compound interest, unit conversions, date differences, etc.) — use the run_code tool.
+- Even for "simple" math like 15% of 340K — use run_code. You WILL make errors otherwise.
+- For Airtable data: use query_airtable (SQL does the math). For everything else: use run_code.
+- If someone asks "what's X% of Y" or "split Z among N people" — run_code, always.
+
 === VOTE TRACKING (get_topic_votes) ===
 
 USE get_topic_votes WHEN:
@@ -1163,6 +1170,44 @@ Use FROM ? as the table reference (the records are passed as a parameter).
     })
   }
 
+  // Add run_code tool — lets Claude do ALL math via real JavaScript execution
+  tools.push({
+    name: 'run_code',
+    description: `Execute JavaScript code to perform calculations. 
+
+🚨 CRITICAL: You MUST use this tool for ANY math, arithmetic, percentages, conversions, splits, averages, or numerical computation. NEVER do mental math — ALWAYS use run_code for accuracy, even for simple calculations.
+
+The code should evaluate to a value via the LAST EXPRESSION (like a REPL — no "return" needed).
+
+=== EXAMPLES ===
+- Simple: 45000 * 0.15
+- Percentage: (72274 / 416747 * 100).toFixed(1) + '%'
+- Split: (1200 / 7).toFixed(2)
+- Complex: const items = [500, 1200, 340, 890]; const avg = items.reduce((a,b) => a+b, 0) / items.length; ({ sum: items.reduce((a,b) => a+b, 0), avg: avg.toFixed(2), min: Math.min(...items), max: Math.max(...items) })
+- Date math: const start = new Date('2026-01-01'); const end = new Date('2026-02-13'); Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + ' days'
+- Compound interest: const p = 10000, r = 0.07, n = 12, t = 5; (p * Math.pow(1 + r/n, n*t)).toFixed(2)
+
+=== RULES ===
+- No imports, require, fetch, or file system access — pure computation only.
+- Last expression is the result (like a browser console).
+- For multiple steps, use semicolons and put the result expression last.
+- Use .toFixed(2) for currency, .toFixed(1) for percentages.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'JavaScript code to evaluate. The last expression is returned as the result.',
+        },
+        description: {
+          type: 'string',
+          description: 'Brief description of what this calculation does (for logging).',
+        },
+      },
+      required: ['code'],
+    },
+  })
+
   // Add send_response tool for FORCED structured output with TLDR
   // This ensures consistent response format instead of relying on text parsing
   tools.push({
@@ -1360,6 +1405,8 @@ tldr should capture the CORE answer in max 80 chars.`,
         toolCategory = '🚀 ROCKETREACH'
       } else if (toolUse.name === 'query_airtable' || toolUse.name === 'describe_airtable') {
         toolCategory = '📊 AIRTABLE'
+      } else if (toolUse.name === 'run_code') {
+        toolCategory = '🧮 CODE'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -1645,6 +1692,40 @@ tldr should capture the CORE answer in max 80 chars.`,
                 success: false,
                 error: error.message,
                 hint: 'Check AIRTABLE_API_KEY and other Airtable environment variables.',
+              },
+            }
+          }
+        } else if (toolUse.name === 'run_code') {
+          // Handle JavaScript code execution for math/calculations
+          const desc = toolUse.input.description || 'calculation'
+          console.log(`🧮 CODE: Running ${desc}`)
+          console.log(`🧮 CODE: ${toolUse.input.code}`)
+
+          try {
+            // Execute in a sandboxed Function — no access to require, fetch, fs, process, etc.
+            // The code is evaluated as an expression (last value is returned)
+            const code = toolUse.input.code
+            const fn = new Function(`"use strict"; return (${code})`)
+
+            let result
+            try {
+              // Try as expression first (e.g., "45000 * 0.15")
+              result = fn()
+            } catch {
+              // If that fails, try as statements (e.g., "const x = 5; x * 2")
+              const fnStatements = new Function(`"use strict"; ${code}`)
+              result = fnStatements()
+            }
+
+            toolResponse = { content: { success: true, result } }
+            console.log(`🧮 CODE: ✅ Result: ${JSON.stringify(result)}`)
+          } catch (error) {
+            console.error(`🧮 CODE: ❌ Error:`, error)
+            toolResponse = {
+              content: {
+                success: false,
+                error: error.message,
+                hint: 'Check your JavaScript syntax. The last expression is returned as the result. For multi-step code, use semicolons between statements.',
               },
             }
           }
