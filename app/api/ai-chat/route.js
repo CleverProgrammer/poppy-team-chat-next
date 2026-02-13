@@ -1102,8 +1102,14 @@ This view contains ~1,000 expense records. KEY FIELDS:
 - [Is Pending?] (text) - whether the transaction is pending
 - [money we made on them (ROI)] (number) - ROI on this expense
 - [AI Category] (text) - expense category: food, travel, software, personal, office expenses, fees, office equipment, training, refunds, affiliate, entertainment, team, airbnb
-- [AI Department] (text) - department (e.g. "engineering", "fulfillment")
-- [AI Team] (text) - team (e.g. "personal", "frontend", "backend")
+- [AI Department] (text) - department like "engineering", "fulfillment", "marketing", "sales", "operations". DO NOT conflate with AI Team.
+- [AI Team] (text) - the TEAM that owns the expense: "frontend", "backend", "personal", etc. When user asks about "frontend vs backend" expenses, use THIS column directly (WHERE [AI Team] = 'frontend'). Do NOT try to map departments to teams — just query the column as-is.
+
+=== BUSINESS CONTEXT (Poppy AI) ===
+Poppy AI is a visual whiteboard AI tool that helps content creators make viral content.
+- "FRONTEND" = customer acquisition. Expenses related to getting customers to buy the Poppy AI software product ($400/yr up to ~$1.2K one-time payment). Think: marketing, ads, sales, content.
+- "BACKEND" = high-ticket sales AND fulfillment. Expenses related to selling AND delivering the premium $3K-$15K done-for-you services for content creators. Includes the sales team closing high-ticket deals AND the fulfillment team delivering those services to clients.
+- When discussing frontend vs backend spend, frame it in terms of customer acquisition for software (frontend) vs. high-ticket sales + service delivery (backend).
 - [AI Notes] (text) - AI-generated notes
 - [Human Approved] (text) - whether a human approved the categorization
 - [Category] (text) - manual category
