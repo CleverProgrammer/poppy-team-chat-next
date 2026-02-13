@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Virtuoso } from 'react-virtuoso'
+import {
+  VirtuosoMessageList,
+  VirtuosoMessageListLicense
+} from '@virtuoso.dev/message-list'
 import { Howl } from 'howler'
 import { Capacitor } from '@capacitor/core'
 import Sidebar from '../layout/Sidebar'
@@ -52,6 +55,9 @@ import {
   subscribeToGroupLastMessages,
   subscribeToUnreadAnnouncements,
 } from '../../lib/firestore'
+
+
+const licenseKey = '1033201233240843534ecd083e83e692TzoxNzc7RToxNzk4MjQzMjc4NjI5'
 
 export default function ChatWindow() {
   const { user } = useAuth()
@@ -252,10 +258,9 @@ export default function ChatWindow() {
 
   // Scroll to bottom helper (for mobile keyboard)
   const scrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({
+    virtuosoRef.current?.scrollToItem({
       index: 'LAST',
       align: 'end',
-      behavior: 'smooth',
     })
   }, [])
 
@@ -264,10 +269,9 @@ export default function ChatWindow() {
     if ((otherUserTyping || aiTyping) && shouldStayAtBottomRef.current) {
       // Small delay to let the footer render first
       setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({
+        virtuosoRef.current?.scrollToItem({
           index: 'LAST',
           align: 'end',
-          behavior: 'smooth',
         })
       }, 50)
     }
@@ -338,12 +342,24 @@ export default function ChatWindow() {
 
   // Precompute frequently reused derived data to avoid O(n^2) work in row renders
   const combinedFeed = useMemo(() => {
+
     const feed = [...messages, ...posts.map(post => ({ ...post, isPost: true }))]
-    return feed.sort((a, b) => {
+
+    const sortedItems = [...feed].sort((a, b) => {
       const aTime = a.timestamp?.seconds || 0
       const bTime = b.timestamp?.seconds || 0
       return aTime - bTime
     })
+
+    const scrollModifier = {
+          type: 'item-location',
+          location: { index: 'LAST', align: 'end' }
+        }
+
+    return {
+      data: sortedItems,
+      scrollModifier: scrollModifier
+    }
   }, [messages, posts])
 
   const messageIndexById = useMemo(() => {
@@ -1189,8 +1205,8 @@ export default function ChatWindow() {
     console.log('📜 Loading older messages...')
 
     try {
-      // Combine messages and posts to find the oldest item
-      const allItems = [...messages, ...posts.map(post => ({ ...post, isPost: true }))].sort(
+      // sort messages to find the oldest item
+      const sortedMessages = [...messages].sort(
         (a, b) => {
           const aTime = a.timestamp?.seconds || 0
           const bTime = b.timestamp?.seconds || 0
@@ -1198,8 +1214,8 @@ export default function ChatWindow() {
         }
       )
 
-      const oldestItem = allItems[0]
-      console.log('📜 Oldest item timestamp:', oldestItem?.timestamp)
+      const oldestItem = sortedMessages[0]
+      console.log('📜 Oldest item timestamp:', oldestItem?.timestamp?.toDate?.()?.toISOString())
 
       if (!oldestItem || !oldestItem.timestamp) {
         console.log('📜 No oldest item found')
@@ -1233,58 +1249,99 @@ export default function ChatWindow() {
     } finally {
       setLoadingOlder(false)
     }
-  }, [messages, posts, loadingOlder, hasMoreMessages, currentChat, user])
+  }, [messages, loadingOlder, hasMoreMessages, currentChat, user])
 
-  // Stable renderer for Virtuoso items to avoid inline re-creations
-  const renderItem = useCallback(
-    (index, item) => {
+  // Reset hasMoreMessages and firstItemIndex when switching chats
+  useEffect(() => {
+    console.log('📜 Chat changed, resetting pagination state')
+    setHasMoreMessages(true)
+    setFirstItemIndex(10000) // Reset to starting position
+    setLoadingOlder(false)
+  }, [currentChat])
+
+  // Close context menu on click outside
+  const contextMenuOpenTime = useRef(0)
+
+  useEffect(() => {
+    const handleClick = () => {
+      // Don't close if menu was just opened (prevents gestures from immediately closing)
+      const timeSinceOpen = Date.now() - contextMenuOpenTime.current
+      if (timeSinceOpen < 300) {
+        return
+      }
+      setContextMenu(null)
+    }
+    const handleEscape = e => {
+      if (e.key === 'Escape') {
+        setContextMenu(null)
+      }
+    }
+
+    document.addEventListener('click', handleClick)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('click', handleClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
+  // 2. Memoize the Item Content Renderer
+  // Note: 'VirtuosoMessageList' passes an object { data } and index to the renderer
+  const ItemContent = useCallback(
+    ({ data: item }, index) => {
       if (item.isPost) {
         return (
-          <PostPreview
-            key={`post-${item.id}`}
-            post={item}
-            onClick={() => {
-              setSelectedPost(item)
-              setViewMode('posts')
-            }}
-            onContextMenu={handleContextMenu}
-          />
+          <div className="w-full flex flex-col">
+            <PostPreview
+              key={`post-${item.id}`}
+              post={item}
+              onClick={() => {
+                setSelectedPost(item)
+                setViewMode('posts')
+              }}
+              onContextMenu={handleContextMenu}
+            />
+          </div>
+        )
+      } else {
+        // We calculate index relative to the full message list if needed
+        const msgIndex = messageIndexById[item.id] ?? index
+
+        return (
+          <div className="w-full flex flex-col">
+            <MessageItem
+              key={item.id}
+              msg={item}
+              index={msgIndex}
+              messages={messages}
+              totalMessages={messages.length}
+              replyCount={replyCountByOriginalId[item.replyTo?.msgId || item.id] || 0}
+              isLastMessageFromSender={!!isLastFromSenderById[item.id]}
+              userMap={userMapById}
+              user={user}
+              currentChat={currentChat}
+              allUsers={allUsers}
+              replyingTo={replyingTo}
+              topReactions={topReactions}
+              onReply={startReply}
+              onVideoReply={startVideoReply}
+              onEdit={startEdit}
+              onDelete={handleDeleteMessage}
+              onPromote={handlePromoteMessage}
+              onAddToTeamMemory={handleAddToTeamMemory}
+              onAskAI={handleAskAIAboutMessage}
+              onUndoAIResponse={handleUndoAIResponse}
+              onAddReaction={handleAddReaction}
+              onImageClick={handleOpenLightbox}
+              onScrollToMessage={scrollToMessage}
+              messageRef={el => (messageRefs.current[item.id] = el)}
+              onOpenThread={openThreadView}
+              onMakePublic={handleMakePublic}
+            />
+          </div>
         )
       }
-
-      const msgIndex = messageIndexById[item.id] ?? index
-
-      return (
-        <MessageItem
-          key={item.id}
-          msg={item}
-          index={msgIndex}
-          messages={messages}
-          totalMessages={messages.length}
-          replyCount={replyCountByOriginalId[item.replyTo?.msgId || item.id] || 0}
-          isLastMessageFromSender={!!isLastFromSenderById[item.id]}
-          userMap={userMapById}
-          user={user}
-          currentChat={currentChat}
-          allUsers={allUsers}
-          replyingTo={replyingTo}
-          topReactions={topReactions}
-          onReply={startReply}
-          onVideoReply={startVideoReply}
-          onEdit={startEdit}
-          onDelete={handleDeleteMessage}
-          onPromote={handlePromoteMessage}
-          onAddToTeamMemory={handleAddToTeamMemory}
-          onAskAI={handleAskAIAboutMessage}
-          onUndoAIResponse={handleUndoAIResponse}
-          onAddReaction={handleAddReaction}
-          onImageClick={handleOpenLightbox}
-          onScrollToMessage={scrollToMessage}
-          messageRef={el => (messageRefs.current[item.id] = el)}
-          onOpenThread={openThreadView}
-          onMakePublic={handleMakePublic}
-        />
-      )
     },
     [
       allUsers,
@@ -1316,49 +1373,11 @@ export default function ChatWindow() {
     ]
   )
 
-  // Reset hasMoreMessages and firstItemIndex when switching chats
-  useEffect(() => {
-    console.log('📜 Chat changed, resetting pagination state')
-    setHasMoreMessages(true)
-    setFirstItemIndex(10000) // Reset to starting position
-    setLoadingOlder(false)
-
-    // Scroll to bottom when switching chats
-    setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: 'LAST',
-        align: 'end',
-        behavior: 'auto',
-      })
-    }, 100)
-  }, [currentChat])
-
-  // Close context menu on click outside
-  const contextMenuOpenTime = useRef(0)
-
-  useEffect(() => {
-    const handleClick = () => {
-      // Don't close if menu was just opened (prevents gestures from immediately closing)
-      const timeSinceOpen = Date.now() - contextMenuOpenTime.current
-      if (timeSinceOpen < 300) {
-        return
-      }
-      setContextMenu(null)
-    }
-    const handleEscape = e => {
-      if (e.key === 'Escape') {
-        setContextMenu(null)
-      }
-    }
-
-    document.addEventListener('click', handleClick)
-    document.addEventListener('keydown', handleEscape)
-
-    return () => {
-      document.removeEventListener('click', handleClick)
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [])
+  // This function is used to generate key properties for the message list items based on the data rendered.
+  // use a stable identifier to avoid unnecessary re-mounts when the message list data changes.
+  const computeItemKey = ({ data }) => {
+    return data.id
+  }
 
   // Wait for currentChat to be loaded from cache/Firestore
   // Return null instead of loading text to avoid hydration mismatch
@@ -1660,141 +1679,17 @@ export default function ChatWindow() {
                     <p>Welcome to the chat! Start a conversation. 😱</p>
                   </div>
                 ) : (
-                  <Virtuoso
-                    ref={virtuosoRef}
-                    style={{ height: '100%' }}
-                    data={combinedFeed}
-                    firstItemIndex={firstItemIndex}
-                    initialTopMostItemIndex={999999}
-                    alignToBottom={true}
-                    followOutput={isAtBottom => {
-                      // Auto-scroll to bottom when new messages arrive if user is at bottom
-                      if (shouldStayAtBottomRef.current || isAtBottom) {
-                        return 'smooth'
-                      }
-                      return false
-                    }}
-                    atBottomStateChange={atBottom => {
-                      // Track if user is at bottom to know if we should auto-scroll on media load
-                      shouldStayAtBottomRef.current = atBottom
-                    }}
-                    atBottomThreshold={150}
-                    startReached={loadOlder}
-                    // Keep moderate overscan to balance smoothness and DOM weight
-                    overscan={{ main: 800, reverse: 800 }}
-                    increaseViewportBy={{ top: 600, bottom: 600 }}
-                    // Add spacer at bottom for keyboard + extra padding on mobile for read receipts
-                    components={{
-                      Header: () => {
-                        // Show tasks section at the top of the chat (DMs only for now)
-                        if (currentChat?.type !== 'dm') return null;
-                        const dmId = getDMId(user.uid, currentChat.id);
-                        return (
-                          <TasksSection
-                            chatId={dmId}
-                            chatType="dm"
-                            user={user}
-                          />
-                        );
-                      },
-                      Footer: () => {
-                        // On mobile (native), always add base padding for read receipts to not overlap input
-                        // When keyboard is open, add keyboard height on top of that
-                        const basePadding = Capacitor.isNativePlatform() ? 60 : 0
-                        const totalHeight =
-                          keyboardHeight > 0 ? keyboardHeight + basePadding : basePadding
-
-                        // Get other user for DM typing indicator
-                        const otherUser = currentChat?.type === 'dm' 
-                          ? allUsers.find(u => u.uid === currentChat.id)
-                          : null
-
-                        return (
-                          <>
-                            {/* DM Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
-                            {otherUserTyping && currentChat?.type === 'dm' && otherUser && (
-                              <div className='message-wrapper received typing-message'>
-                                <img
-                                  src={otherUser.photoURL || ''}
-                                  alt={otherUser.displayName || 'User'}
-                                  className='message-avatar'
-                                />
-                                <div className='message-content-wrapper'>
-                                  <div className='message typing-bubble'>
-                                    <div className='typing-dots'>
-                                      <span></span>
-                                      <span></span>
-                                      <span></span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* AI Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
-                            {aiTyping && (
-                              <div className='message-wrapper received ai-message typing-message'>
-                                <div
-                                  className='message-avatar'
-                                  style={{
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
-                                  <img
-                                    src='/poppy-icon.png'
-                                    alt='Poppy'
-                                    style={{ width: '20px', height: '20px' }}
-                                  />
-                                </div>
-                                <div className='message-content-wrapper'>
-                                  <div className='message typing-bubble'>
-                                    <div className='typing-dots'>
-                                      <span></span>
-                                      <span></span>
-                                      <span></span>
-                                    </div>
-                                    {aiTypingStatus && (
-                                      <span className='typing-status'>{aiTypingStatus}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Keyboard spacer */}
-                            {totalHeight > 0 && (
-                              <div style={{ height: totalHeight, background: 'transparent' }} />
-                            )}
-                          </>
-                        )
-                      },
-                    }}
-                    atTopStateChange={atTop => {
-                      console.log('📜 atTopStateChange:', atTop)
-                      if (atTop) {
-                        loadOlder()
-                      }
-                    }}
-                    scrollerRef={scroller => {
-                      scrollerRef.current = scroller
-                      // Add touch event listeners to track when user is actually touching
-                      if (scroller && Capacitor.isNativePlatform()) {
-                        scroller.ontouchstart = () => {
-                          isTouchingRef.current = true
-                        }
-                        scroller.ontouchend = () => {
-                          // Small delay to catch the final scroll events from the touch
-                          setTimeout(() => {
-                            isTouchingRef.current = false
-                          }, 100)
-                        }
-                      }
-                    }}
-                    onScroll={e => {
-                      const currentScrollTop = e.target.scrollTop
+                  <VirtuosoMessageListLicense
+                    licenseKey={licenseKey}
+                  >
+                    <VirtuosoMessageList
+                      ref={virtuosoRef}
+                      style={{ height: '100%' }}
+                      data={combinedFeed}
+                      ItemContent={ItemContent}
+                      computeItemKey={computeItemKey}
+                      onScroll={e => {
+                      const currentScrollTop = e.listOffset
                       // Blur on upward scroll ONLY when user is actively touching (dragging)
                       // This prevents keyboard from closing when new messages arrive and auto-scroll
                       // ONLY on mobile - desktop should never lose focus from scrolling
@@ -1809,8 +1704,111 @@ export default function ChatWindow() {
                       }
                       lastScrollTopRef.current = currentScrollTop
                     }}
-                    itemContent={renderItem}
-                  />
+                      enforceStickyFooterAtBottom={true}
+                      shortSizeAlign={'bottom'}
+                      Header={() => {
+                        // Show tasks section at the top of the chat (DMs only for now)
+                        if (currentChat?.type !== 'dm') return null
+                        const dmId = getDMId(user.uid, currentChat.id)
+                        return (
+                          <TasksSection
+                            chatId={dmId}
+                            chatType="dm"
+                            user={user}
+                          />
+                        )
+                      }}
+                      Footer={() => {
+                        // On mobile (native), always add base padding for read receipts to not overlap input
+                        // When keyboard is open, add keyboard height on top of that
+                        const basePadding = Capacitor.isNativePlatform()
+                          ? 60
+                          : 0
+                        const totalHeight =
+                          keyboardHeight > 0
+                            ? keyboardHeight + basePadding
+                            : basePadding
+
+                        // Get other user for DM typing indicator
+                        const otherUser =
+                          currentChat?.type === 'dm'
+                            ? allUsers.find((u) => u.uid === currentChat.id)
+                            : null
+
+                        return (
+                          <>
+                            {/* DM Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
+                            {otherUserTyping &&
+                              currentChat?.type === 'dm' &&
+                              otherUser && (
+                                <div className="message-wrapper received typing-message">
+                                  <img
+                                    src={otherUser.photoURL || ''}
+                                    alt={otherUser.displayName || 'User'}
+                                    className="message-avatar"
+                                  />
+                                  <div className="message-content-wrapper">
+                                    <div className="message typing-bubble">
+                                      <div className="typing-dots">
+                                        <span></span>
+                                        <span></span>
+                                        <span></span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* AI Typing Indicator - Inside Virtuoso Footer for proper scrolling */}
+                            {aiTyping && (
+                              <div className="message-wrapper received ai-message typing-message">
+                                <div
+                                  className="message-avatar"
+                                  style={{
+                                    background:
+                                      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                >
+                                  <img
+                                    src="/poppy-icon.png"
+                                    alt="Poppy"
+                                    style={{ width: '20px', height: '20px' }}
+                                  />
+                                </div>
+                                <div className="message-content-wrapper">
+                                  <div className="message typing-bubble">
+                                    <div className="typing-dots">
+                                      <span></span>
+                                      <span></span>
+                                      <span></span>
+                                    </div>
+                                    {aiTypingStatus && (
+                                      <span className="typing-status">
+                                        {aiTypingStatus}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Keyboard spacer */}
+                            {totalHeight > 0 && (
+                              <div
+                                style={{
+                                  height: totalHeight,
+                                  background: 'transparent'
+                                }}
+                              />
+                            )}
+                          </>
+                        )
+                      }}
+                    />
+                  </VirtuosoMessageListLicense>
                 )}
               </div>
 

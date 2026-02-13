@@ -46,6 +46,209 @@ export function useSubscriptions({
   const isInitialLoadRef = useRef(true)
   const globalMessageCountsRef = useRef({})
 
+  // Render tracking: Monitor how many components re-render per update
+  const renderMetricsRef = useRef({
+    totalMerges: 0,
+    totalMessagesProcessed: 0,
+    totalUnchangedReused: 0,
+    lastMergeTime: 0,
+    mergeHistory: [], // Track last 10 merges
+  })
+
+  // Helper: Intelligently merge messages to avoid unnecessary re-renders
+  // If 90% of messages are the same, we keep the old object references
+  // Only updates/new messages get new references
+  const mergeMessages = (existingMessages, newMessages) => {
+    console.log('🔀 Merge messages...', { existingMessagesCount: existingMessages.length, newMessagesCount: newMessages.length })
+    const startTime = performance.now()
+    
+    // If no existing messages, just return the new ones
+    if (!existingMessages || existingMessages.length === 0) {
+      return newMessages
+    }
+
+    // Create a map of existing messages by ID for O(1) lookup
+    const existingMap = new Map(
+      existingMessages.map(msg => [msg.id, msg])
+    )
+
+    // Helper: Normalize timestamps for comparison
+    const normalizeTimestamp = (ts) => {
+      if (!ts) return null
+      // Handle Firestore Timestamp object
+      if (ts.seconds !== undefined) {
+        return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000
+      }
+      // Handle Date object
+      if (ts instanceof Date) return ts.getTime()
+      // Handle number (already milliseconds)
+      if (typeof ts === 'number') return ts
+      // Handle string
+      if (typeof ts === 'string') return new Date(ts).getTime()
+      return null
+    }
+
+    // Helper: Normalize object for comparison (sort keys recursively)
+    const normalizeObject = (obj) => {
+      if (obj === null || obj === undefined) return obj
+      if (typeof obj !== 'object') return obj
+      if (Array.isArray(obj)) return obj.map(normalizeObject)
+      
+      // Handle Firestore Timestamp objects (convert to milliseconds)
+      // Cached timestamps have {seconds, nanoseconds, type: "firestore/timestamp/1.0"}
+      // Live timestamps have {seconds, nanoseconds}
+      if (obj.seconds !== undefined && obj.nanoseconds !== undefined) {
+        return obj.seconds * 1000 + obj.nanoseconds / 1000000
+      }
+      
+      // Sort object keys to ensure consistent JSON.stringify output
+      const sorted = {}
+      Object.keys(obj).sort().forEach(key => {
+        // Skip the 'type' field from serialized Firestore timestamps
+        if (key === 'type' && typeof obj.type === 'string' && obj.type.startsWith('firestore/')) {
+          return
+        }
+        sorted[key] = normalizeObject(obj[key])
+      })
+      return sorted
+    }
+
+    // Helper: Deep compare messages, ignoring Firestore-specific type differences
+    const messagesEqual = (msg1, msg2) => {
+      if (msg1 === msg2) return true // Same reference
+      
+      // Fields to completely ignore (Firestore internals)
+      const ignoredFields = new Set(['_document', '_firestore', '_converter'])
+      
+      // Fields that need timestamp normalization
+      const timestampFields = ['createdAt', 'updatedAt', 'timestamp']
+      
+      // Get all unique keys
+      const keys1 = Object.keys(msg1)
+      const keys2 = Object.keys(msg2)
+      const allKeys = new Set([...keys1, ...keys2])
+      
+      // Compare each field
+      for (const key of allKeys) {
+        // Skip ignored fields
+        if (ignoredFields.has(key)) continue
+        
+        const val1 = msg1[key]
+        const val2 = msg2[key]
+        
+        // Special handling for timestamps
+        if (timestampFields.includes(key)) {
+          const norm1 = normalizeTimestamp(val1)
+          const norm2 = normalizeTimestamp(val2)
+          if (norm1 !== norm2) {
+            console.log(`Timestamp mismatch on key "${key}":`, norm1, norm2)
+            return false
+          }
+          continue
+        }
+        
+        // Handle undefined/null
+        if (val1 === val2) continue
+        
+        // Handle objects/arrays (deep comparison with key normalization)
+        if (typeof val1 === 'object' && typeof val2 === 'object') {
+          if (val1 === null || val2 === null) {
+            if (val1 !== val2) {
+              console.log(`Null mismatch on key "${key}":`, val1, val2)
+              return false
+            }
+            continue
+          }
+          
+          // Normalize objects to ensure consistent key ordering
+          const norm1 = normalizeObject(val1)
+          const norm2 = normalizeObject(val2)
+          
+          try {
+            const str1 = JSON.stringify(norm1)
+            const str2 = JSON.stringify(norm2)
+            if (str1 !== str2) {
+              console.log(`Object mismatch on key "${key}":`, str1, str2)
+              return false
+            }
+          } catch (e) {
+            console.warn('Failed to stringify for comparison:', e)
+            return false
+          }
+          continue
+        }
+        
+        // Primitive comparison
+        if (val1 !== val2) {
+          console.log(`Primitive mismatch on key "${key}":`, val1, val2)
+          return false
+        }
+      }
+  
+      return true
+    }
+
+    // Merge strategy
+    let unchangedCount = 0
+    const result = newMessages.map(newMsg => {
+      const existing = existingMap.get(newMsg.id)
+      if (existing && messagesEqual(existing, newMsg)) {
+        unchangedCount++
+        return existing
+      }
+      return newMsg
+    })
+    
+    // Track metrics
+    const mergeTime = performance.now() - startTime
+    const unchangedRatio = newMessages.length > 0 ? unchangedCount / newMessages.length : 0
+    const efficiency = unchangedRatio >= 0.3 ? '✅ EXCELLENT' : unchangedRatio > 0.2 ? '⚠️ GOOD' : unchangedRatio > 0.1 ? '⚠️ MODERATE' : '❌ POOR'
+    
+    renderMetricsRef.current.totalMerges++
+    renderMetricsRef.current.totalMessagesProcessed += newMessages.length
+    renderMetricsRef.current.totalUnchangedReused += unchangedCount
+    renderMetricsRef.current.lastMergeTime = mergeTime
+    
+    // Keep last 10 merges in history
+    renderMetricsRef.current.mergeHistory.push({
+      timestamp: new Date().toISOString(),
+      totalMessages: newMessages.length,
+      unchangedCount,
+      ratio: (unchangedRatio * 100).toFixed(1),
+      time: mergeTime.toFixed(2),
+    })
+    if (renderMetricsRef.current.mergeHistory.length > 10) {
+      renderMetricsRef.current.mergeHistory.shift()
+    }
+    
+    console.log(
+      `🔄 Merge complete: ${unchangedCount}/${newMessages.length} unchanged (${(unchangedRatio * 100).toFixed(1)}%) ${efficiency} [${mergeTime.toFixed(2)}ms]`
+    )
+    return result
+  }
+
+  // Log render efficiency metrics every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const metrics = renderMetricsRef.current
+      if (metrics.totalMerges === 0) return // No merges yet
+      
+      const avgMessagesPerMerge = (metrics.totalMessagesProcessed / metrics.totalMerges).toFixed(1)
+      const reusedRatio = ((metrics.totalUnchangedReused / metrics.totalMessagesProcessed) * 100).toFixed(1)
+      const estimatedRendersAvoided = metrics.totalUnchangedReused
+      
+      console.log(
+        '📈 EFFICIENCY METRICS:',
+        `Total merges: ${metrics.totalMerges}, ` +
+        `Avg messages/merge: ${avgMessagesPerMerge}, ` +
+        `Reused ratio: ${reusedRatio}%, ` +
+        `Renders avoided: ~${estimatedRendersAvoided}, ` +
+        `Last merge time: ${metrics.lastMergeTime.toFixed(2)}ms`
+      )
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
   // Load saved chat on mount - check localStorage first for instant load
   useEffect(() => {
     if (!user) return
@@ -291,8 +494,9 @@ export function useSubscriptions({
       if (cachedMessages) {
         const parsed = JSON.parse(cachedMessages)
         console.log(`⚡ Instant messages from cache: ${parsed.length} messages`)
-        setMessages(parsed)
+        // Set ref BEFORE setMessages to ensure it's available when Firestore fires
         messagesRef.current = parsed
+        setMessages(parsed)
         setCurrentMessages(parsed)
       }
     } catch (e) {
@@ -326,10 +530,12 @@ export function useSubscriptions({
         currentChat.id,
         newMessages => {
           const filteredMessages = filterPrivateMessages(newMessages)
-          setMessages(filteredMessages)
-          messagesRef.current = filteredMessages
-          setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages)
+          // Smart merge: only update if messages actually changed (by reference)
+          const mergedMessages = mergeMessages(messagesRef.current, filteredMessages)
+          setMessages(mergedMessages)
+          messagesRef.current = mergedMessages
+          setCurrentMessages(mergedMessages)
+          cacheMessages(mergedMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100
@@ -340,10 +546,12 @@ export function useSubscriptions({
         dmId,
         newMessages => {
           const filteredMessages = filterPrivateMessages(newMessages)
-          setMessages(filteredMessages)
-          messagesRef.current = filteredMessages
-          setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages)
+          // Smart merge: only update if messages actually changed (by reference)
+          const mergedMessages = mergeMessages(messagesRef.current, filteredMessages)
+          setMessages(mergedMessages)
+          messagesRef.current = mergedMessages
+          setCurrentMessages(mergedMessages)
+          cacheMessages(mergedMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100
@@ -354,10 +562,12 @@ export function useSubscriptions({
         currentChat.id,
         newMessages => {
           const filteredMessages = filterPrivateMessages(newMessages)
-          setMessages(filteredMessages)
-          messagesRef.current = filteredMessages
-          setCurrentMessages(filteredMessages)
-          cacheMessages(filteredMessages)
+          // Smart merge: only update if messages actually changed (by reference)
+          const mergedMessages = mergeMessages(messagesRef.current, filteredMessages)
+          setMessages(mergedMessages)
+          messagesRef.current = mergedMessages
+          setCurrentMessages(mergedMessages)
+          cacheMessages(mergedMessages)
           markChatAsRead(user.uid, currentChat.type, currentChat.id)
         },
         100
@@ -421,10 +631,12 @@ export function useSubscriptions({
       }
     } else if (currentChat.type === 'ai') {
       unsubscribe = subscribeToAIMessages(user.uid, newMessages => {
-        setMessages(newMessages)
-        messagesRef.current = newMessages
-        setCurrentMessages(newMessages)
-        cacheMessages(newMessages) // Cache for instant load
+        // Smart merge: only update if messages actually changed (by reference)
+        const mergedMessages = mergeMessages(messagesRef.current, newMessages)
+        setMessages(mergedMessages)
+        messagesRef.current = mergedMessages
+        setCurrentMessages(mergedMessages)
+        cacheMessages(mergedMessages) // Cache for instant load
       })
     }
 
