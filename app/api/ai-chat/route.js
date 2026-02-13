@@ -3,6 +3,7 @@ import mcpManager from '../../lib/mcp-client.js'
 import { queryRevenueSQL, isSupabaseConfigured } from '../../lib/supabase-query.js'
 import { searchChatHistory, getTopicVotes, addToTeamMemory } from '../../lib/retrieval-router.js'
 import { lookupPerson } from '../../lib/rocketreach-client.js'
+import { queryAirtableWithSQL, describeAirtableView } from '../../lib/airtable-client.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { KeywordsAITelemetry } from '@keywordsai/tracing'
 import { trackClaudeUsage, calculateClaudeCost } from '../../lib/ai-usage-tracker.js'
@@ -1077,6 +1078,91 @@ IMPORTANT: You need BOTH name AND company for best results.`,
     },
   })
 
+  // Add Airtable query tool - allows AI to query business data from Airtable with SQL
+  if (process.env.AIRTABLE_API_KEY) {
+    tools.push({
+      name: 'query_airtable',
+      description: `Query business data from Airtable using SQL. Fetches records from an Airtable view and runs SQL analytics on them.
+
+=== AVAILABLE DATA (DEFAULT VIEW: February Expenses Projection) ===
+This view contains ~1,000 expense records. KEY FIELDS:
+- [Merchant Name] (text) - merchant/vendor name (e.g. "Roobaru Restaurant LLC")
+- [Date] (text) - transaction date (e.g. "1/20/2026")
+- [Amount] (number) - transaction amount (NEGATIVE for expenses, e.g. -249 means $249 spent)
+- [Summary] (text) - transaction description
+- [Account] (text) - linked account record ID
+- [Type] (text) - "expense" etc.
+- [Is Pending?] (text) - whether the transaction is pending
+- [money we made on them (ROI)] (number) - ROI on this expense
+- [AI Category] (text) - expense category: food, travel, software, personal, office expenses, fees, office equipment, training, refunds, affiliate, entertainment, team, airbnb
+- [AI Department] (text) - department (e.g. "engineering", "fulfillment")
+- [AI Team] (text) - team (e.g. "personal", "frontend", "backend")
+- [AI Notes] (text) - AI-generated notes
+- [Human Approved] (text) - whether a human approved the categorization
+- [Category] (text) - manual category
+- [AI Merchant] (text) - AI-identified merchant name
+- [Created] (text) - record creation ISO date
+- [Created By] (text) - who created it (e.g. "Rafeh Qazi")
+- [Last Modified] (text) - last modification ISO date
+- [Last Modified By] (text) - who modified it
+- [Action] (text) - action to take (e.g. "negotiate")
+- [Is Last Month?] (number) - 1 if from last month
+- [Budget Notes] (text) - notes about budget
+- [Category ke] (text) - combined category key (e.g. "frontend-software", "personal-food")
+
+=== HOW TO USE ===
+Provide an SQL query using [brackets] for field names with spaces.
+Use FROM ? as the table reference (the records are passed as a parameter).
+
+=== EXAMPLES ===
+- Total spend: SELECT SUM([Amount]) as sum_amount FROM ?
+- Spend by category: SELECT [AI Category], SUM([Amount]) as sum_amount, COUNT(*) as num_records FROM ? GROUP BY [AI Category] ORDER BY sum_amount ASC
+- Top merchants: SELECT [Merchant Name], SUM([Amount]) as sum_amount FROM ? GROUP BY [Merchant Name] ORDER BY sum_amount ASC LIMIT 10
+- Specific category: SELECT [Merchant Name], [Amount], [Date] FROM ? WHERE [AI Category] = 'software' ORDER BY [Amount] ASC LIMIT 20
+- Count per category: SELECT [AI Category], COUNT(*) as num_records FROM ? GROUP BY [AI Category] ORDER BY num_records DESC
+- By team: SELECT [AI Team], SUM([Amount]) as sum_amount FROM ? GROUP BY [AI Team] ORDER BY sum_amount ASC
+- By account: SELECT [Account], SUM([Amount]) as sum_amount, COUNT(*) as num_records FROM ? GROUP BY [Account]
+
+=== IMPORTANT ===
+- Amounts are NEGATIVE (expenses). SUM will give negative totals. Present the absolute value to the user.
+- For "how much did we spend", the answer is the absolute value of the sum.
+- Always use [brackets] around field names that contain spaces or special chars.
+- The field is [AI Category] (capital C), NOT [AI CATEGORY].
+- NEVER use "total" or "count" as alias names — they are RESERVED WORDS in SQL. Use sum_amount, num_records, avg_amount, etc.
+- If no SQL is provided, returns a preview of the first 20 records.
+- If a SQL query fails, check the error and retry with corrected field names/aliases.`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          sql: {
+            type: 'string',
+            description: 'SQL query to run against the Airtable records. Use FROM ? as the table reference. Use [brackets] for field names with spaces.',
+          },
+          viewUrl: {
+            type: 'string',
+            description: 'Optional: Full Airtable view URL (e.g., https://airtable.com/appXXX/tblYYY/viwZZZ). Defaults to the configured February expenses view.',
+          },
+        },
+        required: [],
+      },
+    })
+
+    tools.push({
+      name: 'describe_airtable',
+      description: `Get schema information about an Airtable view - field names, types, sample data, and record count. Use this FIRST if you're unsure about the available fields before writing SQL queries with query_airtable.`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          viewUrl: {
+            type: 'string',
+            description: 'Optional: Full Airtable view URL. Defaults to the configured view.',
+          },
+        },
+        required: [],
+      },
+    })
+  }
+
   // Add send_response tool for FORCED structured output with TLDR
   // This ensures consistent response format instead of relying on text parsing
   tools.push({
@@ -1272,6 +1358,8 @@ tldr should capture the CORE answer in max 80 chars.`,
         toolCategory = '💰 SUPABASE'
       } else if (toolUse.name === 'lookup_person_contact') {
         toolCategory = '🚀 ROCKETREACH'
+      } else if (toolUse.name === 'query_airtable' || toolUse.name === 'describe_airtable') {
+        toolCategory = '📊 AIRTABLE'
       } else if (
         toolUse.name.includes('notion') ||
         toolUse.name.includes('search_notion') ||
@@ -1510,6 +1598,56 @@ tldr should capture the CORE answer in max 80 chars.`,
               },
             }
           }
+        } else if (toolUse.name === 'query_airtable') {
+          // Handle Airtable SQL query
+          console.log(`📊 AIRTABLE: Running SQL query...`)
+          if (toolUse.input.sql) {
+            console.log(`📊 AIRTABLE: SQL: ${toolUse.input.sql}`)
+          }
+
+          try {
+            const result = await queryAirtableWithSQL({
+              sql: toolUse.input.sql,
+              viewUrl: toolUse.input.viewUrl,
+            })
+            toolResponse = { content: result }
+
+            if (result.error) {
+              console.log(`📊 AIRTABLE: ❌ SQL error: ${result.error}`)
+            } else {
+              const rowCount = Array.isArray(result.result) ? result.result.length : 1
+              console.log(`📊 AIRTABLE: ✅ Query returned ${rowCount} row(s) from ${result.recordCount} records`)
+            }
+          } catch (error) {
+            console.error(`📊 AIRTABLE: Error:`, error)
+            toolResponse = {
+              content: {
+                success: false,
+                error: error.message,
+                hint: 'Check AIRTABLE_API_KEY and other Airtable environment variables.',
+              },
+            }
+          }
+        } else if (toolUse.name === 'describe_airtable') {
+          // Handle Airtable schema description
+          console.log(`📊 AIRTABLE: Describing view schema...`)
+
+          try {
+            const result = await describeAirtableView({
+              viewUrl: toolUse.input.viewUrl,
+            })
+            toolResponse = { content: result }
+            console.log(`📊 AIRTABLE: ✅ Found ${result.recordCount} records with ${result.fields.length} fields`)
+          } catch (error) {
+            console.error(`📊 AIRTABLE: Error describing view:`, error)
+            toolResponse = {
+              content: {
+                success: false,
+                error: error.message,
+                hint: 'Check AIRTABLE_API_KEY and other Airtable environment variables.',
+              },
+            }
+          }
         } else {
           // Call MCP tools with tracing
           console.log(`${toolCategory}: Executing for user ${userId}`)
@@ -1629,8 +1767,8 @@ tldr should capture the CORE answer in max 80 chars.`,
             has_tools: tools.length > 0,
             tool_count: tools.length,
             is_tool_retry: true,
-            name: user.name,
-            email: user.email,
+            name: user ? user.name : 'Anonymous',
+            email: user ? user.email : 'N/A',
           },
         },
       },
